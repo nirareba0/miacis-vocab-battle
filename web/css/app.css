@@ -125,7 +125,23 @@ a:visited {
   align-items: center;
   gap: 8px;
   font-size: 14px;
+  min-width: 0;
 }
+
+/* 390px でもヘッダーが折れないように: 題名とボタンは折り返さず、長いニックネームは … で切る */
+.app-header { gap: 10px; }
+.app-title { white-space: nowrap; flex-shrink: 0; }
+.header-user > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn-logout, .btn-mute { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 420px) {
+  .app-header .app-title span { display: none; }  /* 狭い画面ではロゴだけ残す */
+}
+.chip { white-space: nowrap; }
 
 .btn-mute {
   background: var(--card-bg-subtle);

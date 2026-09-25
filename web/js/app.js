@@ -475,7 +475,7 @@ async function renderHome() {
         </div>
         <div class="stats-chips">
           <div class="chip">🔥 <strong>${progress.streak_days}</strong> 日連続</div>
-          <div class="chip">🎴 カード: あと <strong>${packStatus.remaining}</strong> 回</div>
+          <div class="chip">🎴 カード残り <strong>${packStatus.remaining}</strong></div>
         </div>
       </div>
 
