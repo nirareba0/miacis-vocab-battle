@@ -29,25 +29,34 @@ async function setupGameTest(options = {}) {
 test('合言葉: 未設定・違う・合う・大文字小文字と空白の正規化', async () => {
   const db = await setupGameTest({ setInvite: false });
 
-  // 1. 未設定時
+  // 1. 未設定時は合言葉なしで誰でも登録できる（0005。2026-09-25 本人判断「一旦なしでいい」）
   await asAnon(db, async () => {
-    const { rows } = await db.query('select public.check_invite($1) as ok', ['any_code']);
-    assert.equal(rows[0].ok, false);
+    const { rows } = await db.query('select public.invite_required() as req, public.check_invite($1) as ok', ['']);
+    assert.equal(rows[0].req, false);
+    assert.equal(rows[0].ok, true);
+  });
+
+  const uid0 = crypto.randomUUID();
+  await createUser(db, uid0);
+  await asUser(db, uid0, async () => {
+    const { rows } = await db.query(`select * from public.register_player('free1', 2, null)`);
+    assert.equal(rows[0].nickname, 'free1');
   });
 
   const uid1 = crypto.randomUUID();
   await createUser(db, uid1);
-  await asUser(db, uid1, async () => {
-    await assert.rejects(
-      db.query(`select public.register_player('user1', 1, 'any_code')`),
-      /invite_not_set/
-    );
-  });
 
-  // 2. 合言葉を設定
+  // 2. 合言葉を設定すると、要るようになる
   await db.query(
     `insert into public.app_settings (key, value) values ('invite_code', 'Miacis Secret')`
   );
+  await asAnon(db, async () => {
+    const { rows } = await db.query('select public.invite_required() as req');
+    assert.equal(rows[0].req, true);
+  });
+  await asUser(db, uid1, async () => {
+    await assert.rejects(db.query(`select public.register_player('user1', 1, null)`), /invite_invalid/);
+  });
 
   // 違う合言葉
   await asAnon(db, async () => {

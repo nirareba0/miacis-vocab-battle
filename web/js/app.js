@@ -4,6 +4,7 @@
 import {
   isConfigured,
   signUpPlayer,
+  inviteRequired,
   signInPlayer,
   signOutPlayer,
   getSession,
@@ -169,7 +170,7 @@ function renderAuth(mode = 'register') {
       <img src="assets/miacis-logo.png" alt="Miacis Logo" style="width: 76px; height: 76px; object-fit: contain; margin-bottom: 8px;">
       <h1 class="app-title" style="justify-content: center; font-size: 22px;">英単語バトル</h1>
       <div style="font-size: 14px; color: var(--miacis-pink); font-weight: 700; margin-top: 4px;">
-        ミアキスに来ている人だけの英単語バトル
+        ミアキスでうまれた英単語バトル
       </div>
     </div>
 
@@ -210,9 +211,9 @@ function renderAuth(mode = 'register') {
           <input type="hidden" id="auth-grade" value="">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" id="invite-group" hidden>
           <label class="form-label" for="auth-invite">ミアキスの合言葉（館内に貼ってあるよ）</label>
-          <input class="form-input" id="auth-invite" type="text" placeholder="館内ポスターを見てね" required autocomplete="off">
+          <input class="form-input" id="auth-invite" type="text" placeholder="館内ポスターを見てね" autocomplete="off">
         </div>
 
         <div class="notice-line" style="text-align: left; margin-bottom: 20px;">
@@ -261,6 +262,16 @@ function renderAuth(mode = 'register') {
   }
 
   const form = document.getElementById('auth-form');
+
+  // 合言葉が設定されているときだけ欄を出す（未設定なら誰でも登録できる）
+  if (mode === 'register') {
+    inviteRequired()
+      .then(req => {
+        const g = document.getElementById('invite-group');
+        if (g && req) g.hidden = false;
+      })
+      .catch(() => {});
+  }
   const alertEl = document.getElementById('auth-alert');
   const submitBtn = document.getElementById('btn-auth-submit');
 
@@ -291,8 +302,9 @@ function renderAuth(mode = 'register') {
           submitBtn.textContent = 'はじめる';
           return;
         }
+        const inviteGroup = document.getElementById('invite-group');
         const inviteVal = document.getElementById('auth-invite').value.trim();
-        if (!inviteVal) {
+        if (inviteGroup && !inviteGroup.hidden && !inviteVal) {
           alertEl.innerHTML = '<div class="alert alert-error">ミアキスの合言葉を入力してください</div>';
           submitBtn.disabled = false;
           submitBtn.textContent = 'はじめる';
@@ -445,7 +457,7 @@ async function renderHome() {
 
     homeContent.innerHTML = `
       <div class="notice-line" style="color: var(--miacis-pink); font-weight: 700; margin-top: -6px; margin-bottom: 12px;">
-        ミアキスに来ている人だけの対戦です
+        ミアキスでうまれた英単語バトル
       </div>
 
       <div class="miacis-stage-card route-${routeClass}">

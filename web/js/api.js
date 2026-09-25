@@ -19,12 +19,21 @@ function checkClient() {
 }
 
 /**
- * 合言葉の事前確認 (check_invite)
+ * 合言葉が要るか（app_settings に合言葉が設定されているか）。未設定なら誰でも登録できる
+ */
+export async function inviteRequired() {
+  checkClient();
+  const { data, error } = await supabase.rpc('invite_required');
+  if (error) throw new Error(translateError(error));
+  return Boolean(data);
+}
+
+/**
+ * 合言葉の事前確認 (check_invite)。合言葉が未設定なら true
  */
 export async function checkInvite(code) {
   checkClient();
   const trimmed = (code || '').trim();
-  if (!trimmed) return false;
   const { data, error } = await supabase.rpc('check_invite', { p_code: trimmed });
   if (error) throw new Error(translateError(error));
   return Boolean(data);
@@ -45,11 +54,7 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   if (!grade || grade < 1 || grade > 6) {
     throw new Error('学年を選択してください');
   }
-  if (!inviteCode || !inviteCode.trim()) {
-    throw new Error('ミアキスの合言葉を入力してください');
-  }
-
-  // 合言葉の事前検査（一致しなければ Auth ユーザーを作成しない）
+  // 合言葉の事前検査（合言葉が設定されているときだけ効く。一致しなければ Auth ユーザーを作成しない）
   const inviteOk = await checkInvite(inviteCode);
   if (!inviteOk) {
     throw new Error('ミアキスの合言葉が違います（館内の掲示を見てね）');
@@ -85,7 +90,7 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   const { data: playerData, error: rpcError } = await supabase.rpc('register_player', {
     p_nickname: trimmedNick,
     p_grade: grade,
-    p_invite_code: inviteCode.trim()
+    p_invite_code: (inviteCode || '').trim() || null
   });
   if (rpcError) {
     throw new Error(translateError(rpcError));
