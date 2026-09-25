@@ -11,8 +11,16 @@ import {
   setTestTime
 } from './helper.mjs';
 
+// 0004 で登録に館の合言葉が要るようになった。このファイルの検査は合言葉を設定済みの DB で行う
+// （合言葉そのものの検査は game.test.mjs）。
+async function withInvite(db) {
+  await db.query(`insert into public.app_settings (key, value) values ('invite_code', 'test-invite')
+                  on conflict (key) do update set value = excluded.value`);
+  return db;
+}
+
 test('1. authenticated cannot insert into points / update players', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -20,7 +28,7 @@ test('1. authenticated cannot insert into points / update players', async () => 
 
   // Register player
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 2);`);
+    await db.query(`select public.register_player('user1', 2, 'test-invite');`);
   });
 
   // Try INSERT into points as authenticated user -> must be denied
@@ -58,7 +66,7 @@ test('1. authenticated cannot insert into points / update players', async () => 
 });
 
 test('2. user cannot read others writings/matches/points; staff can read writings and players', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -74,10 +82,10 @@ test('2. user cannot read others writings/matches/points; staff can read writing
 
   // Register u1, u2
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 1);`);
+    await db.query(`select public.register_player('user1', 1, 'test-invite');`);
   });
   await asUser(db, u2, async () => {
-    await db.query(`select public.register_player('user2', 1);`);
+    await db.query(`select public.register_player('user2', 1, 'test-invite');`);
   });
 
   // Create content, writing, match, points for u1 as admin
@@ -124,7 +132,7 @@ test('2. user cannot read others writings/matches/points; staff can read writing
 });
 
 test('3. answer_index is not in start_match return value nor accessible via matches query', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -132,7 +140,7 @@ test('3. answer_index is not in start_match return value nor accessible via matc
 
   let matchData;
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 1);`);
+    await db.query(`select public.register_player('user1', 1, 'test-invite');`);
     const res = await db.query(`select public.start_match() as match;`);
     matchData = res.rows[0].match;
   });
@@ -179,7 +187,7 @@ test('3. answer_index is not in start_match return value nor accessible via matc
 });
 
 test('4. submit_match: scoring, win/lose, tie-breaker, learn points, duplicate submission, and too_fast', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -189,7 +197,7 @@ test('4. submit_match: scoring, win/lose, tie-breaker, learn points, duplicate s
 
   let matchId;
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 1);`);
+    await db.query(`select public.register_player('user1', 1, 'test-invite');`);
     const res = await db.query(`select public.start_match() as match;`);
     matchId = res.rows[0].match.match_id;
   });
@@ -267,7 +275,7 @@ test('4. submit_match: scoring, win/lose, tie-breaker, learn points, duplicate s
   let matchId2;
   await setTestTime(db, '2026-09-25 11:00:00+09');
   await asUser(db, u2, async () => {
-    await db.query(`select public.register_player('user2', 1);`);
+    await db.query(`select public.register_player('user2', 1, 'test-invite');`);
     const res = await db.query(`select public.start_match() as match;`);
     matchId2 = res.rows[0].match.match_id;
   });
@@ -298,7 +306,7 @@ test('4. submit_match: scoring, win/lose, tie-breaker, learn points, duplicate s
 });
 
 test('5. commit points cap: max 10 per day in JST, caps correctly, resets next day', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -307,7 +315,7 @@ test('5. commit points cap: max 10 per day in JST, caps correctly, resets next d
   await setTestTime(db, '2026-09-25 09:00:00+09');
 
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 1);`);
+    await db.query(`select public.register_player('user1', 1, 'test-invite');`);
   });
 
   // 1. touch_today gives +1 commit point ('open')
@@ -348,7 +356,7 @@ test('5. commit points cap: max 10 per day in JST, caps correctly, resets next d
 });
 
 test('6. submit_writing: 3 prompt types validation, masking, duplicate rejection, and daily point cap', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const u1 = crypto.randomUUID();
@@ -356,7 +364,7 @@ test('6. submit_writing: 3 prompt types validation, masking, duplicate rejection
 
   await setTestTime(db, '2026-09-25 10:00:00+09');
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('user1', 1);`);
+    await db.query(`select public.register_player('user1', 1, 'test-invite');`);
   });
 
   // Prompt Type 1: use_word
@@ -476,7 +484,7 @@ test('6. submit_writing: 3 prompt types validation, masking, duplicate rejection
 });
 
 test('7. close_week: top 3 promotion (points >= 1), inactivity demotion, tier 1/5 boundaries, idempotent', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const week = '2026-09-14'; // Prior week
@@ -494,7 +502,7 @@ test('7. close_week: top 3 promotion (points >= 1), inactivity demotion, tier 1/
     const uid = crypto.randomUUID();
     await createUser(db, uid);
     await asUser(db, uid, async () => {
-      await db.query(`select public.register_player('p${i}', 1);`);
+      await db.query(`select public.register_player('p${i}', 1, 'test-invite');`);
     });
     players.push(uid);
   }
@@ -505,10 +513,10 @@ test('7. close_week: top 3 promotion (points >= 1), inactivity demotion, tier 1/
   await createUser(db, t5_top);
   await createUser(db, t5_inactive);
   await asUser(db, t5_top, async () => {
-    await db.query(`select public.register_player('t5_top', 3);`);
+    await db.query(`select public.register_player('t5_top', 3, 'test-invite');`);
   });
   await asUser(db, t5_inactive, async () => {
-    await db.query(`select public.register_player('t5_inact', 3);`);
+    await db.query(`select public.register_player('t5_inact', 3, 'test-invite');`);
   });
   // Set tier 5 manually
   await db.query(`update public.players set tier = 5 where id in ('${t5_top}', '${t5_inactive}');`);
@@ -555,7 +563,7 @@ test('7. close_week: top 3 promotion (points >= 1), inactivity demotion, tier 1/
 });
 
 test('8. purge_graduates and purge_inactive cascades and deletes from auth.users', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   await setTestTime(db, '2026-03-31 23:30:00+09');
@@ -567,10 +575,10 @@ test('8. purge_graduates and purge_inactive cascades and deletes from auth.users
   await createUser(db, undergradUid);
 
   await asUser(db, gradUid, async () => {
-    await db.query(`select public.register_player('grad', 6);`);
+    await db.query(`select public.register_player('grad', 6, 'test-invite');`);
   });
   await asUser(db, undergradUid, async () => {
-    await db.query(`select public.register_player('undergrad', 5);`);
+    await db.query(`select public.register_player('undergrad', 5, 'test-invite');`);
   });
 
   // Add match and points for gradUid
@@ -602,10 +610,10 @@ test('8. purge_graduates and purge_inactive cascades and deletes from auth.users
   await createUser(db, activeUid);
 
   await asUser(db, inactiveUid, async () => {
-    await db.query(`select public.register_player('inactive', 2);`);
+    await db.query(`select public.register_player('inactive', 2, 'test-invite');`);
   });
   await asUser(db, activeUid, async () => {
-    await db.query(`select public.register_player('active', 2);`);
+    await db.query(`select public.register_player('active', 2, 'test-invite');`);
   });
 
   // Set inactive user's last_active_at to 185 days ago relative to jst_now()
@@ -631,7 +639,7 @@ test('8. purge_graduates and purge_inactive cascades and deletes from auth.users
 });
 
 test('9. ranking views: no grade or id exposed, rank calculations are correct', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   await setTestTime(db, '2026-09-25 12:00:00+09');
@@ -642,10 +650,10 @@ test('9. ranking views: no grade or id exposed, rank calculations are correct', 
   await createUser(db, u2);
 
   await asUser(db, u1, async () => {
-    await db.query(`select public.register_player('alice', 1);`);
+    await db.query(`select public.register_player('alice', 1, 'test-invite');`);
   });
   await asUser(db, u2, async () => {
-    await db.query(`select public.register_player('bob', 3);`);
+    await db.query(`select public.register_player('bob', 3, 'test-invite');`);
   });
 
   await db.query(`
@@ -683,7 +691,7 @@ test('9. ranking views: no grade or id exposed, rank calculations are correct', 
 });
 
 test('10. unapproved contents invisible to normal users, visible to staff; approve_content awards +5 to picker', async () => {
-  const db = await createTestDb();
+  const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
   const pickerUid = crypto.randomUUID();
@@ -697,10 +705,10 @@ test('10. unapproved contents invisible to normal users, visible to staff; appro
   await db.query(`insert into public.staff (user_id) values ('${staffUid}');`);
 
   await asUser(db, pickerUid, async () => {
-    await db.query(`select public.register_player('picker', 2);`);
+    await db.query(`select public.register_player('picker', 2, 'test-invite');`);
   });
   await asUser(db, normalUid, async () => {
-    await db.query(`select public.register_player('normal', 1);`);
+    await db.query(`select public.register_player('normal', 1, 'test-invite');`);
   });
 
   // Make picker a picker

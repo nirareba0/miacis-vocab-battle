@@ -18,6 +18,8 @@ echo "3/4 DB（テーブル・権限・関数）と単語 2,642 語・定期の�
 echo "4/4 公開用の anon key を web/js/config.js に入れる（鍵は画面に出さない）"
 KEY="$("${CLI[@]}" projects api-keys --project-ref "$REF" -o json \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const k=JSON.parse(s).find(k=>k.name==="anon");if(!k)process.exit(1);process.stdout.write(k.api_key)})')"
-node -e 'const fs=require("fs");const p="web/js/config.js";const s=fs.readFileSync(p,"utf8");fs.writeFileSync(p,s.replace("__ANON_KEY__",process.argv[1]))' "$KEY"
+# 鍵の行（export const SUPABASE_ANON_KEY = '...'）だけを書き換える。isConfigured() の中の '__ANON_KEY__' には触らない。
+# すでに鍵が入っていれば何もしない（何度実行してもよい）
+node -e 'const fs=require("fs");const p="web/js/config.js";const s=fs.readFileSync(p,"utf8");const re=/^(export const SUPABASE_ANON_KEY = )\x27__ANON_KEY__\x27;$/m;if(re.test(s)){fs.writeFileSync(p,s.replace(re,(_,a)=>a+"\x27"+process.argv[1]+"\x27;"));console.log("  鍵を入れました")}else{console.log("  鍵はもう入っています")}' "$KEY"
 unset SUPABASE_DB_PASSWORD KEY
 echo "完了"

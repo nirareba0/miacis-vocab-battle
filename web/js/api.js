@@ -19,9 +19,21 @@ function checkClient() {
 }
 
 /**
+ * 合言葉の事前確認 (check_invite)
+ */
+export async function checkInvite(code) {
+  checkClient();
+  const trimmed = (code || '').trim();
+  if (!trimmed) return false;
+  const { data, error } = await supabase.rpc('check_invite', { p_code: trimmed });
+  if (error) throw new Error(translateError(error));
+  return Boolean(data);
+}
+
+/**
  * 新規プレイヤー登録
  */
-export async function signUpPlayer(nickname, passphrase, grade) {
+export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   checkClient();
   const trimmedNick = (nickname || '').trim();
   if (trimmedNick.length < 1 || trimmedNick.length > 10) {
@@ -33,26 +45,53 @@ export async function signUpPlayer(nickname, passphrase, grade) {
   if (!grade || grade < 1 || grade > 6) {
     throw new Error('学年を選択してください');
   }
+  if (!inviteCode || !inviteCode.trim()) {
+    throw new Error('ミアキスの合言葉を入力してください');
+  }
+
+  // 合言葉の事前検査（一致しなければ Auth ユーザーを作成しない）
+  const inviteOk = await checkInvite(inviteCode);
+  if (!inviteOk) {
+    throw new Error('ミアキスの合言葉が違います（館内の掲示を見てね）');
+  }
 
   const email = nicknameToEmail(trimmedNick);
+  let authUser = null;
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password: passphrase
   });
+
   if (authError) {
-    throw new Error(translateError(authError));
+    // 既に同じメールアドレス（ニックネーム）で Auth に存在する場合はログインを試行
+    if (authError.message?.includes('already registered')) {
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password: passphrase
+      });
+      if (loginError) {
+        throw new Error(translateError(authError));
+      }
+      authUser = loginData.user;
+    } else {
+      throw new Error(translateError(authError));
+    }
+  } else {
+    authUser = authData.user;
   }
 
-  // Auth 登録成功後、players テーブルへ登録 (RPC)
+  // Auth 登録/ログイン後、players テーブルへ登録 (RPC)
   const { data: playerData, error: rpcError } = await supabase.rpc('register_player', {
     p_nickname: trimmedNick,
-    p_grade: grade
+    p_grade: grade,
+    p_invite_code: inviteCode.trim()
   });
   if (rpcError) {
     throw new Error(translateError(rpcError));
   }
 
-  return { user: authData.user, player: escapeDeep(playerData) };
+  return { user: authUser, player: escapeDeep(playerData) };
 }
 
 /**
@@ -368,3 +407,60 @@ export async function stampWriting(writingId, stamp) {
   if (error) throw new Error(translateError(error));
   return escapeDeep(data);
 }
+
+/**
+ * 自分の進化・進捗情報 (my_progress)
+ */
+export async function getMyProgress() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_progress');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * カードパックの開封 (open_pack)
+ */
+export async function openPack(matchId) {
+  checkClient();
+  const { data, error } = await supabase.rpc('open_pack', {
+    p_match_id: matchId
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 今日のカードパック残り回数 (pack_status)
+ */
+export async function getPackStatus() {
+  checkClient();
+  const { data, error } = await supabase.rpc('pack_status');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 自分の図鑑コレクション (my_collection)
+ */
+export async function getMyCollection() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_collection');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 単語ID配列から単語データを取得 (words)
+ */
+export async function getWordsByIds(ids) {
+  checkClient();
+  if (!ids || ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('words')
+    .select('id, en, ja, pos, band')
+    .in('id', ids);
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+

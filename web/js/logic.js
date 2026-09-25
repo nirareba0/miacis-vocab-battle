@@ -320,6 +320,21 @@ export function translateError(error) {
   if (msg.includes('invalid_stamp')) {
     return '無効なスタンプです';
   }
+  if (msg.includes('invite_not_set')) {
+    return '合言葉がまだ設定されていません。スタッフに確認してね';
+  }
+  if (msg.includes('invite_invalid')) {
+    return '合言葉が違います（館内の掲示を見てね）';
+  }
+  if (msg.includes('pack_limit')) {
+    return '今日のカードパックは上限（3回）に達しました。明日また引いてね';
+  }
+  if (msg.includes('already_drawn')) {
+    return 'この対戦のカードパックはすでに開封済みです';
+  }
+  if (msg.includes('match_not_finished')) {
+    return '対戦がまだ完了していません';
+  }
 
   return 'エラーが発生しました。もう一度試してみてね';
 }
@@ -353,3 +368,167 @@ export function escapeDeep(v) {
   }
   return v;
 }
+
+/**
+ * 合言葉の入力を正規化する
+ * - 前後の半角/全角空白をトリム
+ * - 小文字化
+ */
+export function normalizeInviteCode(code) {
+  if (!code || typeof code !== 'string') return '';
+  return code.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '').toLowerCase();
+}
+
+/**
+ * 段階と次の進化までの進捗率を計算する
+ * 境目: 1:0, 2:30, 3:80, 4:160, 5:300, 6:500, 7:800
+ */
+export function calcStageProgress(totalPoints) {
+  const pts = Math.max(0, parseInt(totalPoints, 10) || 0);
+
+  if (pts >= 800) {
+    return {
+      stage: 7,
+      base: 800,
+      nextThreshold: null,
+      pointsToNext: 0,
+      percent: 100
+    };
+  }
+
+  const thresholds = [
+    { stage: 1, base: 0, next: 30 },
+    { stage: 2, base: 30, next: 80 },
+    { stage: 3, base: 80, next: 160 },
+    { stage: 4, base: 160, next: 300 },
+    { stage: 5, base: 300, next: 500 },
+    { stage: 6, base: 500, next: 800 }
+  ];
+
+  for (const t of thresholds) {
+    if (pts < t.next) {
+      const range = t.next - t.base;
+      const progress = pts - t.base;
+      const percent = Math.min(100, Math.max(0, Math.round((progress / range) * 100)));
+      return {
+        stage: t.stage,
+        base: t.base,
+        nextThreshold: t.next,
+        pointsToNext: t.next - pts,
+        percent
+      };
+    }
+  }
+
+  return {
+    stage: 1,
+    base: 0,
+    nextThreshold: 30,
+    pointsToNext: 30,
+    percent: 0
+  };
+}
+
+/**
+ * レア度の表示情報
+ * 1: N (ノーマル)
+ * 2: R (レア)
+ * 3: SR (スーパーレア)
+ * 4: UR (ウルトラレア)
+ */
+export function rarityInfo(rarity) {
+  const r = parseInt(rarity, 10);
+  switch (r) {
+    case 1:
+      return {
+        code: 'N',
+        label: 'ノーマル',
+        color: '#94a3b8',
+        badgeBg: 'rgba(148, 163, 184, 0.2)',
+        borderColor: '#94a3b8',
+        isRainbow: false
+      };
+    case 2:
+      return {
+        code: 'R',
+        label: 'レア',
+        color: '#3b82f6',
+        badgeBg: 'rgba(59, 130, 246, 0.2)',
+        borderColor: '#3b82f6',
+        isRainbow: false
+      };
+    case 3:
+      return {
+        code: 'SR',
+        label: 'スーパーレア',
+        color: '#F2C200',
+        badgeBg: 'rgba(242, 194, 0, 0.2)',
+        borderColor: '#F2C200',
+        isRainbow: false
+      };
+    case 4:
+      return {
+        code: 'UR',
+        label: 'ウルトラレア',
+        color: '#ec4899',
+        badgeBg: 'rgba(236, 72, 153, 0.2)',
+        borderColor: '#ec4899',
+        isRainbow: true
+      };
+    default:
+      return {
+        code: 'N',
+        label: 'ノーマル',
+        color: '#94a3b8',
+        badgeBg: 'rgba(148, 163, 184, 0.2)',
+        borderColor: '#94a3b8',
+        isRainbow: false
+      };
+  }
+}
+
+/**
+ * コンボのマイルストーン判定（3・5・7・10）
+ */
+export function checkComboMilestone(combo) {
+  const c = parseInt(combo, 10) || 0;
+  if ([3, 5, 7, 10].includes(c)) {
+    return {
+      isMilestone: true,
+      count: c,
+      label: `${c} COMBO!`
+    };
+  }
+  return {
+    isMilestone: false,
+    count: c,
+    label: null
+  };
+}
+
+/**
+ * 段階番号とルートから段階名を取得
+ */
+export function getStageName(stage, route) {
+  const s = parseInt(stage, 10) || 1;
+  const isGrass = route === 'grass';
+  switch (s) {
+    case 1:
+      return 'ちびミアキス';
+    case 2:
+      return 'ミアキス';
+    case 3:
+      return isGrass ? '草原をめざすミアキス' : (route === 'tree' ? '木の上のミアキス' : 'ミアキス');
+    case 4:
+      return isGrass ? 'ハイイロギツネ級' : 'ヤマネコ級';
+    case 5:
+      return isGrass ? 'オオカミ級' : 'ヒョウ級';
+    case 6:
+      return isGrass ? 'ダイアウルフ級' : 'トラ級';
+    case 7:
+      return isGrass ? '草原の王' : '森の王';
+    default:
+      return 'ちびミアキス';
+  }
+}
+

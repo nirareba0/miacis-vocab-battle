@@ -52,14 +52,18 @@ npm test
    - `0001_schema.sql`: テーブル、インデックス、RLS ポリシー
    - `0002_functions.sql`: RPC 関数、ランキングビュー、バッチ関数
    - `0003_harden_privileges.sql`: 権限のハードニング（不要権限の剥奪と必要関数の許可）
+   - `0004_game.sql`: ゲーム性（ミアキスの進化・合言葉・カードパック・図鑑）
 
-2. **定期バッチジョブ（pg_cron）の登録**  
+2. **合言葉の設定**  
+   館内利用者限定とするため、`tools/sql/set-invite-code.sql` を Supabase の SQL Editor で開き、合言葉を設定して実行します（公開リポジトリには実際の合言葉をコミットしないでください）。
+
+3. **定期バッチジョブ（pg_cron）の登録**  
    本番環境で `supabase/cron.sql` を実行し、週次締め処理（`close_week`）、卒業生パージ（`purge_graduates`）、休眠パージ（`purge_inactive`）を登録します。
 
-3. **単語データの投入**  
+4. **単語データの投入**  
    `tools/admin.mjs` を使用して `data/words.csv` を投入します（後述）。
 
-4. **クライアント設定**  
+5. **クライアント設定**  
    Supabase ダッシュボードから Project URL と `anon` 公開鍵を取得し、`web/js/config.js` に記載します。
 
 ---
