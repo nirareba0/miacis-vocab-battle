@@ -1,0 +1,14 @@
+{
+  "name": "miacis-vocab-battle",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test 'tests/**/*.test.mjs' 'web/tests/**/*.test.mjs'",
+    "build:words": "node tools/build-words-seed.mjs",
+    "admin": "node tools/admin.mjs",
+    "serve": "npx serve web"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.14"
+  }
+}

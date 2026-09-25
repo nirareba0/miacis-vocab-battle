@@ -1,0 +1,658 @@
+:root {
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --link: #1d4ed8;
+  --primary-text: #ffffff;
+  --accent: #10b981;
+  --accent-light: #ecfdf5;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --my-row-bg: #eff6ff;
+  --my-row-border: #93c5fd;
+  --btn-h: 56px;
+  --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --card-bg: #1e293b;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --link: #93c5fd;
+    --primary-text: #ffffff;
+    --accent: #10b981;
+    --accent-light: #064e3b;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --my-row-bg: #1e3a5f;
+    --my-row-border: #3b82f6;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-base);
+  font-size: 16px;
+  line-height: 1.5;
+  background-color: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 既定のリンク色（濃い青・紫）はダークの地で読めないので、テーマの色に合わせる */
+a,
+a:visited {
+  color: var(--link);
+  text-underline-offset: 2px;
+}
+
+#app-container {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  background-color: var(--card-bg);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 32px 20px;
+}
+
+/* ヘッダー */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.btn-logout {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ボタン共通 */
+button {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 14px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.08s ease, background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  width: 100%;
+  min-height: var(--btn-h);
+  background-color: var(--primary);
+  color: var(--primary-text);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  width: 100%;
+  min-height: var(--btn-h);
+  background-color: transparent;
+  color: var(--text);
+  border: 2px solid var(--border);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  text-decoration: none;
+}
+
+.btn-choice {
+  width: 100%;
+  min-height: var(--btn-h);
+  background-color: var(--card-bg);
+  color: var(--text);
+  border: 2px solid var(--border);
+  font-size: 18px;
+  padding: 12px 16px;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.btn-choice:hover {
+  border-color: var(--primary);
+}
+
+.btn-sub {
+  width: 100%;
+  min-height: 48px;
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 15px;
+}
+
+/* 入力フォーム */
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.form-input, .form-textarea, .form-select {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background-color: var(--card-bg);
+  color: var(--text);
+}
+
+.form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-help {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+}
+
+/* 学年ボタン選択グリッド */
+.grade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.grade-btn {
+  min-height: 52px;
+  border: 2px solid var(--border);
+  background-color: var(--card-bg);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+.grade-btn.selected {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: var(--primary-text);
+}
+
+/* カード */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+/* ホーム画面の数値ハイライト */
+.points-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.point-box {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.point-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.point-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.tier-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+.tier-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.tier-detail {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 1.4;
+}
+
+.notice-line {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+/* 対戦画面 */
+.battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.q-counter {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.timer-bar-bg {
+  width: 100%;
+  height: 10px;
+  background-color: var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.timer-bar-fill {
+  height: 100%;
+  background-color: var(--accent);
+  width: 100%;
+  transition: width 0.1s linear, background-color 0.2s ease;
+}
+
+.timer-bar-fill.danger {
+  background-color: var(--danger);
+}
+
+.word-prompt {
+  font-size: 32px;
+  font-weight: 800;
+  text-align: center;
+  margin: 24px 0 32px 0;
+  min-height: 50px;
+  letter-spacing: 0.5px;
+}
+
+.choices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 対戦結果画面 */
+.result-banner {
+  text-align: center;
+  padding: 24px 16px;
+  border-radius: 18px;
+  margin-bottom: 18px;
+}
+
+.result-banner.win {
+  background-color: var(--accent-light);
+  border: 2px solid var(--accent);
+}
+
+.result-banner.lose {
+  background-color: var(--bg);
+  border: 2px solid var(--border);
+}
+
+.result-text {
+  font-size: 32px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.result-sub {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.review-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+}
+
+.review-item.correct {
+  border-left: 5px solid var(--accent);
+}
+
+.review-item.wrong {
+  border-left: 5px solid var(--danger);
+}
+
+/* 正誤の印。絵文字の ⭕ は正解でも赤く見えるので、文字を色で塗り分ける */
+.review-mark {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.review-mark.correct {
+  color: var(--accent);
+}
+
+.review-mark.wrong {
+  color: var(--danger);
+}
+
+/* ランキング */
+.tab-bar {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  flex: 1;
+  min-height: 48px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+}
+
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--card-bg);
+}
+
+.ranking-item.is-me {
+  background-color: var(--my-row-bg);
+  border-color: var(--my-row-border);
+  font-weight: 700;
+}
+
+.rank-col {
+  width: 70px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.nick-col {
+  flex: 1;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tier-col {
+  width: 50px;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pts-col {
+  width: 70px;
+  text-align: right;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* クイズ / 一言 */
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  background-color: #000;
+}
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.stamp-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stamp-btn {
+  flex: 1;
+  min-height: 48px;
+  font-size: 22px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  border-radius: 10px;
+}
+
+/* アラート・メッセージ */
+.alert {
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.alert-success {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.alert-info {
+  background-color: #f0f9ff;
+  color: #075985;
+  border: 1px solid #bae6fd;
+}
+
+@media (prefers-color-scheme: dark) {
+  .alert-error {
+    background-color: #450a0a;
+    color: #fca5a5;
+    border-color: #7f1d1d;
+  }
+  .alert-success {
+    background-color: #052e16;
+    color: #86efac;
+    border-color: #14532d;
+  }
+  .alert-info {
+    background-color: #082f49;
+    color: #7dd3fc;
+    border-color: #0c4a6e;
+  }
+}
+
+/* フッター */
+.app-footer {
+  margin-top: auto;
+  padding-top: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.app-footer a {
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+/* 準備中画面 */
+.prep-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: 20px;
+}
+
+.prep-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.prep-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.prep-desc {
+  font-size: 16px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
