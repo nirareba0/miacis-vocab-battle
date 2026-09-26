@@ -137,7 +137,7 @@ function renderClosetBody(mainEl, state, callbacks) {
 
       let visual = '✨';
       if (item.display?.emoji) {
-        visual = escapeHtml(item.display.emoji);
+        visual = renderMiacis({ [item.slot]: item }, 72);
       } else if (item.slot === 'background') {
         visual = `<div style="width:36px; height:36px; border-radius:50%; background:${item.display?.css || '#1e6b3c'}; box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
       } else if (item.slot === 'aura') {
@@ -286,7 +286,7 @@ function renderExchangeView(mainEl, state, callbacks) {
 
     let visual = '✨';
     if (item.display?.emoji) {
-      visual = escapeHtml(item.display.emoji);
+      visual = renderMiacis({ [item.slot]: item }, 72);
     } else if (item.slot === 'background') {
       visual = `<div style="width:36px; height:36px; border-radius:50%; background:${item.display?.css || '#1e6b3c'};"></div>`;
     } else if (item.slot === 'aura') {

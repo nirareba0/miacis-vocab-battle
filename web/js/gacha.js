@@ -309,8 +309,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       `;
     } else {
       if (item.slot === 'hat' || item.slot === 'face' || item.slot === 'neck') {
-        const emoji = item.display?.emoji ? escapeHtml(item.display.emoji) : '✨';
-        visualHtml = `<div style="font-size:60px; margin-bottom:8px; line-height:1;">${emoji}</div>`;
+        visualHtml = renderMiacis({ [item.slot]: item }, 144);
       } else if (item.slot === 'background') {
         visualHtml = `
           <div style="width:70px; height:70px; border-radius:50%; background:${item.display?.css || '#1e6b3c'}; margin:0 auto 8px auto; box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>

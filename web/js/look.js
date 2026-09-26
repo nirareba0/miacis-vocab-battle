@@ -2,6 +2,7 @@
  * look.js - ミアキスの着せ替え・描画と CSS サニタイズ
  */
 import { escapeHtml } from './logic.js';
+import { renderAccessory } from './miacis-accessories.js';
 
 /**
  * 許可された CSS（linear-gradient または 単色カラー）のみを通す
@@ -47,32 +48,32 @@ export function sanitizeColor(color) {
 
 /**
  * ミアキスの着せ替えパーツ配置定数
- * 左向きのロゴ画像に合わせて左寄りに調整
+ * 未登録パーツの絵文字用配置。既存24種類は miacis-accessories.js の専用描画を使用
  */
 export const MIACIS_OFFSETS = {
   hat: {
-    topPercent: -12,
-    leftPercent: 8,
-    sizeRatio: 0.42,
+    topPercent: 8,
+    leftPercent: 33,
+    sizeRatio: 0.32,
     rotateDeg: -5
   },
   face: {
-    topPercent: 16,
-    leftPercent: 14,
-    sizeRatio: 0.36,
+    topPercent: 29,
+    leftPercent: 33,
+    sizeRatio: 0.24,
     rotateDeg: 0
   },
   neck: {
-    topPercent: 42,
-    leftPercent: 28,
-    sizeRatio: 0.36,
+    topPercent: 44,
+    leftPercent: 36,
+    sizeRatio: 0.24,
     rotateDeg: 0
   }
 };
 
 /**
  * ミアキスの着せ替え姿を安全な HTML として描画する
- * 順序: 背景（台座グラデーション）→ オーラ（光）→ ロゴ絵 → 帽子 → 顔 → 首まわり
+ * 順序: 背景（台座グラデーション）→ オーラ（光）→ ミアキスくん → 帽子 → 顔 → 首まわり
  *
  * @param {object} look - 装備品情報 ({ hat, face, neck, background, aura, title })
  * @param {number} [size=120] - 描画サイズ (px)
@@ -145,17 +146,17 @@ export function renderMiacis(look, size = 120) {
       <div class="miacis-pedestal"
            style="position:absolute; inset:0; border-radius:50%; background:${bgCss}; z-index:1; overflow:hidden;">
       </div>
-      <!-- オーラ & ロゴ画像 -->
+      <!-- オーラ & ミアキスくん画像 -->
       <div class="${auraClass}"
            style="position:absolute; inset:6%; display:flex; align-items:center; justify-content:center; z-index:2; ${auraStyle}">
-        <img src="assets/miacis-logo.png"
+        <img src="assets/miacis-avatar.png"
              alt="ミアキス"
              style="width:90%; height:90%; object-fit:contain; z-index:3; pointer-events:none;">
       </div>
       <!-- 着せ替えパーツ -->
-      ${hatHtml}
-      ${faceHtml}
-      ${neckHtml}
+      ${renderAccessory(l.hat, 'hat') || hatHtml}
+      ${renderAccessory(l.face, 'face') || faceHtml}
+      ${renderAccessory(l.neck, 'neck') || neckHtml}
     </div>
   `.trim();
 }

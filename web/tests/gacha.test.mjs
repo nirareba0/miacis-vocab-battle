@@ -184,15 +184,15 @@ test('renderMiacis: HTML を安全に組み立て、特殊文字をエスケー�
   assert.equal(html.includes('red; background: black'), false);
 
   // ロゴ画像が正しく含まれていること
-  assert.equal(html.includes('assets/miacis-logo.png'), true);
+  assert.equal(html.includes('assets/miacis-avatar.png'), true);
 });
 
 test('renderMiacis: look が空または null でも正常に描画できる', () => {
   const htmlNull = renderMiacis(null, 100);
   assert.ok(htmlNull.includes('miacis-avatar-box'));
-  assert.ok(htmlNull.includes('assets/miacis-logo.png'));
+  assert.ok(htmlNull.includes('assets/miacis-avatar.png'));
 
   const htmlEmpty = renderMiacis({}, 80);
   assert.ok(htmlEmpty.includes('miacis-avatar-box'));
-  assert.ok(htmlEmpty.includes('assets/miacis-logo.png'));
+  assert.ok(htmlEmpty.includes('assets/miacis-avatar.png'));
 });
