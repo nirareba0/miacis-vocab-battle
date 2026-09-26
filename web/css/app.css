@@ -1056,7 +1056,7 @@ button:active {
 }
 
 .rank-col {
-  width: 50px;
+  width: 64px;
   font-size: 16px;
   font-weight: 800;
   flex-shrink: 0;
@@ -1558,3 +1558,7 @@ button:active {
   }
 }
 
+
+/* 390px で折れないように（ランキングの順位・ホームのガチャ／着せ替えボタン） */
+.rank-col { white-space: nowrap; }
+#go-gacha, #go-closet { white-space: nowrap; }

@@ -373,8 +373,11 @@ export function translateError(error) {
  * 今週の英語の題名など）をそのまま入れると、スタッフが読んだときにスクリプトが動いてしまう。
  */
 export function escapeHtml(s) {
+  // すでにエスケープ済みの実体参照（&amp; &lt; &gt; &quot; &#39;）の & は二度変えない。
+  // API の層（escapeDeep）と画面の両方で掛けても、名前が「&lt;b&gt;」のように化けないようにするため。
+  // 生の < > " ' は必ず実体参照になるので、無害化の強さは変わらない。
   return String(s)
-    .replace(/&/g, '&amp;')
+    .replace(/&(?!(?:amp|lt|gt|quot|#39);)/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')

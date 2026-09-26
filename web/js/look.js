@@ -83,7 +83,7 @@ export function renderMiacis(look, size = 120) {
   const l = look || {};
 
   // 1. 背景 (background)
-  const bgCss = sanitizeCss(l.background?.display?.css) || 'radial-gradient(circle, #e2e8f0 0%, #cbd5e1 100%)';
+  const bgCss = sanitizeCss(l.background?.display?.css) || 'radial-gradient(circle, #2b7a4b 0%, #123f24 100%)';
 
   // 2. オーラ (aura)
   let auraStyle = '';
