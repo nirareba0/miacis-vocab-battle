@@ -76,6 +76,21 @@ export async function renderGachaView(containerEl, state, callbacks = {}) {
 function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const nutsDisp = calcNutsDisplay(state.nuts.balance);
   const formattedRates = formatGachaRates(ratesData);
+  const untilSingle = Math.max(0, 15 - nutsDisp.balance);
+  const untilTen = Math.max(0, 150 - nutsDisp.balance);
+  const stockPrizes = formattedRates.prizes.filter(p => p.stock > 0);
+  const prizeShowcase = stockPrizes.length ? `
+    <section class="gacha-showcase" aria-labelledby="gacha-showcase-title">
+      <p class="gacha-showcase-kicker">館で受け取れる、おくりもの</p>
+      <h2 id="gacha-showcase-title">今回の景品ラインナップ</h2>
+      <div class="gacha-prize-list">${stockPrizes.map(p => `
+        <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>在庫 ${p.stock}個</p></div></article>
+      `).join('')}</div>
+      <p class="gacha-showcase-note">景品全体の当選確率：1回あたり ${formattedRates.prizeRatePercent}。個々の景品の確率ではありません。在庫は抽選時に確認されます。</p>
+      <p class="gacha-showcase-note">当選した引換券は「自分の記録」から確認できます。</p>
+    </section>` : `
+    <section class="gacha-showcase"><p class="gacha-showcase-kicker">自分らしいミアキスを見つけよう</p><h2>着せ替え・称号をコレクション</h2><p class="gacha-showcase-note">館の景品は準備中・品切れです。現在は着せ替え・称号が出ます。</p></section>`;
+
 
   let prizesHtml = '';
   if (formattedRates.prizes.length > 0) {
@@ -97,6 +112,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   `).join('');
 
   mainEl.innerHTML = `
+    ${prizeShowcase}
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span>🌰 ${state.nuts.balance}</span>
@@ -108,6 +124,13 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
         💎 かけら残高: <strong>${state.shards}</strong> 個
       </div>
     </div>
+
+    <section class="gacha-next-goal" aria-label="ガチャまでの進み具合">
+      <div><strong>${untilSingle ? `1回まで、あと${untilSingle}個` : '1回ガチャを引けます'}</strong><span>🌰 ${nutsDisp.balance}個</span></div>
+      <progress max="150" value="${Math.min(150, nutsDisp.balance)}" aria-label="10連までの木の実"></progress>
+      <p>${untilTen ? `10連まで、あと${untilTen}個。木の実は貯めておけます。` : '10連分が貯まりました。好きなタイミングで引けます。'}</p>
+      <button class="btn-sub" id="btn-gacha-to-battle">対戦で木の実を集める</button>
+    </section>
 
     <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
       <!-- 1回ガチャボタン -->
@@ -127,7 +150,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
         <span>確率・景品のご案内</span>
-        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品率 ${formattedRates.prizeRatePercent}</span>
+        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品全体 ${stockPrizes.length ? formattedRates.prizeRatePercent : '0%（在庫なし）'}</span>
       </div>
 
       <div style="margin-bottom:14px;">
@@ -150,6 +173,8 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <button class="btn-sub" id="btn-gacha-home">ホームへ戻る</button>
     </div>
   `;
+
+  document.getElementById('btn-gacha-to-battle').addEventListener('click', () => { window.location.hash = '#/battle'; });
 
   document.getElementById('btn-pull-1').addEventListener('click', () => {
     executeGacha(mainEl, state, 1, callbacks);
