@@ -1562,3 +1562,34 @@ button:active {
 /* 390px で折れないように（ランキングの順位・ホームのガチャ／着せ替えボタン） */
 .rank-col { white-space: nowrap; }
 #go-gacha, #go-closet { white-space: nowrap; }
+
+/* 木の実ガチャの開封演出（抽選・報酬処理とは独立） */
+.gacha-opening { position:relative; overflow:hidden; text-align:center; padding:20px 18px 24px; border:1px solid #668478; border-radius:24px; background:radial-gradient(ellipse at 50% 58%,#43634c 0%,#143a30 65%); color:#fff4db; }
+.gacha-opening-tools { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; }
+.gacha-opening-tools > span { white-space:nowrap; }
+.gacha-opening-tools .btn-sub { width:auto; flex:0 0 auto; }
+.gacha-opening .btn-sub { color:#fff4db; background:#153e32; border-color:#829d8f; min-height:44px; }
+.gacha-opening-caption { margin:28px 0 10px; font-size:12px; letter-spacing:.12em; color:#e0e6d3; }
+.gacha-opening h2 { color:#fff4db; font-size:clamp(20px,5.5vw,26px); line-height:1.5; }
+#gacha-opening-status { font-size:13px; margin:10px 0 30px; color:#e0e6d3; }
+.gacha-gift-pack { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; width:200px; height:278px; margin:0 auto 28px; border:1px solid #ffe9b3; border-radius:8px; background:repeating-linear-gradient(120deg,transparent 0 28px,#fff3 28px 29px),linear-gradient(145deg,#f6eac5,#e2bf75 60%,#f9e4ad); box-shadow:10px 18px 30px #0005,inset 0 0 0 7px #fff3; color:#173f31; transform:rotate(-5deg); cursor:pointer; font:inherit; }
+.gacha-gift-pack::before { content:''; position:absolute; top:12px; left:0; right:0; border-top:3px dashed #8d6d3166; }
+.gacha-gift-pack img { border-radius:50%; object-fit:contain; }
+.gacha-gift-pack span { font-size:26px; font-weight:900; line-height:1.4; letter-spacing:.12em; }
+.gacha-gift-pack small { font-size:11px; }
+.gacha-gift-pack.is-opening { animation:nuts-pack-opening 1.2s ease-in both; }
+.gacha-opening-note { margin-bottom:14px; color:#e0e6d3; font-size:12px; }
+.gacha-opening button:focus-visible,.gacha-reveal-stage button:focus-visible { outline:3px solid #f2c200; outline-offset:4px; }
+.gacha-reveal-tools { display:flex; gap:6px; }
+.gacha-reveal-tools .btn-sub { width:auto; white-space:nowrap; min-height:44px; padding:6px 10px; font-size:12px; }
+.gacha-reveal-stage [hidden] { display:none!important; }
+.gacha-reveal-stage .gacha-card-front { color:#163d31; background:repeating-linear-gradient(120deg,transparent 0 28px,#fff3 28px 29px),linear-gradient(145deg,#f6eac5,#e2bf75); border:2px solid #f6dfa0; font:inherit; font-weight:800; gap:24px; cursor:pointer; }
+.gacha-reveal-stage .gacha-card-front img { border-radius:50%; }
+.gacha-reveal-stage .gacha-card-back { overflow-wrap:anywhere; overflow-y:auto; }
+.gacha-reveal-stage .gacha-card:not(.flipped) .gacha-card-back { visibility:hidden; animation:none; }
+.gacha-reveal-stage .gacha-card.flipped .gacha-card-front { visibility:hidden; }
+.gacha-reveal-stage .gacha-card-back.rarity-4,.gacha-reveal-stage .gacha-card-back.is-prize { animation:rainbow-card-glow 3s linear 1; }
+.gacha-reveal-stage .gacha-card-back.rarity-4 { background:linear-gradient(145deg,#183937,#302137,#202737); color:#fff7e8; }
+.gacha-reveal-status { color:var(--text-muted); font-size:14px; min-height:22px; }
+@keyframes nuts-pack-opening { 0%{transform:rotate(-5deg)} 35%{transform:rotate(5deg) scale(1.04)} 65%{transform:rotate(-3deg) scale(1.08);box-shadow:0 0 45px #f8dfa060} 100%{transform:translateY(-24px) scale(.9);opacity:0} }
+@media(prefers-reduced-motion:reduce) { .gacha-gift-pack.is-opening,.gacha-reveal-stage .gacha-card,.gacha-reveal-stage .gacha-card-back { animation:none!important; transition:none!important; } }

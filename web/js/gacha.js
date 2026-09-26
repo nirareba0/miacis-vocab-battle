@@ -17,7 +17,9 @@ import {
 
 import {
   playSfx,
-  triggerConfetti
+  triggerConfetti,
+  isMuted,
+  toggleMute
 } from './game.js';
 
 import { renderMiacis } from './look.js';
@@ -211,9 +213,56 @@ async function executeGacha(mainEl, state, count, callbacks) {
  */
 function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
   let currentIndex = 0;
-  let isRevealing = false;
+  let openingTimer = null;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sound = (type, options) => { try { playSfx(type, options); } catch {} };
+  function bindSound() {
+    const button = mainEl.querySelector('[data-gacha-sound]');
+    const refresh = () => {
+      button.textContent = isMuted() ? '音：オフ' : '音：オン';
+      button.setAttribute('aria-pressed', String(!isMuted()));
+    };
+    refresh();
+    button.onclick = () => { toggleMute(); refresh(); };
+  }
+  function stopOpening() {
+    clearTimeout(openingTimer);
+    window.removeEventListener('hashchange', stopOpening);
+  }
+  function showOpening() {
+    if (!mainEl.isConnected) return;
+    mainEl.innerHTML = `
+      <section class="gacha-opening" aria-labelledby="gacha-opening-title">
+        <div class="gacha-opening-tools"><span>${count === 10 ? '10個のおくりもの' : 'ひとつのおくりもの'}</span><button class="btn-sub" data-gacha-sound></button></div>
+        <p class="gacha-opening-caption">ミアキスの木の実ガチャ</p>
+        <h2 id="gacha-opening-title">おくりものが、届いた。</h2>
+        <p role="status" id="gacha-opening-status">パックをタップして開封</p>
+        <button class="gacha-gift-pack" aria-label="パックを開封する">
+          <img src="assets/miacis-logo.png" width="72" height="72" alt="">
+          <span>木の実の<br>おくりもの</span><small>タップして開封</small>
+        </button>
+        <p class="gacha-opening-note">獲得したアイテムを見てみよう</p>
+        <button class="btn-sub" id="btn-opening-skip">演出をスキップして結果を見る</button>
+      </section>`;
+    bindSound();
+    const pack = mainEl.querySelector('.gacha-gift-pack');
+    pack.focus({ preventScroll: true });
+    pack.onclick = () => {
+      if (pack.disabled) return;
+      pack.disabled = true;
+      pack.classList.add('is-opening');
+      mainEl.querySelector('#gacha-opening-status').textContent = 'パックがひらく…';
+      sound('packShake');
+      if (reducedMotion) showCard(0);
+      else openingTimer = setTimeout(() => { stopOpening(); showCard(0); }, 1200);
+    };
+    mainEl.querySelector('#btn-opening-skip').onclick = () => { stopOpening(); showSummary(); };
+    window.addEventListener('hashchange', stopOpening, { once: true });
+  }
 
   function showCard(idx) {
+    stopOpening();
+    if (!mainEl.isConnected) return;
     if (idx >= items.length) {
       showSummary();
       return;
@@ -222,17 +271,6 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     const item = items[idx];
     const isPrize = item.kind === 'prize';
     const rInfo = rarityInfo(item.rarity || 1);
-
-    // 音声と紙吹雪
-    if (isPrize) {
-      playSfx('prizeWin');
-      triggerConfetti();
-    } else {
-      playSfx('cardReveal', { rarity: item.rarity });
-      if (item.rarity >= 3) {
-        triggerConfetti();
-      }
-    }
 
     let visualHtml = '';
     if (isPrize) {
@@ -284,21 +322,18 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     }
 
     mainEl.innerHTML = `
-      <div class="gacha-stage">
+      <div class="gacha-stage gacha-reveal-stage">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-bottom:12px;">
           <div style="font-size:15px; font-weight:700;">
             ${count === 10 ? `${idx + 1} / 10 枚目` : '結果'}
           </div>
-          ${count === 10 ? '<button class="btn-sub" id="btn-skip-gacha" style="min-height:36px; padding:4px 12px; font-size:13px;">まとめて見る ⏩</button>' : ''}
+          <div class="gacha-reveal-tools"><button class="btn-sub" data-gacha-sound></button><button class="btn-sub" id="btn-skip-gacha">まとめて見る</button></div>
         </div>
 
         <div class="gacha-card-container" id="gacha-card-wrap">
-          <div class="gacha-card flipped">
-            <div class="gacha-card-front">
-              <div style="font-size:40px;">🌰</div>
-              <div style="font-weight:700; margin-top:10px;">タップで開く</div>
-            </div>
-            <div class="gacha-card-back rarity-${item.rarity} ${isPrize ? 'is-prize' : ''}">
+          <div class="gacha-card">
+            <button class="gacha-card-front" id="btn-reveal-card" aria-label="アイテムをめくる"><img src="assets/miacis-logo.png" width="64" height="64" alt=""><span>タップでめくる</span></button>
+            <div class="gacha-card-back rarity-${item.rarity} ${isPrize ? 'is-prize' : ''}" aria-hidden="true">
               ${badgeHtml}
               ${visualHtml}
               <div style="font-size:17px; font-weight:800; margin-bottom:4px;">${escapeHtml(item.name)}</div>
@@ -307,15 +342,36 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
           </div>
         </div>
 
-        ${ticketInfoHtml}
+        <div id="gacha-ticket-detail" hidden>${ticketInfoHtml}</div>
+        <p class="gacha-reveal-status" role="status">どんなアイテムかな？</p>
 
         <div style="width:100%; margin-top:16px;">
-          <button class="btn-primary" id="btn-next-card" style="font-size:18px;">
+          <button class="btn-primary" id="btn-next-card" hidden style="font-size:18px;">
             ${idx + 1 < items.length ? '次のアイテムへ ➡️' : '結果を見る ✨'}
           </button>
         </div>
       </div>
     `;
+
+    bindSound();
+    const revealButton = mainEl.querySelector('#btn-reveal-card');
+    revealButton.focus({ preventScroll: true });
+    revealButton.onclick = () => {
+      if (revealButton.disabled) return;
+      revealButton.disabled = true;
+      revealButton.setAttribute('aria-hidden', 'true');
+      mainEl.querySelector('.gacha-card').classList.add('flipped');
+      mainEl.querySelector('.gacha-card-back').removeAttribute('aria-hidden');
+      mainEl.querySelector('#gacha-ticket-detail').hidden = false;
+      mainEl.querySelector('.gacha-reveal-status').textContent = isPrize ? '館の景品引換券を獲得！' : `${rInfo.label}を獲得！`;
+      const next = mainEl.querySelector('#btn-next-card');
+      next.hidden = false;
+      next.focus({ preventScroll: true });
+      sound(isPrize ? 'prizeWin' : 'cardReveal', { rarity: item.rarity });
+      if (!reducedMotion && (isPrize || item.rarity >= 3)) {
+        try { triggerConfetti(1600); } catch {}
+      }
+    };
 
     document.getElementById('btn-next-card').addEventListener('click', () => {
       currentIndex++;
@@ -331,6 +387,8 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
   }
 
   function showSummary() {
+    stopOpening();
+    if (!mainEl.isConnected) return;
     let gainedShards = 0;
     let prizeCount = 0;
     const itemsHtml = items.map(item => {
@@ -397,6 +455,10 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       </div>
     `;
 
+    const summaryTitle = mainEl.querySelector('h2');
+    summaryTitle.tabIndex = -1;
+    summaryTitle.focus({ preventScroll: true });
+
     document.getElementById('btn-pull-again').addEventListener('click', () => {
       executeGacha(mainEl, state, count, callbacks);
     });
@@ -412,5 +474,5 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     });
   }
 
-  showCard(0);
+  showOpening();
 }
