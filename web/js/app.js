@@ -15,9 +15,6 @@ import {
   getMyProgress,
   startMatch,
   submitMatch,
-  openPack,
-  getPackStatus,
-  getMyCollection,
   getWordsByIds,
   getRankingLearn,
   getRankingCommit,
@@ -33,7 +30,21 @@ import {
   getUnapprovedContents,
   approveContent,
   getRecentWritings,
-  stampWriting
+  stampWriting,
+  claimMatchNuts,
+  claimDailyNuts,
+  getMyNuts,
+  getItems,
+  getMyItems,
+  getMyLooks,
+  equipItem,
+  getPublicLooks,
+  getMyWords,
+  getMyTickets,
+  getGachaRates,
+  staffUpsertPrize,
+  staffListTickets,
+  staffRedeemTicket
 } from './api.js';
 
 import {
@@ -48,7 +59,8 @@ import {
   rarityInfo,
   checkComboMilestone,
   getStageName,
-  normalizeInviteCode
+  normalizeInviteCode,
+  calcNutsDisplay
 } from './logic.js';
 
 import {
@@ -58,13 +70,24 @@ import {
   toggleMute
 } from './game.js';
 
+import { renderMiacis } from './look.js';
+import { renderGachaView } from './gacha.js';
+import { renderClosetView } from './closet.js';
+
 // グローバル状態
 const state = {
   session: null,
   player: null,
   isStaff: false,
   progress: null,
-  packStatus: null,
+  nuts: { balance: 0, today_earned: 0, daily_cap: 300, remaining_cap: 300 },
+  shards: 0,
+  myLooks: {},
+  allItems: [],
+  myItems: [],
+  publicLooksMap: {},
+  closetActiveTab: 'hat',
+  staffTab: 'prizes',
   currentHash: window.location.hash || '#/home',
   battle: {
     matchId: null,
@@ -130,7 +153,11 @@ async function render() {
 
   const hash = state.currentHash;
 
-  if (hash === '#/battle') {
+  if (hash === '#/gacha') {
+    renderGacha();
+  } else if (hash === '#/closet') {
+    renderCloset();
+  } else if (hash === '#/battle') {
     renderBattle();
   } else if (hash === '#/content') {
     renderContent();
@@ -380,6 +407,37 @@ function showScreenshotModal(nick, pass, gradeVal) {
 }
 
 /**
+ * ガチャ画面 (#/gacha)
+ */
+async function renderGacha() {
+  await renderGachaView(appEl, state, {
+    onUpdateNuts: (newBalance) => {
+      state.nuts.balance = newBalance;
+    },
+    onGoHome: () => {
+      window.location.hash = '#/home';
+    },
+    onGoCloset: () => {
+      window.location.hash = '#/closet';
+    }
+  });
+}
+
+/**
+ * 着せ替え画面 (#/closet)
+ */
+async function renderCloset() {
+  await renderClosetView(appEl, state, {
+    onGoHome: () => {
+      window.location.hash = '#/home';
+    },
+    onGoGacha: () => {
+      window.location.hash = '#/gacha';
+    }
+  });
+}
+
+/**
  * ホーム画面 (#/home)
  */
 async function renderHome() {
@@ -393,7 +451,7 @@ async function renderHome() {
       </h1>
       <div class="header-user">
         <button class="btn-mute" id="btn-mute-toggle" aria-label="効果音ミュート切り替え">${muteIcon}</button>
-        <span>${escapeHtml(state.player.nickname)} さん</span>
+        <span id="header-user-nick">${escapeHtml(state.player.nickname)} さん</span>
         <button class="btn-logout" id="btn-logout">ログアウト</button>
       </div>
     </header>
@@ -415,15 +473,21 @@ async function renderHome() {
   });
 
   try {
-    // 1日1回のアクセス記録
+    // 1日1回のアクセス記録 & 木の実デイリーボーナス付与
     await touchToday();
-    const [summary, progress, packStatus] = await Promise.all([
+    const dailyNutsRes = await claimDailyNuts().catch(() => ({ earned: 0 }));
+
+    const [summary, progress, nutsData, myLooksData, allItems] = await Promise.all([
       getMySummary(),
       getMyProgress(),
-      getPackStatus()
+      getMyNuts(),
+      getMyLooks(),
+      getItems()
     ]);
     state.progress = progress;
-    state.packStatus = packStatus;
+    state.nuts = nutsData;
+    state.myLooks = myLooksData || {};
+    state.allItems = allItems || [];
 
     const learnRankStr = summary.learn_rank_in_tier ? `${summary.learn_rank_in_tier}位` : '集計中';
     const commitRankStr = summary.commit_rank ? `${summary.commit_rank}位` : '集計中';
@@ -436,6 +500,20 @@ async function renderHome() {
 
     const homeContent = document.getElementById('home-content');
     if (!homeContent) return;
+
+    // 着せ替えミアキスの構築
+    const itemMap = Object.fromEntries(state.allItems.map(it => [it.id, it]));
+    const myLook = {
+      hat: itemMap[state.myLooks.hat] || null,
+      face: itemMap[state.myLooks.face] || null,
+      neck: itemMap[state.myLooks.neck] || null,
+      background: itemMap[state.myLooks.background] || null,
+      aura: itemMap[state.myLooks.aura] || null,
+      title: itemMap[state.myLooks.title] || null
+    };
+
+    const miacisAvatarHtml = renderMiacis(myLook, 160);
+    const titleName = myLook.title ? escapeHtml(myLook.title.name) : '';
 
     const routeClass = progress.route || 'none';
     let routeBadgeHtml = '';
@@ -455,18 +533,35 @@ async function renderHome() {
       evolutionLabel = `<span>最高段階！ 草原と森の主</span><span>累計 ${progress.total_points}点</span>`;
     }
 
+    const nutsDisp = calcNutsDisplay(state.nuts.balance);
+
+    // デイリーボーナス案内
+    let dailyToastHtml = '';
+    if (dailyNutsRes.earned > 0) {
+      dailyToastHtml = `
+        <div class="alert alert-success" style="margin-bottom:12px; font-weight:700; text-align:center;">
+          🎉 今日のログインボーナス: 🌰 +${dailyNutsRes.earned} 獲得！
+        </div>
+      `;
+    }
+
     homeContent.innerHTML = `
       <div class="notice-line" style="color: var(--miacis-pink); font-weight: 700; margin-top: -6px; margin-bottom: 12px;">
         ミアキスでうまれた英単語バトル
       </div>
 
+      ${dailyToastHtml}
+
       <div class="miacis-stage-card route-${routeClass}">
+        ${titleName ? `<div class="user-title-badge">👑 ${titleName}</div>` : ''}
         <div class="miacis-stage-name">${escapeHtml(progress.stage_name)}</div>
         ${routeBadgeHtml}
-        <div class="avatar-wrapper stage-${progress.stage}">
-          <div class="avatar-aura"></div>
-          <img src="assets/miacis-logo.png" class="miacis-avatar" alt="ミアキス">
+        
+        <!-- 着せ替えミアキス（大きく表示） -->
+        <div style="margin: 16px 0 10px 0; display:flex; justify-content:center;">
+          ${miacisAvatarHtml}
         </div>
+
         <div class="evolution-progress-box">
           <div class="evolution-label">${evolutionLabel}</div>
           <div class="evolution-bar-bg">
@@ -475,7 +570,27 @@ async function renderHome() {
         </div>
         <div class="stats-chips">
           <div class="chip">🔥 <strong>${progress.streak_days}</strong> 日連続</div>
-          <div class="chip">🎴 カード残り <strong>${packStatus.remaining}</strong></div>
+          <div class="chip" style="background: rgba(242, 194, 0, 0.2); border: 1px solid var(--primary);">
+            🌰 <strong>${state.nuts.balance}</strong> 個
+          </div>
+        </div>
+      </div>
+
+      <!-- 木の実残高・アクションエリア -->
+      <div class="card" style="padding: 14px 16px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:12px; color:var(--text-muted);">木の実の残高</div>
+          <div style="font-size:20px; font-weight:800; color:var(--primary);">🌰 ${state.nuts.balance} 個</div>
+          <div style="font-size:11px; color:var(--text-muted);">今日獲得: ${state.nuts.today_earned} / ${state.nuts.daily_cap}</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="go-gacha" style="min-height:50px; padding:6px 16px; font-size:16px;">
+            ${nutsDisp.canPull10 ? '<span class="ready-badge">10連できる！</span>' : ''}
+            ガチャ
+          </button>
+          <button class="btn-secondary" id="go-closet" style="min-height:50px; padding:6px 14px; font-size:15px;">
+            着せ替え
+          </button>
         </div>
       </div>
 
@@ -508,7 +623,7 @@ async function renderHome() {
         <button class="btn-primary" id="go-battle" style="font-size: 20px; min-height: 60px;">対戦する</button>
         <button class="btn-secondary" id="go-content">今週の英語</button>
         <button class="btn-secondary" id="go-ranking">ランキング</button>
-        <button class="btn-pink" id="go-zukan">単語図鑑（カード集め）</button>
+        <button class="btn-pink" id="go-zukan">覚えた単語（図鑑）</button>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -521,6 +636,12 @@ async function renderHome() {
       </footer>
     `;
 
+    document.getElementById('go-gacha').addEventListener('click', () => {
+      window.location.hash = '#/gacha';
+    });
+    document.getElementById('go-closet').addEventListener('click', () => {
+      window.location.hash = '#/closet';
+    });
     document.getElementById('go-battle').addEventListener('click', () => {
       window.location.hash = '#/battle';
     });
@@ -607,10 +728,26 @@ async function renderBattle() {
       ? '練習相手と勝負'
       : `${matchData.opponent.nickname} さんの記録と勝負`;
 
+    // 相手の着せ替えを取得（練習相手は素のミアキス）
+    let oppLook = null;
+    if (!matchData.opponent.is_practice) {
+      try {
+        const publicLooks = await getPublicLooks();
+        const oppRow = publicLooks.find(p => p.nickname === matchData.opponent.nickname);
+        if (oppRow) {
+          oppLook = oppRow.looks;
+        }
+      } catch {}
+    }
+    const oppMiacisHtml = renderMiacis(oppLook, 110);
+
     const area = document.getElementById('battle-area');
     area.innerHTML = `
-      <div class="card" style="text-align: center; padding: 32px 16px;">
-        <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">${escapeHtml(oppName)}</div>
+      <div class="card" style="text-align: center; padding: 28px 16px;">
+        <div style="font-size: 22px; font-weight: 800; margin-bottom: 12px;">${escapeHtml(oppName)}</div>
+        <div style="margin: 0 auto 16px auto; display:flex; justify-content:center;">
+          ${oppMiacisHtml}
+        </div>
         <div style="font-size: 15px; color: var(--text-muted); margin-bottom: 24px;">10問・各問6秒</div>
         <button class="btn-primary" id="btn-start-countdown" style="font-size: 20px;">スタート！</button>
       </div>
@@ -814,26 +951,32 @@ async function finishMatch() {
       `;
     }).join('');
 
-    // 今日のカードパック残り状況を取得
-    let packRemaining = 0;
+    // 木の実の獲得 (claim_match_nuts)
+    let nutGainHtml = '';
     try {
-      const ps = await getPackStatus();
-      packRemaining = ps.remaining;
-    } catch {}
+      const nutRes = await claimMatchNuts(state.battle.matchId);
+      playSfx('nutGet');
+      state.nuts.balance = nutRes.balance;
 
-    const isPerfect = result.correct === 10;
-    let packSectionHtml = '';
+      const cappedNotice = (nutRes.capped || nutRes.remaining_cap === 0)
+        ? '<div style="font-size:13px; color:#F2C200; font-weight:700; margin-top:4px;">今日の木の実は上限まで集めた！</div>'
+        : `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">今日の残り獲得枠: あと ${nutRes.remaining_cap} 🌰</div>`;
 
-    if (packRemaining > 0) {
-      packSectionHtml = `
-        <div class="card" style="text-align: center; padding: 20px 16px; margin-top: 14px; border: 2px solid var(--miacis-yellow);">
-          ${isPerfect ? '<div style="font-size: 16px; font-weight: 900; color: var(--miacis-yellow); margin-bottom: 8px;">✨ パーフェクト！ SR以上確定！</div>' : ''}
-          <div style="font-size: 15px; margin-bottom: 12px;">対戦おつかれさま！ 今日のカードパックを引けるよ</div>
-          <button class="btn-primary" id="btn-open-pack" style="font-size: 19px; min-height: 56px;">
-            🎴 カードパックを開ける (本日あと${packRemaining}回)
-          </button>
+      nutGainHtml = `
+        <div class="card" style="text-align: center; padding: 18px 16px; margin-top: 14px; border: 2px solid var(--primary); background: rgba(242, 194, 0, 0.1);">
+          <div style="font-size: 13px; color: var(--text-muted);">木の実を獲得！</div>
+          <div style="font-size: 28px; font-weight: 900; color: var(--primary); margin: 4px 0;">🌰 +${nutRes.earned}</div>
+          <div style="font-size: 14px;">現在の残高: <strong>${nutRes.balance} 🌰</strong></div>
+          ${cappedNotice}
+          <div style="margin-top: 12px;">
+            <button class="btn-primary" id="btn-match-to-gacha" style="min-height: 52px; font-size: 17px; width: 100%;">
+              ガチャへ 🌰✨
+            </button>
+          </div>
         </div>
       `;
+    } catch (err) {
+      console.error('claim_match_nuts error:', err);
     }
 
     if (!area) return;
@@ -856,7 +999,7 @@ async function finishMatch() {
         </div>
       </div>
 
-      ${packSectionHtml}
+      ${nutGainHtml}
 
       <div class="card-title" style="margin-top: 20px;">問題の振り返り</div>
       <div class="review-list">
@@ -871,14 +1014,10 @@ async function finishMatch() {
       window.location.hash = '#/home';
     });
 
-    const openPackBtn = document.getElementById('btn-open-pack');
-    if (openPackBtn) {
-      openPackBtn.addEventListener('click', async () => {
-        openPackBtn.disabled = true;
-        openPackBtn.textContent = '開封中...';
-        await handleOpenPackModal(result.match_id);
-      });
-    }
+    document.getElementById('btn-match-to-gacha')?.addEventListener('click', async () => {
+      await checkEvolutionAfterMatch();
+      window.location.hash = '#/gacha';
+    });
   } catch (err) {
     if (area) {
       area.innerHTML = `
@@ -1064,33 +1203,26 @@ async function renderZukan() {
   });
 
   try {
-    const collection = await getMyCollection();
+    const wordsData = await getMyWords();
     const contentEl = document.getElementById('zukan-content');
     if (!contentEl) return;
 
-    const bandStat = collection.bands.find(b => b.band === state.zukanTab) || { total: 0, collected: 0 };
+    const bandStat = wordsData.bands?.find(b => b.band === state.zukanTab) || { total: 0, collected: 0 };
     const percent = bandStat.total > 0 ? Math.round((bandStat.collected / bandStat.total) * 100) : 0;
-    const bandCards = collection.cards.filter(c => c.band === state.zukanTab);
+    const bandWords = wordsData.words?.filter(w => w.band === state.zukanTab) || [];
 
     let cardsHtml = '';
-    if (bandCards.length === 0) {
-      cardsHtml = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 30px 16px;">この段のカードはまだ持っていません。<br>対戦後のカードパックで手に入れよう！</div>`;
+    if (bandWords.length === 0) {
+      cardsHtml = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 30px 16px;">この段で正解した単語はまだありません。<br>対戦で正解して単語を覚えよう！</div>`;
     } else {
-      const itemsHtml = bandCards.map(c => {
-        const rInfo = rarityInfo(c.rarity);
-        return `
-          <div class="zukan-card-item rarity-${c.rarity}">
-            <div class="zukan-item-en">${escapeHtml(c.en)}</div>
-            <div class="zukan-item-ja">${escapeHtml(c.ja)}</div>
-            <div class="zukan-item-footer">
-              <span style="font-weight: 800; color: ${rInfo.color};">${rInfo.code}</span>
-              ${c.count > 1 ? `<span style="font-weight: 700; color: var(--text-muted);">×${c.count}</span>` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
+      const itemsHtml = bandWords.map(w => `
+        <div class="zukan-card-item" style="border-left: 4px solid var(--primary); padding: 10px 12px; margin-bottom: 8px;">
+          <div class="zukan-item-en" style="font-size: 17px; font-weight: 800;">${escapeHtml(w.en)}</div>
+          <div class="zukan-item-ja" style="font-size: 14px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(w.ja)}</div>
+        </div>
+      `).join('');
 
-      cardsHtml = `<div class="zukan-grid">${itemsHtml}</div>`;
+      cardsHtml = `<div style="display:flex; flex-direction:column; gap:8px;">${itemsHtml}</div>`;
     }
 
     const uncollectedCount = Math.max(0, bandStat.total - bandStat.collected);
@@ -1098,7 +1230,7 @@ async function renderZukan() {
     contentEl.innerHTML = `
       <div class="zukan-progress-card">
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px;">
-          <span>段${state.zukanTab} 収集率</span>
+          <span>段${state.zukanTab} 覚えた数</span>
           <span>${bandStat.collected} / ${bandStat.total} 語 (${percent}%)</span>
         </div>
         <div class="evolution-bar-bg">
@@ -1109,17 +1241,12 @@ async function renderZukan() {
       ${cardsHtml}
 
       ${uncollectedCount > 0 ? `
-        <div class="card" style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 12px;">
-          ？ 残り ${uncollectedCount} 語が未発見
+        <div class="card" style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 12px; margin-top: 12px;">
+          ？ あと ${uncollectedCount} 語が未マスター
         </div>
       ` : ''}
 
-      <div class="zukan-prob-card">
-        <div style="font-weight: 800; color: var(--text); margin-bottom: 4px;">🎴 カードパック出現確率</div>
-        <div>・通常: N 70% / R 22% / SR 7% / UR 1%</div>
-        <div>・全問正解時: SR 88% / UR 12%（SR以上確定！）</div>
-        <div style="margin-top: 6px; font-size: 12px;">※カードは1日3回まで対戦後に引くことができます。</div>
-      </div>
+      <div class="notice-line" style="margin-top: 16px;">対戦で正解した単語がここに記録されます</div>
     `;
   } catch (err) {
     const contentEl = document.getElementById('zukan-content');
@@ -1506,28 +1633,35 @@ async function loadRankingData() {
   container.innerHTML = '読み込み中...';
 
   try {
-    let rows = [];
-    if (state.rankingTab === 'learn') {
-      rows = await getRankingLearn(state.player.tier);
-    } else {
-      rows = await getRankingCommit();
-    }
+    const [rows, publicLooks] = await Promise.all([
+      state.rankingTab === 'learn' ? getRankingLearn(state.player.tier) : getRankingCommit(),
+      getPublicLooks().catch(() => [])
+    ]);
 
     if (rows.length === 0) {
       container.innerHTML = '<div class="card" style="text-align: center;">まだランキングデータがありません</div>';
       return;
     }
 
+    const looksMap = Object.fromEntries((publicLooks || []).map(p => [p.nickname, p.looks]));
+
     const itemsHtml = rows.map(r => {
       const myRow = isMyRow(r, state.player.nickname);
       const rankText = formatRank(r.rank);
       const pts = state.rankingTab === 'learn' ? r.learn_points : r.commit_points;
       const tierText = tierToLabel(r.tier);
+      const look = looksMap[r.nickname] || null;
+      const miacisAvatarHtml = renderMiacis(look, 36);
+      const titleName = look?.title?.name ? escapeHtml(look.title.name) : '';
 
       return `
         <div class="ranking-item ${myRow ? 'is-me' : ''}">
           <div class="rank-col">${rankText}</div>
-          <div class="nick-col">${escapeHtml(r.nickname)}</div>
+          <div class="ranking-avatar-col">${miacisAvatarHtml}</div>
+          <div class="nick-col">
+            <div style="font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.nickname)}</div>
+            ${titleName ? `<div class="ranking-title-badge">👑 ${titleName}</div>` : ''}
+          </div>
           <div class="tier-col">${tierText}</div>
           <div class="pts-col">${pts}点</div>
         </div>
@@ -1571,11 +1705,57 @@ async function renderMe() {
   });
 
   try {
-    const weeklyResults = await getMyWeeklyResults();
-    const writings = await getMyWritings();
+    const [weeklyResults, writings, tickets] = await Promise.all([
+      getMyWeeklyResults().catch(() => []),
+      getMyWritings().catch(() => []),
+      getMyTickets().catch(() => [])
+    ]);
 
     const container = document.getElementById('me-container');
     if (!container) return;
+
+    // 館の景品 引換券
+    const unusedTickets = tickets.filter(t => !t.redeemed_at);
+    const usedTickets = tickets.filter(t => !!t.redeemed_at);
+
+    let unusedTicketsHtml = '<div style="color: var(--text-muted); font-size: 14px;">未使用の引換券はありません</div>';
+    if (unusedTickets.length > 0) {
+      unusedTicketsHtml = unusedTickets.map(t => {
+        const shortId = t.id ? t.id.slice(-8) : '';
+        const wonDate = t.won_at ? new Date(t.won_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '';
+        return `
+          <div class="card prize-ticket-card" style="border: 2px solid var(--primary); background: rgba(242, 194, 0, 0.08); margin-bottom: 12px; padding: 14px 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6px;">
+              <div style="font-size: 18px; font-weight: 800; color: var(--primary);">🎁 ${escapeHtml(t.prize_name)}</div>
+              <span style="background: var(--primary); color: #000; font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未使用</span>
+            </div>
+            ${t.prize_description ? `<div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${escapeHtml(t.prize_description)}</div>` : ''}
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">当選日時: ${wonDate}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">引換券番号: <code style="font-family: monospace; font-size: 14px; font-weight: 700; color: #fff;">...${escapeHtml(shortId)}</code></div>
+            <div class="alert alert-info" style="margin-bottom: 0; font-weight: 700; font-size: 13px; text-align: center;">
+              🏛️ Miacis の館内でスタッフに見せてね
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let usedTicketsHtml = '';
+    if (usedTickets.length > 0) {
+      usedTicketsHtml = usedTickets.map(t => {
+        const shortId = t.id ? t.id.slice(-8) : '';
+        const redeemedDate = t.redeemed_at ? new Date(t.redeemed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '';
+        return `
+          <div class="card" style="opacity: 0.7; padding: 12px 16px; margin-bottom: 8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+              <div style="font-size: 15px; font-weight: 700; text-decoration: line-through;">🎁 ${escapeHtml(t.prize_name)}</div>
+              <span style="font-size: 12px; color: var(--text-muted);">引換済み</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted);">引換日時: ${redeemedDate} (券番号: ...${escapeHtml(shortId)})</div>
+          </div>
+        `;
+      }).join('');
+    }
 
     let weeklyHtml = '<div style="color: var(--text-muted); font-size: 14px;">過去の週次記録はありません</div>';
     if (weeklyResults.length > 0) {
@@ -1609,6 +1789,19 @@ async function renderMe() {
     }
 
     container.innerHTML = `
+      <div class="card-title">館の景品 引換券</div>
+      <div style="margin-bottom: 24px;">
+        ${unusedTicketsHtml}
+        ${usedTickets.length > 0 ? `
+          <details style="margin-top: 12px;">
+            <summary style="cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 4px 0;">引き換え済みの券を見る (${usedTickets.length}件)</summary>
+            <div style="margin-top: 8px;">
+              ${usedTicketsHtml}
+            </div>
+          </details>
+        ` : ''}
+      </div>
+
       <div class="card-title">週ごとの記録</div>
       <div style="margin-bottom: 24px;">
         ${weeklyHtml}
@@ -1653,6 +1846,14 @@ async function renderStaff() {
         <button class="btn-logout" id="btn-back-home">戻る</button>
       </div>
     </header>
+
+    <div class="tab-bar">
+      <button class="tab-btn ${state.staffTab === 'tickets' ? 'active' : ''}" data-tab="tickets">引換券</button>
+      <button class="tab-btn ${state.staffTab === 'prizes' ? 'active' : ''}" data-tab="prizes">景品</button>
+      <button class="tab-btn ${state.staffTab === 'contents' ? 'active' : ''}" data-tab="contents">英語</button>
+      <button class="tab-btn ${state.staffTab === 'writings' ? 'active' : ''}" data-tab="writings">一言</button>
+    </div>
+
     <div id="staff-container">読み込み中...</div>
   `;
 
@@ -1665,93 +1866,252 @@ async function renderStaff() {
     window.location.hash = '#/home';
   });
 
+  appEl.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.staffTab = btn.dataset.tab;
+      renderStaff();
+    });
+  });
+
+  const container = document.getElementById('staff-container');
+  if (!container) return;
+
   try {
-    const unapproved = await getUnapprovedContents();
-    const writings = await getRecentWritings();
+    if (state.staffTab === 'tickets') {
+      const tickets = await staffListTickets(false);
+      const openTickets = tickets.filter(t => !t.redeemed_at);
+      const doneTickets = tickets.filter(t => !!t.redeemed_at);
 
-    const container = document.getElementById('staff-container');
-    if (!container) return;
-
-    // 未承認コンテンツ
-    let unapprovedHtml = '<div style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">未承認の今週の英語はありません</div>';
-    if (unapproved.length > 0) {
-      unapprovedHtml = unapproved.map(item => `
-        <div class="card">
-          <div style="font-weight: 700; font-size: 17px; margin-bottom: 6px;">${escapeHtml(item.title)}</div>
-          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; word-break: break-all;">
-            URL: <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>
-          </div>
-          <button class="btn-primary btn-approve" data-id="${item.id}" style="min-height: 48px;">公開する</button>
-        </div>
-      `).join('');
-    }
-
-    // 生徒の一言
-    const stamps = ['👍', '✨', '😂', '🔥', '👀'];
-    let writingsHtml = '<div style="color: var(--text-muted); font-size: 14px;">投稿された一言はありません</div>';
-    if (writings.length > 0) {
-      writingsHtml = writings.map(w => {
-        const stampBtns = stamps.map(s => `
-          <button class="stamp-btn" data-id="${w.id}" data-stamp="${s}">${s}</button>
-        `).join('');
-
-        const currentStamp = w.stamp ? `現在: ${escapeHtml(w.stamp)}` : '未スタンプ';
-
-        return `
-          <div class="card" style="margin-bottom: 12px;">
-            <div style="font-size: 16px; margin-bottom: 6px;">${escapeHtml(w.text)}</div>
-            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${currentStamp}</div>
-            <div class="stamp-row">
-              ${stampBtns}
+      let openTicketsHtml = '<div style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">未引換の引換券はありません 🎉</div>';
+      if (openTickets.length > 0) {
+        openTicketsHtml = openTickets.map(t => {
+          const shortId = t.id ? t.id.slice(-8) : '';
+          const wonDate = t.won_at ? new Date(t.won_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '';
+          return `
+            <div class="card" style="border: 2px solid var(--primary); margin-bottom: 12px; padding: 14px 16px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <div style="font-size: 17px; font-weight: 800; color: var(--primary);">🎁 ${escapeHtml(t.prize_name)}</div>
+                  <div style="font-size: 15px; font-weight: 700; margin-top: 2px;">プレイヤー: <strong>${escapeHtml(t.nickname)}</strong> さん</div>
+                </div>
+                <span style="background: var(--primary); color: #000; font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未引換</span>
+              </div>
+              ${t.prize_description ? `<div style="font-size: 13px; color: var(--text-muted); margin: 6px 0;">${escapeHtml(t.prize_description)}</div>` : ''}
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">当選: ${wonDate} / 券番号: <code>...${escapeHtml(shortId)}</code></div>
+              <button class="btn-primary btn-redeem-ticket" data-id="${t.id}" data-nick="${escapeHtml(t.nickname)}" data-prize="${escapeHtml(t.prize_name)}" style="min-height: 48px; font-size: 16px; margin-top: 10px; width: 100%;">
+                景品を渡した（引換完了にする）
+              </button>
             </div>
+          `;
+        }).join('');
+      }
+
+      let doneTicketsHtml = '';
+      if (doneTickets.length > 0) {
+        doneTicketsHtml = doneTickets.map(t => {
+          const shortId = t.id ? t.id.slice(-8) : '';
+          const redeemedDate = t.redeemed_at ? new Date(t.redeemed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '';
+          return `
+            <div class="card" style="opacity: 0.7; padding: 12px 14px; margin-bottom: 8px;">
+              <div style="font-size: 14px; font-weight: 700;">🎁 ${escapeHtml(t.prize_name)} - ${escapeHtml(t.nickname)} さん</div>
+              <div style="font-size: 11px; color: var(--text-muted);">引換日時: ${redeemedDate} (券番号: ...${escapeHtml(shortId)})</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      container.innerHTML = `
+        <div class="card-title">未引換のチケット一覧 (${openTickets.length}件)</div>
+        <div style="margin-bottom: 20px;">
+          ${openTicketsHtml}
+        </div>
+
+        ${doneTickets.length > 0 ? `
+          <details style="margin-bottom: 20px;">
+            <summary style="cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 6px 0;">引換済みのチケット一覧 (${doneTickets.length}件)</summary>
+            <div style="margin-top: 10px;">
+              ${doneTicketsHtml}
+            </div>
+          </details>
+        ` : ''}
+
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      `;
+
+      container.querySelectorAll('.btn-redeem-ticket').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const nick = btn.dataset.nick;
+          const prize = btn.dataset.prize;
+          if (!confirm(`${nick} さんに「${prize}」を渡しましたか？\n引換済みにします。`)) return;
+
+          btn.disabled = true;
+          btn.textContent = '処理中...';
+          try {
+            await staffRedeemTicket(btn.dataset.id);
+            alert('引換を完了しました！');
+            renderStaff();
+          } catch (err) {
+            alert(err.message);
+            btn.disabled = false;
+            btn.textContent = '景品を渡した（引換完了にする）';
+          }
+        });
+      });
+
+    } else if (state.staffTab === 'prizes') {
+      const rates = await getGachaRates();
+      const prizeList = rates.prizes || [];
+
+      let prizesHtml = '<div style="color: var(--text-muted); font-size: 14px;">登録されている景品はありません</div>';
+      if (prizeList.length > 0) {
+        prizesHtml = prizeList.map(p => `
+          <div class="card" style="padding: 12px 14px; margin-bottom: 8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size: 16px; font-weight: 700;">🎁 ${escapeHtml(p.name)}</div>
+              <div style="font-size: 16px; font-weight: 800; color: var(--primary);">在庫: ${p.stock} 個</div>
+            </div>
+            ${p.description ? `<div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(p.description)}</div>` : ''}
           </div>
-        `;
-      }).join('');
+        `).join('');
+      }
+
+      container.innerHTML = `
+        <div class="card">
+          <div class="card-title">景品を新しく追加・補充</div>
+          <form id="prize-upsert-form">
+            <div class="form-group">
+              <label class="form-label" for="prize-name">景品名</label>
+              <input class="form-input" id="prize-name" type="text" placeholder="例: ミアキス特製ステッカー" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="prize-desc">説明（任意）</label>
+              <input class="form-input" id="prize-desc" type="text" placeholder="例: ホログラム仕様の限定ステッカー">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="prize-stock">在庫数</label>
+              <input class="form-input" id="prize-stock" type="number" min="0" value="10" required>
+            </div>
+            <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="prize-active" checked style="width:20px; height:20px;">
+              <label for="prize-active" style="font-size:15px; font-weight:700;">ガチャから排出する（有効）</label>
+            </div>
+            <button type="submit" class="btn-primary" id="btn-save-prize" style="margin-top: 10px;">景品を登録する</button>
+          </form>
+        </div>
+
+        <div class="card-title">現在のガチャ排出景品一覧</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">現在の景品排出確率: ${(rates.prize_rate * 100).toFixed(1)}%</div>
+        <div style="margin-bottom: 20px;">
+          ${prizesHtml}
+        </div>
+
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      `;
+
+      document.getElementById('prize-upsert-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('prize-name').value.trim();
+        const desc = document.getElementById('prize-desc').value.trim();
+        const stock = parseInt(document.getElementById('prize-stock').value, 10);
+        const active = document.getElementById('prize-active').checked;
+
+        const saveBtn = document.getElementById('btn-save-prize');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+
+        try {
+          await staffUpsertPrize(null, name, desc, stock, active);
+          alert('景品を保存しました！');
+          renderStaff();
+        } catch (err) {
+          alert(err.message);
+          saveBtn.disabled = false;
+          saveBtn.textContent = '景品を登録する';
+        }
+      });
+
+    } else if (state.staffTab === 'contents') {
+      const unapproved = await getUnapprovedContents();
+      let unapprovedHtml = '<div style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">未承認の今週の英語はありません</div>';
+      if (unapproved.length > 0) {
+        unapprovedHtml = unapproved.map(item => `
+          <div class="card">
+            <div style="font-weight: 700; font-size: 17px; margin-bottom: 6px;">${escapeHtml(item.title)}</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; word-break: break-all;">
+              URL: <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>
+            </div>
+            <button class="btn-primary btn-approve" data-id="${item.id}" style="min-height: 48px;">公開する</button>
+          </div>
+        `).join('');
+      }
+
+      container.innerHTML = `
+        <div class="card-title">未承認の今週の英語</div>
+        <div style="margin-bottom: 24px;">
+          ${unapprovedHtml}
+        </div>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      `;
+
+      container.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          btn.textContent = '承認中...';
+          try {
+            await approveContent(btn.dataset.id);
+            renderStaff();
+          } catch (err) {
+            alert(err.message);
+            btn.disabled = false;
+            btn.textContent = '公開する';
+          }
+        });
+      });
+
+    } else if (state.staffTab === 'writings') {
+      const writings = await getRecentWritings();
+      const stamps = ['👍', '✨', '😂', '🔥', '👀'];
+      let writingsHtml = '<div style="color: var(--text-muted); font-size: 14px;">投稿された一言はありません</div>';
+      if (writings.length > 0) {
+        writingsHtml = writings.map(w => {
+          const stampBtns = stamps.map(s => `
+            <button class="stamp-btn" data-id="${w.id}" data-stamp="${s}">${s}</button>
+          `).join('');
+
+          const currentStamp = w.stamp ? `現在: ${escapeHtml(w.stamp)}` : '未スタンプ';
+
+          return `
+            <div class="card" style="margin-bottom: 12px;">
+              <div style="font-size: 16px; margin-bottom: 6px;">${escapeHtml(w.text)}</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${currentStamp}</div>
+              <div class="stamp-row">
+                ${stampBtns}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      container.innerHTML = `
+        <div class="card-title">今週の一言一覧（スタンプを押す）</div>
+        <div style="margin-bottom: 24px;">
+          ${writingsHtml}
+        </div>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      `;
+
+      container.querySelectorAll('.stamp-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await stampWriting(btn.dataset.id, btn.dataset.stamp);
+            renderStaff();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      });
     }
-
-    container.innerHTML = `
-      <div class="card-title">未承認の今週の英語</div>
-      <div style="margin-bottom: 24px;">
-        ${unapprovedHtml}
-      </div>
-
-      <div class="card-title">今週の一言一覧（スタンプを押す）</div>
-      <div style="margin-bottom: 24px;">
-        ${writingsHtml}
-      </div>
-
-      <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
-    `;
-
-    // 承認イベント
-    container.querySelectorAll('.btn-approve').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        btn.textContent = '承認中...';
-        try {
-          await approveContent(btn.dataset.id);
-          renderStaff();
-        } catch (err) {
-          alert(err.message);
-          btn.disabled = false;
-          btn.textContent = '公開する';
-        }
-      });
-    });
-
-    // スタンプイベント
-    container.querySelectorAll('.stamp-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try {
-          await stampWriting(btn.dataset.id, btn.dataset.stamp);
-          renderStaff();
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-    });
   } catch (err) {
-    const container = document.getElementById('staff-container');
     if (container) {
       container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
     }

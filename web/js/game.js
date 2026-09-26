@@ -188,6 +188,24 @@ export function playSfx(type, options = {}) {
         playTone(1046.5, 0.8, 'sine', notes.length * 0.08, 0.25);
         break;
       }
+
+      case 'prizeWin': {
+        // 景品当選！特別な華やかファンファーレ
+        const prizeNotes = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0];
+        prizeNotes.forEach((freq, idx) => {
+          playTone(freq, 0.12 + (idx === prizeNotes.length - 1 ? 0.8 : 0), 'triangle', idx * 0.07, 0.18);
+        });
+        playTone(1046.5, 0.9, 'sine', 0.45, 0.22);
+        playTone(2093.0, 1.0, 'sine', 0.5, 0.25);
+        break;
+      }
+
+      case 'nutGet': {
+        // 木の実獲得（かわいい鈴・コイン風）
+        playTone(880.0, 0.08, 'sine', 0, 0.12);
+        playTone(1318.51, 0.18, 'sine', 0.06, 0.15);
+        break;
+      }
     }
   } catch {
     // オーディオエラーは安全に無視

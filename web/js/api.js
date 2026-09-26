@@ -469,3 +469,208 @@ export async function getWordsByIds(ids) {
   return escapeDeep(data || []);
 }
 
+/**
+ * 対戦の木の実獲得 (claim_match_nuts)
+ */
+export async function claimMatchNuts(matchId) {
+  checkClient();
+  const { data, error } = await supabase.rpc('claim_match_nuts', {
+    p_match_id: matchId
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 毎日の木の実獲得 (claim_daily_nuts)
+ */
+export async function claimDailyNuts() {
+  checkClient();
+  const { data, error } = await supabase.rpc('claim_daily_nuts');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 木の実の残高と上限 (my_nuts)
+ */
+export async function getMyNuts() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_nuts');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * アイテムカタログ一覧 (items)
+ */
+export async function getItems() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('active', true)
+    .order('rarity', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/**
+ * 自分が所持しているアイテム一覧 (player_items)
+ */
+export async function getMyItems() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('player_items')
+    .select('*');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/**
+ * 自分の現在の装備 (player_looks)
+ */
+export async function getMyLooks() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('player_looks')
+    .select('*')
+    .maybeSingle();
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * アイテムの装備/解除 (equip_item)
+ */
+export async function equipItem(slot, itemId) {
+  checkClient();
+  const { data, error } = await supabase.rpc('equip_item', {
+    p_slot: slot,
+    p_item_id: itemId
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 全プレイヤーの公開見た目一覧 (public_looks)
+ */
+export async function getPublicLooks() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('public_looks')
+    .select('*');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/**
+ * ガチャを引く (pull_gacha)
+ */
+export async function pullGacha(count) {
+  checkClient();
+  const { data, error } = await supabase.rpc('pull_gacha', {
+    p_count: count
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * かけら残高を取得 (player_shards)
+ */
+export async function getMyShards() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('player_shards')
+    .select('amount')
+    .maybeSingle();
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data ? data.amount : 0);
+}
+
+/**
+ * かけらでアイテム交換 (exchange_item)
+ */
+export async function exchangeItem(itemId) {
+  checkClient();
+  const { data, error } = await supabase.rpc('exchange_item', {
+    p_item_id: itemId
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * ガチャの確率と景品在庫 (gacha_rates)
+ */
+export async function getGachaRates() {
+  checkClient();
+  const { data, error } = await supabase.rpc('gacha_rates');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 覚えた単語一覧 (my_words)
+ */
+export async function getMyWords() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_words');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * 自分の引換券一覧 (my_tickets)
+ */
+export async function getMyTickets() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_tickets');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/**
+ * スタッフ用: 景品の作成・更新 (staff_upsert_prize)
+ */
+export async function staffUpsertPrize(id, name, description, stock, active) {
+  checkClient();
+  const { data, error } = await supabase.rpc('staff_upsert_prize', {
+    p_id: id || null,
+    p_name: name,
+    p_description: description,
+    p_stock: stock,
+    p_active: active
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/**
+ * スタッフ用: 引換券一覧 (staff_list_tickets)
+ */
+export async function staffListTickets(onlyOpen = false) {
+  checkClient();
+  const { data, error } = await supabase.rpc('staff_list_tickets', {
+    p_only_open: onlyOpen
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/**
+ * スタッフ用: 引換券の引き換え (staff_redeem_ticket)
+ */
+export async function staffRedeemTicket(ticketId) {
+  checkClient();
+  const { data, error } = await supabase.rpc('staff_redeem_ticket', {
+    p_ticket_id: ticketId
+  });
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+

@@ -335,6 +335,33 @@ export function translateError(error) {
   if (msg.includes('match_not_finished')) {
     return '対戦がまだ完了していません';
   }
+  if (msg.includes('not_enough_nuts')) {
+    return '木の実が足りません';
+  }
+  if (msg.includes('not_enough_shards')) {
+    return 'かけらが足りません';
+  }
+  if (msg.includes('invalid_pull_count')) {
+    return 'ガチャは1回か10連で引いてください';
+  }
+  if (msg.includes('already_claimed')) {
+    return 'すでに獲得済みです';
+  }
+  if (msg.includes('item_not_owned')) {
+    return 'そのアイテムを持っていません';
+  }
+  if (msg.includes('slot_mismatch')) {
+    return 'そのスロットには装備できません';
+  }
+  if (msg.includes('invalid_slot')) {
+    return '無効なスロットです';
+  }
+  if (msg.includes('already_redeemed')) {
+    return 'この引換券はすでに引き換え済みです';
+  }
+  if (msg.includes('ticket_not_found')) {
+    return '引換券が見つかりません';
+  }
 
   return 'エラーが発生しました。もう一度試してみてね';
 }
@@ -531,4 +558,97 @@ export function getStageName(stage, route) {
       return 'ちびミアキス';
   }
 }
+
+/**
+ * 木の実の残高からガチャ実行可能状態を判定・整形する
+ *
+ * @param {number} balance
+ * @returns {{ balance: number, canPull1: boolean, canPull10: boolean, label: string }}
+ */
+export function calcNutsDisplay(balance) {
+  const b = Math.max(0, parseInt(balance, 10) || 0);
+  return {
+    balance: b,
+    canPull1: b >= 15,
+    canPull10: b >= 150,
+    label: `${b} 🌰`
+  };
+}
+
+/**
+ * 木の実の今日の残り獲得上限を計算する
+ *
+ * @param {number} dailyCap
+ * @param {number} todayEarned
+ * @returns {number}
+ */
+export function calcRemainingCap(dailyCap, todayEarned) {
+  const cap = Math.max(0, parseInt(dailyCap, 10) || 300);
+  const earned = Math.max(0, parseInt(todayEarned, 10) || 0);
+  return Math.max(0, cap - earned);
+}
+
+/**
+ * ガチャ確率情報を画面表示用に整形する
+ *
+ * @param {{ prize_rate?: number, prizes?: Array<{name: string, stock: number}>, item_rates?: Record<string, number> }} rates
+ * @returns {{ prizeRatePercent: string, prizes: Array<{name: string, stock: number}>, itemRates: Array<{code: string, percent: string}> }}
+ */
+export function formatGachaRates(rates) {
+  const r = rates || {};
+  const pRate = typeof r.prize_rate === 'number' ? r.prize_rate : parseFloat(r.prize_rate) || 0.01;
+  const prizeRatePercent = `${(pRate * 100).toFixed(1).replace(/\.0$/, '')}%`;
+
+  const prizes = Array.isArray(r.prizes) ? r.prizes.map(p => ({
+    name: String(p.name || ''),
+    stock: parseInt(p.stock, 10) || 0
+  })) : [];
+
+  const defaultRates = { N: 0.70, R: 0.22, SR: 0.07, UR: 0.01 };
+  const rawItemRates = r.item_rates || defaultRates;
+  const itemRates = [
+    { code: 'UR', percent: `${((rawItemRates.UR ?? 0.01) * 100).toFixed(1).replace(/\.0$/, '')}%` },
+    { code: 'SR', percent: `${((rawItemRates.SR ?? 0.07) * 100).toFixed(1).replace(/\.0$/, '')}%` },
+    { code: 'R', percent: `${((rawItemRates.R ?? 0.22) * 100).toFixed(1).replace(/\.0$/, '')}%` },
+    { code: 'N', percent: `${((rawItemRates.N ?? 0.70) * 100).toFixed(1).replace(/\.0$/, '')}%` }
+  ];
+
+  return {
+    prizeRatePercent,
+    prizes,
+    itemRates
+  };
+}
+
+/**
+ * 10連ガチャでSR以上が最低1つ保証されているか判定する
+ *
+ * @param {number} pullCount
+ * @param {Array<{rarity?: number, kind?: string}>} results
+ * @returns {boolean}
+ */
+export function checkGuaranteedSr(pullCount, results) {
+  if (pullCount !== 10) return true;
+  if (!Array.isArray(results) || results.length !== 10) return false;
+  return results.some(item => (parseInt(item.rarity, 10) >= 3) || item.kind === 'prize');
+}
+
+/**
+ * かけら交換に必要なコストをレア度から計算する
+ * N 10 / R 30 / SR 100 / UR 300
+ *
+ * @param {number} rarity
+ * @returns {number}
+ */
+export function itemExchangeCost(rarity) {
+  const r = parseInt(rarity, 10);
+  switch (r) {
+    case 1: return 10;
+    case 2: return 30;
+    case 3: return 100;
+    case 4: return 300;
+    default: return 10;
+  }
+}
+
 

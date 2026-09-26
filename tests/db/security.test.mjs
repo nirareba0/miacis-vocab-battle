@@ -19,6 +19,8 @@ const INTERNAL_FUNCTIONS = [
   "public.advance_grades()",
   "public.purge_graduates()",
   "public.purge_inactive()",
+  "public.add_nuts(uuid, int, text, text)",
+  "public.setting_num(text, numeric)",
 ];
 
 // 端末から書けてはいけないテーブル
@@ -26,6 +28,8 @@ const TABLES = [
   'players', 'staff', 'words', 'matches', 'points', 'contents',
   'content_opens', 'content_quiz_answers', 'writings', 'weekly_results',
   'app_settings', 'card_draws', 'card_collection',
+  'nut_ledger', 'items', 'player_items', 'player_looks', 'player_shards',
+  'prizes', 'prize_tickets',
 ];
 
 test('内部の関数は anon からも authenticated からも実行できない', async () => {

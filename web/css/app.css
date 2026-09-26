@@ -1056,9 +1056,27 @@ button:active {
 }
 
 .rank-col {
-  width: 70px;
+  width: 50px;
   font-size: 16px;
   font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ranking-avatar-col {
+  width: 36px;
+  height: 36px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ranking-title-badge {
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .nick-col {
@@ -1067,6 +1085,7 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .tier-col {
@@ -1074,14 +1093,16 @@ button:active {
   font-size: 14px;
   color: var(--text-muted);
   text-align: center;
+  flex-shrink: 0;
 }
 
 .pts-col {
-  width: 70px;
+  width: 65px;
   text-align: right;
   font-size: 17px;
   font-weight: 800;
   color: var(--miacis-yellow);
+  flex-shrink: 0;
 }
 
 /* クイズ / 一言 */
@@ -1188,3 +1209,352 @@ button:active {
   color: var(--text-muted);
   line-height: 1.5;
 }
+
+/* ==========================================
+   着せ替え・ミアキス描画スタイル
+   ========================================== */
+.miacis-avatar-box {
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.miacis-pedestal {
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.miacis-aura {
+  transition: filter 0.3s ease;
+}
+
+.miacis-aura-rainbow {
+  animation: miacis-rainbow-glow 4s linear infinite;
+}
+
+@keyframes miacis-rainbow-glow {
+  0% { filter: drop-shadow(0 0 16px #ff0077) drop-shadow(0 0 8px #ff7700); }
+  25% { filter: drop-shadow(0 0 16px #ffdd00) drop-shadow(0 0 8px #00ff77); }
+  50% { filter: drop-shadow(0 0 16px #00ffff) drop-shadow(0 0 8px #0077ff); }
+  75% { filter: drop-shadow(0 0 16px #aa00ff) drop-shadow(0 0 8px #ff00aa); }
+  100% { filter: drop-shadow(0 0 16px #ff0077) drop-shadow(0 0 8px #ff7700); }
+}
+
+.user-title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(242, 194, 0, 0.15);
+  border: 1px solid rgba(242, 194, 0, 0.4);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  margin-bottom: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 木の実残高・バッジ */
+.nuts-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(242, 194, 0, 0.18);
+  border: 1px solid var(--primary);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 9999px;
+}
+
+/* 10連できる！光るボタン */
+.btn-gacha-10.ready {
+  position: relative;
+  background: linear-gradient(135deg, #F2C200 0%, #ffdb4d 100%);
+  color: #111111;
+  font-weight: 800;
+  border: 2px solid #ffffff;
+  animation: pulse-gold 2s infinite ease-in-out;
+}
+
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(242, 194, 0, 0.5), 0 0 16px rgba(242, 194, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(242, 194, 0, 0.9), 0 0 28px rgba(255, 219, 77, 0.7);
+    transform: scale(1.02);
+  }
+}
+
+.ready-badge {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  border: 1px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* ==========================================
+   ガチャ演出スタイル
+   ========================================== */
+.gacha-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  width: 100%;
+}
+
+.gacha-card-container {
+  width: 220px;
+  height: 280px;
+  perspective: 1000px;
+  margin: 20px auto;
+  cursor: pointer;
+}
+
+.gacha-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  position: relative;
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-style: preserve-3d;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.gacha-card.flipped {
+  transform: rotateY(180deg);
+}
+
+.gacha-card-front,
+.gacha-card-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.gacha-card-front {
+  background: linear-gradient(135deg, #1c1c1e 0%, #27272a 100%);
+  border: 2px solid #52525b;
+}
+
+.gacha-card-back {
+  transform: rotateY(180deg);
+  background: var(--card-bg);
+  border: 3px solid var(--border);
+}
+
+.gacha-card-back.rarity-1 {
+  border-color: #94a3b8;
+  box-shadow: 0 0 15px rgba(148, 163, 184, 0.3);
+}
+
+.gacha-card-back.rarity-2 {
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+.gacha-card-back.rarity-3 {
+  border-color: #F2C200;
+  box-shadow: 0 0 25px rgba(242, 194, 0, 0.5);
+}
+
+.gacha-card-back.rarity-4,
+.gacha-card-back.is-prize {
+  border-color: #ec4899;
+  animation: rainbow-card-glow 3s linear infinite;
+}
+
+@keyframes rainbow-card-glow {
+  0% { box-shadow: 0 0 20px #ff0077; border-color: #ff0077; }
+  33% { box-shadow: 0 0 20px #00ffaa; border-color: #00ffaa; }
+  66% { box-shadow: 0 0 20px #00aaff; border-color: #00aaff; }
+  100% { box-shadow: 0 0 20px #ff0077; border-color: #ff0077; }
+}
+
+.new-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.shard-badge {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid #3b82f6;
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+
+.gacha-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+@media (min-width: 380px) {
+  .gacha-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.gacha-summary-item {
+  background: var(--card-bg-subtle);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 2px solid var(--border);
+  position: relative;
+}
+
+.gacha-summary-item.rarity-1 { border-color: #94a3b8; }
+.gacha-summary-item.rarity-2 { border-color: #3b82f6; }
+.gacha-summary-item.rarity-3 { border-color: #F2C200; }
+.gacha-summary-item.rarity-4,
+.gacha-summary-item.is-prize { border-color: #ec4899; }
+
+/* 景品引換券表示 */
+.prize-ticket-box {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(242, 194, 0, 0.12));
+  border: 2px dashed #ec4899;
+  border-radius: 16px;
+  padding: 20px 16px;
+  text-align: center;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.ticket-number {
+  font-family: monospace;
+  font-size: 18px;
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 8px;
+}
+
+/* ==========================================
+   クローゼット (着せ替え) スタイル
+   ========================================== */
+.closet-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.closet-tab-btn {
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg-subtle);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.closet-tab-btn.active {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+}
+
+.closet-items-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.closet-item-card {
+  background: var(--card-bg-subtle);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  min-height: 100px;
+}
+
+.closet-item-card.equipped {
+  border-color: var(--primary);
+  background: rgba(242, 194, 0, 0.1);
+}
+
+.equipped-tag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.closet-item-card.unowned {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 減速・アニメーション抑制 */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .miacis-aura-rainbow,
+  .btn-gacha-10.ready,
+  .gacha-card-back.rarity-4,
+  .gacha-card-back.is-prize {
+    animation: none !important;
+  }
+}
+

@@ -1,0 +1,416 @@
+/**
+ * gacha.js - ガチャ画面の描画と演出ハンドリング
+ */
+import {
+  getMyNuts,
+  pullGacha,
+  getGachaRates,
+  getMyShards
+} from './api.js';
+
+import {
+  escapeHtml,
+  calcNutsDisplay,
+  formatGachaRates,
+  rarityInfo
+} from './logic.js';
+
+import {
+  playSfx,
+  triggerConfetti
+} from './game.js';
+
+import { renderMiacis } from './look.js';
+
+/**
+ * ガチャ画面を描画する
+ *
+ * @param {HTMLElement} containerEl - 描画対象コンテナ
+ * @param {object} state - アプリグローバル状態
+ * @param {object} callbacks - 画面遷移・状態更新コールバック
+ */
+export async function renderGachaView(containerEl, state, callbacks = {}) {
+  containerEl.innerHTML = `
+    <header class="app-header">
+      <h1 class="app-title">木の実ガチャ</h1>
+      <button class="btn-logout" id="btn-gacha-back-home">戻る</button>
+    </header>
+    <div id="gacha-main-content">読み込み中...</div>
+  `;
+
+  document.getElementById('btn-gacha-back-home').addEventListener('click', () => {
+    if (callbacks.onGoHome) callbacks.onGoHome();
+    else window.location.hash = '#/home';
+  });
+
+  const mainEl = document.getElementById('gacha-main-content');
+  if (!mainEl) return;
+
+  try {
+    const [nutsData, ratesData, shardsAmount] = await Promise.all([
+      getMyNuts(),
+      getGachaRates(),
+      getMyShards()
+    ]);
+
+    state.nuts = nutsData;
+    state.shards = shardsAmount;
+
+    renderGachaTop(mainEl, state, ratesData, callbacks);
+  } catch (err) {
+    mainEl.innerHTML = `
+      <div class="alert alert-error">${escapeHtml(err.message)}</div>
+      <button class="btn-secondary" id="btn-gacha-err-back" style="margin-top:16px;">ホームへ戻る</button>
+    `;
+    document.getElementById('btn-gacha-err-back')?.addEventListener('click', () => {
+      window.location.hash = '#/home';
+    });
+  }
+}
+
+/**
+ * ガチャトップ画面（ボタン・確率表）
+ */
+function renderGachaTop(mainEl, state, ratesData, callbacks) {
+  const nutsDisp = calcNutsDisplay(state.nuts.balance);
+  const formattedRates = formatGachaRates(ratesData);
+
+  let prizesHtml = '';
+  if (formattedRates.prizes.length > 0) {
+    prizesHtml = formattedRates.prizes.map(p => `
+      <li style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span>🎁 ${escapeHtml(p.name)}</span>
+        <span style="font-weight:700; color:var(--primary);">残り ${p.stock}個</span>
+      </li>
+    `).join('');
+  } else {
+    prizesHtml = '<li style="color:var(--text-muted);">現在、実物の景品は準備中・品切れです（着せ替え・称号のみ排出されます）</li>';
+  }
+
+  const ratesTableHtml = formattedRates.itemRates.map(r => `
+    <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border);">
+      <span style="font-weight:700;">レア度 ${r.code}</span>
+      <span style="color:var(--text-muted);">${r.percent}</span>
+    </div>
+  `).join('');
+
+  mainEl.innerHTML = `
+    <div style="text-align:center; margin: 12px 0 20px 0;">
+      <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
+        <span>🌰 ${state.nuts.balance}</span>
+      </div>
+      <div style="font-size:13px; color:var(--text-muted); margin-top:6px;">
+        今日の獲得: ${state.nuts.today_earned} / ${state.nuts.daily_cap} 🌰 (あと ${state.nuts.remaining_cap} 🌰)
+      </div>
+      <div style="font-size:13px; color:#93c5fd; margin-top:4px;">
+        💎 かけら残高: <strong>${state.shards}</strong> 個
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
+      <!-- 1回ガチャボタン -->
+      <button class="btn-secondary" id="btn-pull-1" style="min-height:60px; font-size:18px; font-weight:700;">
+        1回引く (15🌰)
+      </button>
+
+      <!-- 10連ガチャボタン -->
+      <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
+        ${nutsDisp.canPull10 ? '<span class="ready-badge">10連できる！</span>' : ''}
+        10連引く (150🌰)
+        <div style="font-size:12px; font-weight:normal; margin-top:2px;">✨ SR以上が1つ確定！</div>
+      </button>
+    </div>
+
+    <!-- 確率・景品案内アコーディオン -->
+    <div class="card" style="padding:16px; margin-bottom:16px;">
+      <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+        <span>確率・景品のご案内</span>
+        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品率 ${formattedRates.prizeRatePercent}</span>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">館の実物景品（引換券）:</div>
+        <ul style="list-style:none; font-size:14px; padding-left:4px;">
+          ${prizesHtml}
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">着せ替え・称号のレア度別確率:</div>
+        <div style="font-size:14px;">
+          ${ratesTableHtml}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button class="btn-sub" id="btn-to-closet">着せ替え・かけら交換へ</button>
+      <button class="btn-sub" id="btn-gacha-home">ホームへ戻る</button>
+    </div>
+  `;
+
+  document.getElementById('btn-pull-1').addEventListener('click', () => {
+    executeGacha(mainEl, state, 1, callbacks);
+  });
+
+  document.getElementById('btn-pull-10').addEventListener('click', () => {
+    executeGacha(mainEl, state, 10, callbacks);
+  });
+
+  document.getElementById('btn-to-closet').addEventListener('click', () => {
+    if (callbacks.onGoCloset) callbacks.onGoCloset();
+    else window.location.hash = '#/closet';
+  });
+
+  document.getElementById('btn-gacha-home').addEventListener('click', () => {
+    if (callbacks.onGoHome) callbacks.onGoHome();
+    else window.location.hash = '#/home';
+  });
+}
+
+/**
+ * ガチャ実行と演出処理
+ */
+async function executeGacha(mainEl, state, count, callbacks) {
+  // 残高チェック
+  const cost = count === 1 ? 15 : 150;
+  if (state.nuts.balance < cost) {
+    alert('木の実が足りません！対戦をして木の実を貯めてね');
+    return;
+  }
+
+  mainEl.innerHTML = `
+    <div style="text-align:center; padding:50px 16px;">
+      <div style="font-size:48px; margin-bottom:16px; animation: pulse-gold 1s infinite;">🌰</div>
+      <div style="font-size:20px; font-weight:800;">ガチャを引いています...</div>
+    </div>
+  `;
+
+  try {
+    const result = await pullGacha(count);
+    state.nuts.balance = result.balance;
+    state.shards = result.shards_balance;
+
+    if (callbacks.onUpdateNuts) callbacks.onUpdateNuts(state.nuts.balance);
+
+    // ガチャ演出の開始
+    startGachaRevealSequence(mainEl, state, result.results, count, callbacks);
+  } catch (err) {
+    mainEl.innerHTML = `
+      <div class="alert alert-error">${escapeHtml(err.message)}</div>
+      <button class="btn-secondary" id="btn-gacha-fail-back" style="margin-top:16px;">戻る</button>
+    `;
+    document.getElementById('btn-gacha-fail-back')?.addEventListener('click', () => {
+      renderGachaView(mainEl.parentElement, state, callbacks);
+    });
+  }
+}
+
+/**
+ * ガチャ結果のめくり演出シーケンス
+ */
+function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
+  let currentIndex = 0;
+  let isRevealing = false;
+
+  function showCard(idx) {
+    if (idx >= items.length) {
+      showSummary();
+      return;
+    }
+
+    const item = items[idx];
+    const isPrize = item.kind === 'prize';
+    const rInfo = rarityInfo(item.rarity || 1);
+
+    // 音声と紙吹雪
+    if (isPrize) {
+      playSfx('prizeWin');
+      triggerConfetti();
+    } else {
+      playSfx('cardReveal', { rarity: item.rarity });
+      if (item.rarity >= 3) {
+        triggerConfetti();
+      }
+    }
+
+    let visualHtml = '';
+    if (isPrize) {
+      visualHtml = `
+        <div style="font-size:56px; margin-bottom:8px;">🎁</div>
+        <div style="font-size:14px; font-weight:800; color:#ec4899; margin-bottom:4px;">館の実物景品！</div>
+      `;
+    } else {
+      if (item.slot === 'hat' || item.slot === 'face' || item.slot === 'neck') {
+        const emoji = item.display?.emoji ? escapeHtml(item.display.emoji) : '✨';
+        visualHtml = `<div style="font-size:60px; margin-bottom:8px; line-height:1;">${emoji}</div>`;
+      } else if (item.slot === 'background') {
+        visualHtml = `
+          <div style="width:70px; height:70px; border-radius:50%; background:${item.display?.css || '#1e6b3c'}; margin:0 auto 8px auto; box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>
+        `;
+      } else if (item.slot === 'aura') {
+        const color = item.display?.color || '#ffffff';
+        visualHtml = `
+          <div style="width:60px; height:60px; border-radius:50%; background:#111; border:3px solid ${color}; box-shadow:0 0 16px ${color}; margin:0 auto 8px auto;"></div>
+        `;
+      } else if (item.slot === 'title') {
+        visualHtml = `
+          <div style="font-size:36px; margin-bottom:8px;">👑</div>
+        `;
+      } else {
+        visualHtml = `<div style="font-size:50px; margin-bottom:8px;">✨</div>`;
+      }
+    }
+
+    let badgeHtml = '';
+    if (isPrize) {
+      badgeHtml = `<div class="new-badge" style="background:#ec4899;">館の引換券</div>`;
+    } else if (item.is_new) {
+      badgeHtml = `<div class="new-badge">NEW!</div>`;
+    } else {
+      badgeHtml = `<div class="shard-badge">重複: 💎+${item.shards}</div>`;
+    }
+
+    let ticketInfoHtml = '';
+    if (isPrize && item.ticket_id) {
+      const shortId = item.ticket_id.slice(-8);
+      ticketInfoHtml = `
+        <div class="prize-ticket-box">
+          <div style="font-size:16px; font-weight:900; color:#ec4899;">館内引換券</div>
+          <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Miacis の館内でスタッフに見せてね</div>
+          <div class="ticket-number">No. ${escapeHtml(shortId)}</div>
+        </div>
+      `;
+    }
+
+    mainEl.innerHTML = `
+      <div class="gacha-stage">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-bottom:12px;">
+          <div style="font-size:15px; font-weight:700;">
+            ${count === 10 ? `${idx + 1} / 10 枚目` : '結果'}
+          </div>
+          ${count === 10 ? '<button class="btn-sub" id="btn-skip-gacha" style="min-height:36px; padding:4px 12px; font-size:13px;">まとめて見る ⏩</button>' : ''}
+        </div>
+
+        <div class="gacha-card-container" id="gacha-card-wrap">
+          <div class="gacha-card flipped">
+            <div class="gacha-card-front">
+              <div style="font-size:40px;">🌰</div>
+              <div style="font-weight:700; margin-top:10px;">タップで開く</div>
+            </div>
+            <div class="gacha-card-back rarity-${item.rarity} ${isPrize ? 'is-prize' : ''}">
+              ${badgeHtml}
+              ${visualHtml}
+              <div style="font-size:17px; font-weight:800; margin-bottom:4px;">${escapeHtml(item.name)}</div>
+              <div style="font-size:13px; color:${rInfo.color}; font-weight:700;">${rInfo.label}</div>
+            </div>
+          </div>
+        </div>
+
+        ${ticketInfoHtml}
+
+        <div style="width:100%; margin-top:16px;">
+          <button class="btn-primary" id="btn-next-card" style="font-size:18px;">
+            ${idx + 1 < items.length ? '次のアイテムへ ➡️' : '結果を見る ✨'}
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-next-card').addEventListener('click', () => {
+      currentIndex++;
+      showCard(currentIndex);
+    });
+
+    const skipBtn = document.getElementById('btn-skip-gacha');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => {
+        showSummary();
+      });
+    }
+  }
+
+  function showSummary() {
+    let gainedShards = 0;
+    let prizeCount = 0;
+    const itemsHtml = items.map(item => {
+      const isPrize = item.kind === 'prize';
+      if (isPrize) prizeCount++;
+      if (item.shards) gainedShards += item.shards;
+      const rInfo = rarityInfo(item.rarity || 1);
+
+      let itemIcon = '✨';
+      if (isPrize) {
+        itemIcon = '🎁';
+      } else if (item.display?.emoji) {
+        itemIcon = escapeHtml(item.display.emoji);
+      } else if (item.slot === 'background') {
+        itemIcon = '🌄';
+      } else if (item.slot === 'aura') {
+        itemIcon = '🌟';
+      } else if (item.slot === 'title') {
+        itemIcon = '👑';
+      }
+
+      return `
+        <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''}">
+          <div style="font-size:32px; margin-bottom:4px;">${itemIcon}</div>
+          <div style="font-size:14px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
+          <div style="font-size:11px; color:${rInfo.color}; font-weight:700;">${isPrize ? '景品' : rInfo.code}</div>
+          <div style="margin-top:4px;">
+            ${isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:#93c5fd;">💎+${item.shards}</span>`)}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    let prizeAlertHtml = '';
+    if (prizeCount > 0) {
+      prizeAlertHtml = `
+        <div class="prize-ticket-box" style="margin-bottom:16px;">
+          <div style="font-size:18px; font-weight:900; color:#ec4899;">🎉 館の景品が ${prizeCount} 件当選しました！</div>
+          <div style="font-size:14px; margin-top:6px;">「自分の記録」の引換券一覧からスタッフに見せて交換してね</div>
+        </div>
+      `;
+    }
+
+    mainEl.innerHTML = `
+      <div style="text-align:center; padding:10px 0 20px 0;">
+        <h2 style="font-size:22px; font-weight:900; margin-bottom:6px;">ガチャ結果</h2>
+        <div style="font-size:14px; color:var(--text-muted);">
+          残高: <strong>${state.nuts.balance} 🌰</strong> / 獲得かけら: <strong>💎 +${gainedShards}</strong>
+        </div>
+      </div>
+
+      ${prizeAlertHtml}
+
+      <div class="gacha-grid">
+        ${itemsHtml}
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:24px;">
+        <button class="btn-primary" id="btn-pull-again" style="font-size:18px;">
+          もう一度引く (${count === 1 ? '15🌰' : '150🌰'})
+        </button>
+        <button class="btn-secondary" id="btn-summary-closet">着せ替え画面へ</button>
+        <button class="btn-sub" id="btn-summary-home">ホームへ戻る</button>
+      </div>
+    `;
+
+    document.getElementById('btn-pull-again').addEventListener('click', () => {
+      executeGacha(mainEl, state, count, callbacks);
+    });
+
+    document.getElementById('btn-summary-closet').addEventListener('click', () => {
+      if (callbacks.onGoCloset) callbacks.onGoCloset();
+      else window.location.hash = '#/closet';
+    });
+
+    document.getElementById('btn-summary-home').addEventListener('click', () => {
+      if (callbacks.onGoHome) callbacks.onGoHome();
+      else window.location.hash = '#/home';
+    });
+  }
+
+  showCard(0);
+}
