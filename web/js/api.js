@@ -145,9 +145,12 @@ export async function getSession() {
  */
 export async function getMyPlayer() {
   checkClient();
+  const session = await getSession();
+  if (!session?.user?.id) return null;
   const { data, error } = await supabase
     .from('players')
     .select('*')
+    .eq('id', session.user.id)
     .maybeSingle();
   if (error) throw new Error(translateError(error));
   return escapeDeep(data);
@@ -674,3 +677,16 @@ export async function staffRedeemTicket(ticketId) {
 }
 
 
+
+export async function getStaffRewardOverview() {
+  checkClient();
+  const { data, error } = await supabase.rpc('staff_reward_overview');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+export async function getWeeklyRewardRules() {
+  checkClient();
+  const { data, error } = await supabase.rpc('weekly_reward_rules');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}

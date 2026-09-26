@@ -79,12 +79,14 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const untilSingle = Math.max(0, 15 - nutsDisp.balance);
   const untilTen = Math.max(0, 150 - nutsDisp.balance);
   const stockPrizes = formattedRates.prizes.filter(p => p.stock > 0);
+  const staffNotice = ratesData.staff_mode ? '<div class="alert">スタッフ用：着せ替え・称号のみ出ます。実物景品の週1枚は消費しません。</div>' : '';
+  const weeklyNotice = ratesData.weekly_limit ? `<p class="notice-line">ガチャの実物景品は全員で週1枚まで。${ratesData.weekly_remaining === 0 ? '今週分は当選済みです。' : '当選者が出ない週もあります。'} 月曜0:00に枠が戻ります。繰り越しはありません。</p>` : '';
   const prizeShowcase = stockPrizes.length ? `
     <section class="gacha-showcase" aria-labelledby="gacha-showcase-title">
       <p class="gacha-showcase-kicker">館で受け取れる、おくりもの</p>
       <h2 id="gacha-showcase-title">今回の景品ラインナップ</h2>
       <div class="gacha-prize-list">${stockPrizes.map(p => `
-        <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>在庫 ${p.stock}個</p></div></article>
+        <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>在庫 ${p.stock}個</p><p>${escapeHtml(p.description || '')}</p></div></article>
       `).join('')}</div>
       <p class="gacha-showcase-note">景品全体の当選確率：1回あたり ${formattedRates.prizeRatePercent}。個々の景品の確率ではありません。在庫は抽選時に確認されます。</p>
       <p class="gacha-showcase-note">当選した引換券は「自分の記録」から確認できます。</p>
@@ -112,7 +114,9 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   `).join('');
 
   mainEl.innerHTML = `
+    ${staffNotice}
     ${prizeShowcase}
+    ${weeklyNotice}
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span>🌰 ${state.nuts.balance}</span>

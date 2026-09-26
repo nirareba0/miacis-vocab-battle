@@ -599,7 +599,8 @@ export function calcRemainingCap(dailyCap, todayEarned) {
  */
 export function formatGachaRates(rates) {
   const r = rates || {};
-  const pRate = typeof r.prize_rate === 'number' ? r.prize_rate : parseFloat(r.prize_rate) || 0.01;
+  const parsedRate = Number(r.prize_rate);
+  const pRate = r.prize_rate == null || !Number.isFinite(parsedRate) ? 0.01 : Math.max(0, Math.min(1, parsedRate));
   const prizeRatePercent = `${(pRate * 100).toFixed(1).replace(/\.0$/, '')}%`;
 
   const prizes = Array.isArray(r.prizes) ? r.prizes.map(p => ({

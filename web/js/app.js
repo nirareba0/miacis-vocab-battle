@@ -44,7 +44,9 @@ import {
   getGachaRates,
   staffUpsertPrize,
   staffListTickets,
-  staffRedeemTicket
+  staffRedeemTicket,
+  getStaffRewardOverview,
+  getWeeklyRewardRules
 } from './api.js';
 
 import {
@@ -87,7 +89,7 @@ const state = {
   myItems: [],
   publicLooksMap: {},
   closetActiveTab: 'hat',
-  staffTab: 'prizes',
+  staffTab: 'overview',
   currentHash: window.location.hash || '#/home',
   battle: {
     matchId: null,
@@ -597,7 +599,7 @@ async function renderHome() {
       <div class="tier-box">
         <div>
           <div class="tier-title">${tierToLabel(summary.tier)}</div>
-          <div style="font-size: 14px; color: var(--text-muted);">${gradeToLabel(summary.grade)}</div>
+          <div style="font-size: 14px; color: var(--text-muted);">${state.player.account_type === 'staff' ? 'スタッフ' : gradeToLabel(summary.grade)}</div>
         </div>
         <div class="tier-detail">
           <div>段内順位: <strong>${learnRankStr}</strong></div>
@@ -1591,12 +1593,18 @@ async function renderRanking() {
 
     <div class="notice-line">コミットポイントは1日10点まで。毎日ちょっとずつが強い</div>
 
+    <div id="ranking-reward"></div>
     <div id="ranking-container">読み込み中...</div>
 
     <div style="margin-top: 16px;">
       <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
     </div>
   `;
+
+  getWeeklyRewardRules().then(rules => {
+    const target = document.getElementById('ranking-reward');
+    if (target && rules.ranking) target.innerHTML = `<div class="card"><strong>週間コミット1位に、選べる無料券</strong><p>${escapeHtml(rules.ranking.description)}</p><p class="notice-line">生徒全体で週1枚。月曜0:05に前週分を確定。1点以上が対象で、同点はニックネーム順。スタッフは対象外です。</p></div>`;
+  }).catch(() => {});
 
   document.getElementById('btn-mute-toggle').addEventListener('click', () => {
     const nextMuted = toggleMute();
@@ -1848,6 +1856,7 @@ async function renderStaff() {
     </header>
 
     <div class="tab-bar">
+      <button class="tab-btn ${state.staffTab === 'overview' ? 'active' : ''}" data-tab="overview">利用状況</button>
       <button class="tab-btn ${state.staffTab === 'tickets' ? 'active' : ''}" data-tab="tickets">引換券</button>
       <button class="tab-btn ${state.staffTab === 'prizes' ? 'active' : ''}" data-tab="prizes">景品</button>
       <button class="tab-btn ${state.staffTab === 'contents' ? 'active' : ''}" data-tab="contents">英語</button>
@@ -1877,7 +1886,27 @@ async function renderStaff() {
   if (!container) return;
 
   try {
-    if (state.staffTab === 'tickets') {
+    if (state.staffTab === 'overview') {
+      const overview = await getStaffRewardOverview();
+      const stats = overview.stats;
+      container.innerHTML = `
+        <div class="card"><div class="card-title">利用状況</div>
+          <p class="notice-line">${escapeHtml(overview.week_start)}からの週／日本時間・月曜開始</p>
+          <dl class="staff-metrics">
+            <div><dt>生徒の登録数</dt><dd>${stats.students}人</dd></div>
+            <div><dt>今週の利用者</dt><dd>${stats.weekly_active}人</dd></div>
+            <div><dt>今週の抽選回数</dt><dd>${stats.weekly_pulls}回</dd></div>
+            <div><dt>スタッフ</dt><dd>${stats.staff}人</dd></div>
+          </dl><p class="notice-line">利用者・抽選回数にスタッフは含みません。10連は10回と数えます。</p>
+        </div>
+        <div class="card"><div class="card-title">週ごとの無料券</div>
+          <p>ガチャ：今週 ${stats.gacha_issued} / 1枚 発行</p>
+          <p>ランキング：先週分 ${stats.ranking_issued_last_week} / 1枚 発行</p>
+          <p class="notice-line">ガチャの目安確率：残り枠がある間、1回 ${(overview.prize_rate * 100).toFixed(1)}%。当選後は次の週まで0%。繰り越しなし。</p>
+          <p class="notice-line">ランキングは週間コミット1位（1点以上）。同点はニックネーム順で1名。月曜0:05に前週分を確定します。</p>
+          ${overview.rewards.map(r => `<div class="weekly-reward-row"><strong>${escapeHtml(r.name)}</strong><span>${r.active ? '有効' : '停止中'}</span><p>${escapeHtml(r.description)}</p></div>`).join('')}
+        </div>`;
+    } else if (state.staffTab === 'tickets') {
       const tickets = await staffListTickets(false);
       const openTickets = tickets.filter(t => !t.redeemed_at);
       const doneTickets = tickets.filter(t => !!t.redeemed_at);
