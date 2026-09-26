@@ -61,8 +61,7 @@ import {
   rarityInfo,
   checkComboMilestone,
   getStageName,
-  normalizeInviteCode,
-  calcNutsDisplay
+  normalizeInviteCode
 } from './logic.js';
 
 import {
@@ -73,6 +72,7 @@ import {
 } from './game.js';
 
 import { renderMiacis } from './look.js';
+import { updateNavigation, icon } from './ui.js';
 import { renderGachaView } from './gacha.js';
 import { renderClosetView } from './closet.js';
 
@@ -143,6 +143,12 @@ async function init() {
  * ルーター / メイン描画
  */
 async function render() {
+  cleanBattleTimers();
+  const signedIn = Boolean(state.session && state.player);
+  const route = signedIn ? (state.currentHash || '#/home') : '#/auth';
+  document.body.dataset.screen = route.slice(2);
+  updateNavigation(route, signedIn);
+  window.scrollTo(0, 0);
   if (!isConfigured()) {
     renderPreparation();
     return;
@@ -195,13 +201,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div style="text-align: center; margin-bottom: 20px;">
-      <img src="assets/miacis-logo.png" alt="Miacis Logo" style="width: 76px; height: 76px; object-fit: contain; margin-bottom: 8px;">
-      <h1 class="app-title" style="justify-content: center; font-size: 22px;">英単語バトル</h1>
-      <div style="font-size: 14px; color: var(--miacis-pink); font-weight: 700; margin-top: 4px;">
-        ミアキスでうまれた英単語バトル
-      </div>
-    </div>
+    <div class="auth-hero"><span class="eyebrow">ミアキス 英単語バトル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>ことばで、<br>相棒と強くなる。</h1><p>10問のバトル。集まる単語。自分だけの着せ替え。</p></div>
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -219,7 +219,7 @@ function renderAuth(mode = 'register') {
       <div class="form-group">
         <label class="form-label" for="auth-pass">あいことば</label>
         <div class="password-wrapper">
-          <input class="form-input" id="auth-pass" type="password" placeholder="6文字以上" required autocomplete="current-password">
+          <input class="form-input" id="auth-pass" type="password" placeholder="6文字以上" required autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}">
           <button type="button" class="password-toggle" id="pass-toggle">表示</button>
         </div>
       </div>
@@ -229,13 +229,13 @@ function renderAuth(mode = 'register') {
           ? `
         <div class="form-group">
           <label class="form-label">学年</label>
-          <div class="grade-grid">
-            <button type="button" class="grade-btn" data-grade="1">中1</button>
-            <button type="button" class="grade-btn" data-grade="2">中2</button>
-            <button type="button" class="grade-btn" data-grade="3">中3</button>
-            <button type="button" class="grade-btn" data-grade="4">高1</button>
-            <button type="button" class="grade-btn" data-grade="5">高2</button>
-            <button type="button" class="grade-btn" data-grade="6">高3</button>
+          <div class="grade-grid" role="group" aria-label="学年（必須）">
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="1">中1</button>
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="2">中2</button>
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="3">中3</button>
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="4">高1</button>
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="5">高2</button>
+            <button type="button" class="grade-btn" aria-pressed="false" data-grade="6">高3</button>
           </div>
           <input type="hidden" id="auth-grade" value="">
         </div>
@@ -283,7 +283,8 @@ function renderAuth(mode = 'register') {
     const gradeInput = document.getElementById('auth-grade');
     gradeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        gradeBtns.forEach(b => b.classList.remove('selected'));
+        gradeBtns.forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
+        btn.setAttribute('aria-pressed', 'true');
         btn.classList.add('selected');
         gradeInput.value = btn.dataset.grade;
       });
@@ -448,8 +449,7 @@ async function renderHome() {
   appEl.innerHTML = `
     <header class="app-header">
       <h1 class="app-title">
-        <img src="assets/miacis-logo.png" alt="" style="width: 28px; height: 28px; object-fit: contain;">
-        <span>英単語バトル</span>
+        <span class="brand-mark" aria-hidden="true">✦</span><span class="brand-name">ミアキス</span>
       </h1>
       <div class="header-user">
         <button class="btn-mute" id="btn-mute-toggle" aria-label="効果音ミュート切り替え">${muteIcon}</button>
@@ -457,7 +457,7 @@ async function renderHome() {
         <button class="btn-logout" id="btn-logout">ログアウト</button>
       </div>
     </header>
-    <div id="home-content">読み込み中...</div>
+    <div id="home-content"><div class="loading-state" role="status"><span class="loading-orbit"></span>相棒を呼んでいます…</div></div>
   `;
 
   document.getElementById('btn-mute-toggle').addEventListener('click', () => {
@@ -517,16 +517,6 @@ async function renderHome() {
     const miacisAvatarHtml = renderMiacis(myLook, 160);
     const titleName = myLook.title ? escapeHtml(myLook.title.name) : '';
 
-    const routeClass = progress.route || 'none';
-    let routeBadgeHtml = '';
-    if (progress.route === 'grass') {
-      routeBadgeHtml = '<span class="route-badge grass">🌾 草原ルート（イヌ科）</span>';
-    } else if (progress.route === 'tree') {
-      routeBadgeHtml = '<span class="route-badge tree">🌳 木の上ルート（ネコ科）</span>';
-    } else {
-      routeBadgeHtml = '<span class="route-badge none">❓ どっちに進化する？（累計80点）</span>';
-    }
-
     const stageProg = calcStageProgress(progress.total_points);
     let evolutionLabel = '';
     if (progress.stage < 7) {
@@ -535,7 +525,6 @@ async function renderHome() {
       evolutionLabel = `<span>最高段階！ 草原と森の主</span><span>累計 ${progress.total_points}点</span>`;
     }
 
-    const nutsDisp = calcNutsDisplay(state.nuts.balance);
 
     // デイリーボーナス案内
     let dailyToastHtml = '';
@@ -548,90 +537,20 @@ async function renderHome() {
     }
 
     homeContent.innerHTML = `
-      <div class="notice-line" style="color: var(--miacis-pink); font-weight: 700; margin-top: -6px; margin-bottom: 12px;">
-        ミアキスでうまれた英単語バトル
-      </div>
-
+      <div class="home-greeting"><div><p class="eyebrow">今日も、ひとつ強くなる。</p><h2>${escapeHtml(state.player.nickname)} のベース</h2></div><span class="level-pill">${state.player.account_type === 'staff' ? 'スタッフ' : tierToLabel(summary.tier)}</span></div>
       ${dailyToastHtml}
-
-      <div class="miacis-stage-card route-${routeClass}">
-        ${titleName ? `<div class="user-title-badge">👑 ${titleName}</div>` : ''}
-        <div class="miacis-stage-name">${escapeHtml(progress.stage_name)}</div>
-        ${routeBadgeHtml}
-        
-        <!-- 着せ替えミアキス（大きく表示） -->
-        <div style="margin: 16px 0 10px 0; display:flex; justify-content:center;">
-          ${miacisAvatarHtml}
-        </div>
-
-        <div class="evolution-progress-box">
-          <div class="evolution-label">${evolutionLabel}</div>
-          <div class="evolution-bar-bg">
-            <div class="evolution-bar-fill" style="width: ${stageProg.percent}%;"></div>
-          </div>
-        </div>
-        <div class="stats-chips">
-          <div class="chip">🔥 <strong>${progress.streak_days}</strong> 日連続</div>
-          <div class="chip" style="background: rgba(242, 194, 0, 0.2); border: 1px solid var(--primary);">
-            🌰 <strong>${state.nuts.balance}</strong> 個
-          </div>
-        </div>
-      </div>
-
-      <!-- 木の実残高・アクションエリア -->
-      <div class="card" style="padding: 14px 16px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <div style="font-size:12px; color:var(--text-muted);">木の実の残高</div>
-          <div style="font-size:20px; font-weight:800; color:var(--primary);">🌰 ${state.nuts.balance} 個</div>
-          <div style="font-size:11px; color:var(--text-muted);">今日獲得: ${state.nuts.today_earned} / ${state.nuts.daily_cap}</div>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="go-gacha" style="min-height:50px; padding:6px 16px; font-size:16px;">
-            ${nutsDisp.canPull10 ? '<span class="ready-badge">10連できる！</span>' : ''}
-            ガチャ
-          </button>
-          <button class="btn-secondary" id="go-closet" style="min-height:50px; padding:6px 14px; font-size:15px;">
-            着せ替え
-          </button>
-        </div>
-      </div>
-
-      <div class="tier-box">
-        <div>
-          <div class="tier-title">${tierToLabel(summary.tier)}</div>
-          <div style="font-size: 14px; color: var(--text-muted);">${state.player.account_type === 'staff' ? 'スタッフ' : gradeToLabel(summary.grade)}</div>
-        </div>
-        <div class="tier-detail">
-          <div>段内順位: <strong>${learnRankStr}</strong></div>
-          <div>コミット順位: <strong>${commitRankStr}</strong></div>
-          <div style="font-size: 12px; margin-top: 4px;">${lastWeekDiff}</div>
-        </div>
-      </div>
-
-      <div class="points-grid">
-        <div class="point-box">
-          <div class="point-label">今週の学習</div>
-          <div class="point-val">${summary.learn_points}</div>
-        </div>
-        <div class="point-box">
-          <div class="point-label">今週のコミット</div>
-          <div class="point-val">${summary.commit_points}</div>
-        </div>
-      </div>
-
-      <div class="notice-line">毎週月曜に0からスタート</div>
-
-      <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
-        <button class="btn-primary" id="go-battle" style="font-size: 20px; min-height: 60px;">対戦する</button>
-        <button class="btn-secondary" id="go-content">今週の英語</button>
-        <button class="btn-secondary" id="go-ranking">ランキング</button>
-        <button class="btn-pink" id="go-zukan">覚えた単語（図鑑）</button>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button class="btn-sub" id="go-me">自分の記録</button>
-        ${state.isStaff ? '<button class="btn-sub" id="go-staff" style="border-color: var(--primary);">スタッフ画面</button>' : ''}
-      </div>
+      <section class="companion-card" aria-label="相棒と進化">
+        <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3><p>${progress.route === 'grass' ? '草原ルートを冒険中' : progress.route === 'tree' ? '木の上ルートを冒険中' : '英単語を集めて、進化しよう。'}</p>${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
+        <div class="companion-art">${miacisAvatarHtml}</div>
+        <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
+      </section>
+      <button class="battle-launch" id="go-battle"><span class="launch-icon">${icon('battle')}</span><span><strong>対戦する</strong><small>10問の勝負で、相棒を育てよう</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日集めた木の実 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個</p></div>
+      <div class="section-heading"><h2>今週のチャレンジ</h2><span>月曜にリセット</span></div>
+      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>段内 ${learnRankStr}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
+      <p class="week-history">${lastWeekDiff}</p>
+      <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画やクイズに挑戦</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>みんなの頑張りを見る</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた言葉を集めよう</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>成長の足あと・引換券</span></button></div>
+      ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}
 
       <footer class="app-footer">
         <p><a href="credits.html">単語データの出典（クレジット）</a></p>
@@ -702,6 +621,7 @@ async function renderBattle() {
 
   try {
     const matchData = await startMatch();
+    if (state.currentHash !== '#/battle') return;
     state.battle.matchId = matchData.match_id;
     state.battle.opponent = matchData.opponent;
     state.battle.questions = matchData.questions;
@@ -744,8 +664,9 @@ async function renderBattle() {
     const oppMiacisHtml = renderMiacis(oppLook, 110);
 
     const area = document.getElementById('battle-area');
+    if (!area || state.currentHash !== '#/battle') return;
     area.innerHTML = `
-      <div class="card" style="text-align: center; padding: 28px 16px;">
+      <div class="card battle-ready" style="text-align: center; padding: 28px 16px;"><span class="eyebrow">準備はいい？</span>
         <div style="font-size: 22px; font-weight: 800; margin-bottom: 12px;">${escapeHtml(oppName)}</div>
         <div style="margin: 0 auto 16px auto; display:flex; justify-content:center;">
           ${oppMiacisHtml}
@@ -801,7 +722,7 @@ function startQuestion(qIndex) {
   const choicesHtml = q.choices
     .map(
       (choice, idx) => `
-    <button class="btn-choice" data-choice="${idx}">${escapeHtml(choice)}</button>
+    <button class="btn-choice" data-choice="${idx}"><span class="choice-number" aria-hidden="true">${idx + 1}</span><span>${escapeHtml(choice)}</span></button>
   `
     )
     .join('');
@@ -812,7 +733,7 @@ function startQuestion(qIndex) {
 
   area.innerHTML = `
     <div class="battle-header">
-      <span class="q-counter">第 ${qIndex + 1} / 10 問</span>
+      <span class="q-counter">第 ${qIndex + 1} / 10 問</span><span class="question-dots" aria-hidden="true">${Array.from({length:10}, (_, i) => `<i class="${i < qIndex ? 'done' : i === qIndex ? 'current' : ''}"></i>`).join('')}</span>
     </div>
 
     ${comboHtml}
@@ -985,7 +906,7 @@ async function finishMatch() {
 
     area.innerHTML = `
       <div class="result-banner ${isWin ? 'win' : 'lose'}">
-        <div class="result-text">${isWin ? 'かち！' : 'まけ'}</div>
+        <div class="result-symbol" aria-hidden="true">${isWin ? '✦' : '✓'}</div><div class="result-text">${isWin ? '勝利！' : 'ナイスチャレンジ！'}</div>
         <div class="result-sub">あなた: ${result.correct}問正解 (${mySec}秒)</div>
         <div class="result-sub">${escapeHtml(result.opponent.nickname)}: ${result.opponent.correct}問正解 (${oppSec}秒)</div>
       </div>
@@ -1218,7 +1139,7 @@ async function renderZukan() {
       cardsHtml = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 30px 16px;">この段で正解した単語はまだありません。<br>対戦で正解して単語を覚えよう！</div>`;
     } else {
       const itemsHtml = bandWords.map(w => `
-        <div class="zukan-card-item" style="border-left: 4px solid var(--primary); padding: 10px 12px; margin-bottom: 8px;">
+        <div class="zukan-card-item" data-word="${escapeHtml(w.en + ' ' + w.ja)}" style="border-left: 4px solid var(--primary); padding: 10px 12px; margin-bottom: 8px;">
           <div class="zukan-item-en" style="font-size: 17px; font-weight: 800;">${escapeHtml(w.en)}</div>
           <div class="zukan-item-ja" style="font-size: 14px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(w.ja)}</div>
         </div>
@@ -1240,6 +1161,7 @@ async function renderZukan() {
         </div>
       </div>
 
+      ${bandWords.length ? '<div class="zukan-tools"><label for="word-search" class="form-label">集めた単語を探す</label><input id="word-search" type="search" class="form-input" placeholder="英語・日本語で検索"><button class="btn-sub" id="toggle-meanings" aria-pressed="false">意味を隠して思い出す</button><p id="word-search-status" role="status"></p></div>' : ''}
       ${cardsHtml}
 
       ${uncollectedCount > 0 ? `
@@ -1250,6 +1172,21 @@ async function renderZukan() {
 
       <div class="notice-line" style="margin-top: 16px;">対戦で正解した単語がここに記録されます</div>
     `;
+    const search = document.getElementById('word-search');
+    search?.addEventListener('input', () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      let found = 0;
+      contentEl.querySelectorAll('.zukan-card-item').forEach(card => {
+        card.hidden = !card.dataset.word.toLocaleLowerCase().includes(query);
+        if (!card.hidden) found++;
+      });
+      document.getElementById('word-search-status').textContent = found ? `${found}語 見つかりました` : '該当する単語はありません';
+    });
+    document.getElementById('toggle-meanings')?.addEventListener('click', event => {
+      const hidden = contentEl.classList.toggle('meanings-hidden');
+      event.currentTarget.setAttribute('aria-pressed', String(hidden));
+      event.currentTarget.textContent = hidden ? '意味を表示して答え合わせ' : '意味を隠して思い出す';
+    });
   } catch (err) {
     const contentEl = document.getElementById('zukan-content');
     if (contentEl) {
@@ -1735,11 +1672,11 @@ async function renderMe() {
           <div class="card prize-ticket-card" style="border: 2px solid var(--primary); background: rgba(242, 194, 0, 0.08); margin-bottom: 12px; padding: 14px 16px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6px;">
               <div style="font-size: 18px; font-weight: 800; color: var(--primary);">🎁 ${escapeHtml(t.prize_name)}</div>
-              <span style="background: var(--primary); color: #000; font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未使用</span>
+              <span style="background: var(--primary); color: var(--primary-text); font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未使用</span>
             </div>
             ${t.prize_description ? `<div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${escapeHtml(t.prize_description)}</div>` : ''}
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">当選日時: ${wonDate}</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">引換券番号: <code style="font-family: monospace; font-size: 14px; font-weight: 700; color: #fff;">...${escapeHtml(shortId)}</code></div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">引換券番号: <code style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text);">...${escapeHtml(shortId)}</code></div>
             <div class="alert alert-info" style="margin-bottom: 0; font-weight: 700; font-size: 13px; text-align: center;">
               🏛️ Miacis の館内でスタッフに見せてね
             </div>
@@ -1923,7 +1860,7 @@ async function renderStaff() {
                   <div style="font-size: 17px; font-weight: 800; color: var(--primary);">🎁 ${escapeHtml(t.prize_name)}</div>
                   <div style="font-size: 15px; font-weight: 700; margin-top: 2px;">プレイヤー: <strong>${escapeHtml(t.nickname)}</strong> さん</div>
                 </div>
-                <span style="background: var(--primary); color: #000; font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未引換</span>
+                <span style="background: var(--primary); color: var(--primary-text); font-weight: 800; padding: 2px 8px; border-radius: 9999px; font-size: 12px;">未引換</span>
               </div>
               ${t.prize_description ? `<div style="font-size: 13px; color: var(--text-muted); margin: 6px 0;">${escapeHtml(t.prize_description)}</div>` : ''}
               <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">当選: ${wonDate} / 券番号: <code>...${escapeHtml(shortId)}</code></div>

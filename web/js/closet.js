@@ -148,12 +148,12 @@ function renderClosetBody(mainEl, state, callbacks) {
       }
 
       return `
-        <div class="closet-item-card ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" style="border-color:${isEquipped ? 'var(--primary)' : rInfo.color};">
+        <button type="button" aria-pressed="${isEquipped}" class="closet-item-card ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" style="border-color:${isEquipped ? 'var(--primary)' : rInfo.color};">
           ${isEquipped ? '<span class="equipped-tag">装備中</span>' : ''}
-          <div style="font-size:32px; margin-bottom:4px; height:40px; display:flex; align-items:center; justify-content:center;">${visual}</div>
+          <div style="font-size:32px; margin-bottom:8px; height:76px; display:flex; align-items:center; justify-content:center;">${visual}</div>
           <div style="font-size:13px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
           <div style="font-size:11px; color:${rInfo.color}; font-weight:700;">${rInfo.code}</div>
-        </div>
+        </button>
       `;
     }).join('');
   }
@@ -170,7 +170,7 @@ function renderClosetBody(mainEl, state, callbacks) {
 
   mainEl.innerHTML = `
     <!-- ミアキスプレビュー -->
-    <div style="display:flex; flex-direction:column; align-items:center; margin: 8px 0 16px 0;">
+    <div class="closet-studio" style="display:flex; flex-direction:column; align-items:center; margin: 8px 0 16px 0;"><span class="eyebrow">今日のコーデをつくろう</span>
       <div style="margin-bottom:8px;">
         ${previewHtml}
       </div>
@@ -183,7 +183,7 @@ function renderClosetBody(mainEl, state, callbacks) {
     <div class="card" style="padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
       <div>
         <div style="font-size:12px; color:var(--text-muted);">重複アイテムで集まる</div>
-        <div style="font-size:16px; font-weight:800; color:#93c5fd;">💎 かけら: ${state.shards} 個</div>
+        <div style="font-size:16px; font-weight:800; color:var(--link);">💎 かけら: ${state.shards} 個</div>
       </div>
       <button class="btn-primary" id="btn-open-exchange" style="min-height:44px; padding:6px 14px; font-size:14px;">
         かけら交換所
@@ -221,6 +221,9 @@ function renderClosetBody(mainEl, state, callbacks) {
   // アイテム装備/解除タップイベント
   mainEl.querySelectorAll('.closet-item-card').forEach(card => {
     card.addEventListener('click', async () => {
+      if (state.closetSaving) return;
+      state.closetSaving = true;
+      card.disabled = true;
       const itemId = card.dataset.itemId;
       const slot = state.closetActiveTab;
       const isAlreadyEquipped = state.myLooks[slot] === itemId;
@@ -236,9 +239,15 @@ function renderClosetBody(mainEl, state, callbacks) {
           state.myLooks[slot] = itemId;
         }
         playSfx('correct');
-        renderClosetBody(mainEl, state, callbacks);
+        if (mainEl.isConnected) {
+          renderClosetBody(mainEl, state, callbacks);
+          mainEl.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`)?.focus({ preventScroll: true });
+        }
       } catch (err) {
         alert(err.message);
+        card.disabled = false;
+      } finally {
+        state.closetSaving = false;
       }
     });
   });
@@ -325,7 +334,7 @@ function renderExchangeView(mainEl, state, callbacks) {
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
       <div>
         <h2 style="font-size:20px; font-weight:800;">かけら交換所</h2>
-        <div style="font-size:13px; color:#93c5fd;">💎 残高: <strong>${state.shards}</strong> 個</div>
+        <div style="font-size:13px; color:var(--link);">💎 残高: <strong>${state.shards}</strong> 個</div>
       </div>
       <button class="btn-sub" id="btn-close-exchange" style="min-height:38px; padding:4px 12px; font-size:13px;">✕ 閉じる</button>
     </div>

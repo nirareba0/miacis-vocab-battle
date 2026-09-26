@@ -115,8 +115,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
 
   mainEl.innerHTML = `
     ${staffNotice}
-    ${prizeShowcase}
-    ${weeklyNotice}
+    <section class="gacha-wardrobe"><span class="eyebrow">木の実でひらく、おくりもの</span><h2>次は、どんな相棒に？</h2><p>帽子もメガネも。自分だけの組み合わせ。</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div><p>着せ替えの一例です。各アイテムは個別に出ます。</p></section>
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span>🌰 ${state.nuts.balance}</span>
@@ -124,7 +123,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <div style="font-size:13px; color:var(--text-muted); margin-top:6px;">
         今日の獲得: ${state.nuts.today_earned} / ${state.nuts.daily_cap} 🌰 (あと ${state.nuts.remaining_cap} 🌰)
       </div>
-      <div style="font-size:13px; color:#93c5fd; margin-top:4px;">
+      <div style="font-size:13px; color:var(--link); margin-top:4px;">
         💎 かけら残高: <strong>${state.shards}</strong> 個
       </div>
     </div>
@@ -136,7 +135,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <button class="btn-sub" id="btn-gacha-to-battle">対戦で木の実を集める</button>
     </section>
 
-    <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:24px;">
+    <div class="gacha-pull-actions">
       <!-- 1回ガチャボタン -->
       <button class="btn-secondary" id="btn-pull-1" style="min-height:60px; font-size:18px; font-weight:700;">
         1回引く (15🌰)
@@ -150,7 +149,9 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       </button>
     </div>
 
-    <!-- 確率・景品案内アコーディオン -->
+    ${prizeShowcase}
+    ${weeklyNotice}
+    <!-- 確率・景品案内 -->
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
         <span>確率・景品のご案内</span>
@@ -444,7 +445,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
           <div style="font-size:14px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
           <div style="font-size:11px; color:${rInfo.color}; font-weight:700;">${isPrize ? '景品' : rInfo.code}</div>
           <div style="margin-top:4px;">
-            ${isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:#93c5fd;">💎+${item.shards}</span>`)}
+            ${isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:var(--link);">💎+${item.shards}</span>`)}
           </div>
         </div>
       `;
