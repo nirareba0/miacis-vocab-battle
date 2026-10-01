@@ -49,7 +49,8 @@ import {
   getWeeklyRewardRules,
   getRankingStreak,
   getRankingKnock,
-  getMyRunBests
+  getMyRunBests,
+  getAppFlags
 } from './api.js';
 
 import {
@@ -109,7 +110,8 @@ const state = {
     prevProgress: null,
     resultData: null
   },
-  rankingTab: 'learn', // 'learn' | 'commit' | 'streak' | 'knock'
+  flags: { rank_mode_enabled: false }, // 段（ランク）の表示。利用者が集まったら解禁
+  rankingTab: 'streak', // 'learn' | 'commit' | 'streak' | 'knock'
   streakScope: 'week', // 'week' | 'all'
   zukanTab: 1 // band 1..5
 };
@@ -125,6 +127,8 @@ async function init() {
     renderPreparation();
     return;
   }
+
+  getAppFlags().then(f => { state.flags = { ...state.flags, ...f }; }).catch(() => {});
 
   try {
     state.session = await getSession();
@@ -209,7 +213,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">ミアキス 英単語バトル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
+    <div class="auth-hero"><span class="eyebrow">Miacis 英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -552,19 +556,19 @@ async function renderHome() {
     }
 
     homeContent.innerHTML = `
-      <div class="home-greeting"><div><p class="eyebrow">今日も、ひとつ強くなる。</p><h2>${escapeHtml(state.player.nickname)} のベース</h2></div><span class="level-pill">${state.player.account_type === 'staff' ? 'スタッフ' : tierToLabel(summary.tier)}</span></div>
+      <div class="home-greeting"><div><p class="eyebrow">今日も、ひとつ強くなる。</p><h2>${escapeHtml(state.player.nickname)} のベース</h2></div><span class="level-pill${state.flags.rank_mode_enabled || state.player.account_type === 'staff' ? '' : ' locked'}">${state.player.account_type === 'staff' ? 'スタッフ' : state.flags.rank_mode_enabled ? tierToLabel(summary.tier) : '🔒 ランク 準備中'}</span></div>
       ${dailyToastHtml}
       <section class="companion-card" aria-label="相棒と進化">
         <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3><p>${progress.route === 'grass' ? '草原ルートを冒険中' : progress.route === 'tree' ? '木の上ルートを冒険中' : '英単語を集めて、進化しよう。'}</p>${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
         <div class="companion-art">${miacisAvatarHtml}</div>
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
-      <button class="battle-launch" id="go-battle"><span class="launch-icon">${icon('battle')}</span><span><strong>対戦する</strong><small>10問の勝負で、相棒を育てよう</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
       <div class="record-strip" id="record-strip" hidden></div>
-      <div class="challenge-launch"><button id="go-streak"><span class="challenge-launch-mark" aria-hidden="true">🔥</span><strong>連続チャレンジ</strong><span>間違えたら終わり。記録で勝負</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問を一気に打ち返す</span></button></div>
+      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>連続チャレンジ</strong><small>間違えたら終わり。何問続く？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦する</strong><span>10問で誰かの記録と勝負</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問を一気に打ち返す</span></button></div>
       <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日集めた木の実 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個</p></div>
       <div class="section-heading"><h2>今週のチャレンジ</h2><span>月曜にリセット</span></div>
-      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>段内 ${learnRankStr}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
+      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク解禁で順位が出る'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
       <p class="week-history">${lastWeekDiff}</p>
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画やクイズに挑戦</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>みんなの頑張りを見る</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた言葉を集めよう</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>成長の足あと・引換券</span></button></div>
       ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}
@@ -1587,7 +1591,7 @@ async function renderRanking() {
     </header>
 
     <div class="tab-bar">
-      <button id="tab-learn" class="tab-btn ${state.rankingTab === 'learn' ? 'active' : ''}">学習（自分の段）</button>
+      ${state.flags.rank_mode_enabled ? `<button id="tab-learn" class="tab-btn ${state.rankingTab === 'learn' ? 'active' : ''}">学習（自分の段）</button>` : ''}
       <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット（全員）</button>
       <button id="tab-streak" class="tab-btn ${state.rankingTab === 'streak' ? 'active' : ''}">連続記録</button>
       <button id="tab-knock" class="tab-btn ${state.rankingTab === 'knock' ? 'active' : ''}">100本ノック</button>
@@ -1617,8 +1621,9 @@ async function renderRanking() {
     window.location.hash = '#/home';
   });
 
+  if (!state.flags.rank_mode_enabled && state.rankingTab === 'learn') state.rankingTab = 'streak';
   for (const tab of ['learn', 'commit', 'streak', 'knock']) {
-    document.getElementById(`tab-${tab}`).addEventListener('click', () => {
+    document.getElementById(`tab-${tab}`)?.addEventListener('click', () => {
       state.rankingTab = tab;
       document.querySelectorAll('.tab-bar .tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${tab}`));
       loadRankingData();
@@ -1640,7 +1645,7 @@ async function loadRankingData() {
     streak: state.streakScope === 'all'
       ? 'これまでの最高記録。同じ記録なら、かかった時間が短い人が上'
       : '今週の自己ベスト。月曜にリセット。同じ記録なら、かかった時間が短い人が上',
-    knock: `${tierToLabel(state.player.tier)}の今週の自己ベスト（100問やり切った回）。同じ数なら速い人が上`
+    knock: `${state.flags.rank_mode_enabled ? tierToLabel(state.player.tier) + 'の' : '同じレベルの単語での'}今週の自己ベスト（100問やり切った回）。同じ数なら速い人が上`
   };
   const notice = document.getElementById('ranking-notice');
   if (notice) {
@@ -1698,7 +1703,7 @@ async function loadRankingData() {
             <div style="font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.nickname)}</div>
             ${titleName ? `<div class="ranking-title-badge">👑 ${titleName}</div>` : ''}
           </div>
-          <div class="tier-col">${tierText}</div>
+          ${state.flags.rank_mode_enabled ? `<div class="tier-col">${tierText}</div>` : ''}
           <div class="pts-col">${pts}</div>
         </div>
       `;

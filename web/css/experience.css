@@ -235,3 +235,11 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .rank-card strong { font-size:28px; line-height:1.1; color:#f5ce65; }
 .rank-card strong small { font-size:13px; margin-left:2px; }
 .rank-card p { margin:0; font-size:14px; font-weight:700; }
+
+.battle-launch.streak { background:#c2413a; box-shadow:0 5px 0 #842a25,0 10px 24px #c2413a22; }
+.battle-launch.streak .launch-icon { font-size:26px; }
+.battle-launch.streak small { color:#ffe1dd; }
+.challenge-launch { margin-top:0; }
+.challenge-launch #go-battle { background:#5d43b5; box-shadow:0 4px 0 #3d2a7d; }
+.challenge-launch #go-battle .challenge-launch-mark svg { width:24px; height:24px; }
+.level-pill.locked { background:#eeebf6; color:var(--text-muted); border:1px dashed var(--border); }

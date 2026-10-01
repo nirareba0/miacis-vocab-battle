@@ -749,3 +749,8 @@ export async function getRankingKnock(band) {
   if (error) throw new Error(translateError(error));
   return escapeDeep(data || []);
 }
+
+/** 画面の表示を切り替える旗（ランクモードの解禁など） */
+export function getAppFlags() {
+  return rpc('app_flags');
+}
