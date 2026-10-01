@@ -690,3 +690,62 @@ export async function getWeeklyRewardRules() {
   if (error) throw new Error(translateError(error));
   return escapeDeep(data);
 }
+
+// ==========================================
+// 連続チャレンジ・100本ノック（1問ずつサーバーが出題・採点する）
+// ==========================================
+
+async function rpc(name, params) {
+  checkClient();
+  const { data, error } = await supabase.rpc(name, params);
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/** @param {'streak'|'knock'} mode */
+export function startRun(mode) {
+  return rpc('start_run', { p_mode: mode });
+}
+
+/** choice が null なら時間切れ */
+export function answerRun(runId, choice, ms) {
+  return rpc('answer_run', { p_run_id: runId, p_choice: choice, p_ms: ms });
+}
+
+export function reviveRun(runId) {
+  return rpc('revive_run', { p_run_id: runId });
+}
+
+export function endRun(runId) {
+  return rpc('end_run', { p_run_id: runId });
+}
+
+export function getMyRunBests() {
+  return rpc('my_run_bests');
+}
+
+/** @param {'week'|'all'} scope */
+export async function getRankingStreak(scope = 'week') {
+  checkClient();
+  const { data, error } = await supabase
+    .from(scope === 'all' ? 'ranking_streak_all' : 'ranking_streak_week')
+    .select('*')
+    .order('rank', { ascending: true })
+    .order('nickname', { ascending: true })
+    .limit(50);
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+export async function getRankingKnock(band) {
+  checkClient();
+  const { data, error } = await supabase
+    .from('ranking_knock_week')
+    .select('*')
+    .eq('band', band)
+    .order('rank', { ascending: true })
+    .order('nickname', { ascending: true })
+    .limit(50);
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}

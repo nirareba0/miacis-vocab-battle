@@ -1,0 +1,283 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { createTestDb, seedTestWords, createUser, asUser, asAnon, setTestTime } from './helper.mjs';
+
+async function setup() {
+  const db = await createTestDb();
+  await seedTestWords(db, 30); // 150語。連続チャレンジの範囲は15語ずつ、100本ノックの段は30語
+  await setTestTime(db, '2026-10-01T12:00:00+09:00');
+  return db;
+}
+
+async function player(db, name, staff = false) {
+  const id = randomUUID();
+  await createUser(db, id);
+  await asUser(db, id, () => db.query('select public.register_player($1,1,null)', [name]));
+  if (staff) await db.query('insert into public.staff(user_id) values($1)', [id]);
+  return id;
+}
+
+const call = (db, id, sql, params = []) =>
+  asUser(db, id, async () => (await db.query(sql, params)).rows[0].r);
+
+const start = (db, id, mode) => call(db, id, 'select public.start_run($1) as r', [mode]);
+const answer = (db, id, runId, choice, ms = 1000) =>
+  call(db, id, 'select public.answer_run($1,$2,$3) as r', [runId, choice, ms]);
+
+// 正解は端末に来ないので、テストだけ管理者として覗く
+async function answerIndex(db, runId) {
+  return (await db.query("select (current->>'answer_index')::int as a from public.runs where id=$1", [runId])).rows[0].a;
+}
+
+async function answerRight(db, id, runId, ms = 1000) {
+  return answer(db, id, runId, await answerIndex(db, runId), ms);
+}
+
+async function answerWrong(db, id, runId) {
+  return answer(db, id, runId, ((await answerIndex(db, runId)) + 1) % 4);
+}
+
+test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲が上がり、制限時間が短くなる', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    assert.equal(s.question.answer_index, undefined);
+    assert.equal(s.question.issued_at, undefined);
+    assert.equal(s.question.stage, 1);
+    assert.equal(s.question.range, 1);
+    assert.equal(s.question.limit_ms, 7000);
+
+    let q = s.question;
+    for (let i = 0; i < 5; i++) {
+      const r = await answerRight(db, a, s.run_id);
+      assert.equal(r.correct, true);
+      assert.equal(r.state, 'next');
+      q = r.question;
+    }
+    assert.equal(q.stage, 2);
+    assert.equal(q.range, 2);
+    assert.equal(q.limit_ms, 6600);
+    // 範囲2の単語は頻度順で 16〜30 番目
+    const rank = (await db.query('select rank from public.words where id=$1', [q.word_id])).rows[0].rank;
+    assert.ok(rank >= 16 && rank <= 30, `rank ${rank}`);
+
+    await asAnon(db, async () => {
+      await assert.rejects(db.exec('select * from public.runs'), /permission denied/);
+    });
+    await asUser(db, a, async () => {
+      await assert.rejects(db.exec('select * from public.runs'), /permission denied/);
+      await assert.rejects(db.exec("select public.run_finish(gen_random_uuid(),'quit')"), /permission denied/);
+    });
+  } finally {
+    await db.close();
+  }
+});
+
+test('連続チャレンジ: 間違えたら即終了。ポイント・木の実が付き、ランキングに出る', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    for (let i = 0; i < 6; i++) await answerRight(db, a, s.run_id);
+    const r = await answerWrong(db, a, s.run_id);
+    assert.equal(r.correct, false);
+    assert.equal(r.state, 'finished');
+    assert.equal(r.result.correct, 6);
+    assert.equal(r.result.end_reason, 'wrong');
+    assert.equal(r.result.learn_points, 6);
+    assert.equal(r.result.nuts, 1); // 5問連続ごとに2、それに1/3を掛けて四捨五入（最低1）
+    assert.equal(r.result.new_best, true);
+    assert.equal(r.result.missed.length, 1);
+
+    await assert.rejects(answerRight(db, a, s.run_id), /run_not_active/);
+
+    const rows = (await db.query('select nickname, best_streak, rank from public.ranking_streak_week')).rows;
+    assert.deepEqual(rows, [{ nickname: 'A', best_streak: 6, rank: 1 }]);
+
+    // 2回目が低くても、自己ベストは6のまま
+    const s2 = await start(db, a, 'streak');
+    const r2 = await answerWrong(db, a, s2.run_id);
+    assert.equal(r2.result.new_best, false);
+    assert.equal(r2.result.best.correct, 6);
+  } finally {
+    await db.close();
+  }
+});
+
+test('連続チャレンジ: 時間切れは1回だけ復活できる。2回目の時間切れで終わる', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    await answerRight(db, a, s.run_id);
+    await answerRight(db, a, s.run_id);
+
+    const t1 = await answer(db, a, s.run_id, null, null);
+    assert.equal(t1.timeout, true);
+    assert.equal(t1.state, 'revive_offer');
+
+    // 復活待ちの間は答えられない
+    await assert.rejects(answerRight(db, a, s.run_id), /run_not_active/);
+
+    const rv = await call(db, a, 'select public.revive_run($1) as r', [s.run_id]);
+    assert.equal(rv.state, 'next');
+    assert.equal(rv.score, 2);
+    assert.equal(rv.question.no, 3); // 時間切れの1問は数えない
+
+    await answerRight(db, a, s.run_id);
+    const t2 = await answer(db, a, s.run_id, null, null);
+    assert.equal(t2.state, 'finished');
+    assert.equal(t2.result.correct, 3);
+    assert.equal(t2.result.end_reason, 'timeout');
+    assert.equal(t2.result.revive_used, true);
+
+    await assert.rejects(call(db, a, 'select public.revive_run($1) as r', [s.run_id]), /revive_not_available/);
+  } finally {
+    await db.close();
+  }
+});
+
+test('連続チャレンジ: 復活を10秒以上迷うと終わる。やめるを選んでも終わる', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    await answerRight(db, a, s.run_id);
+    await answer(db, a, s.run_id, null, null);
+    await setTestTime(db, '2026-10-01T12:00:11+09:00');
+    const rv = await call(db, a, 'select public.revive_run($1) as r', [s.run_id]);
+    assert.equal(rv.state, 'finished');
+    assert.equal(rv.result.correct, 1);
+
+    const s2 = await start(db, a, 'streak');
+    await answer(db, a, s2.run_id, null, null);
+    const e = await call(db, a, 'select public.end_run($1) as r', [s2.run_id]);
+    assert.equal(e.status, 'finished');
+    assert.equal(e.end_reason, 'timeout');
+  } finally {
+    await db.close();
+  }
+});
+
+test('時間: 制限時間を過ぎてから送った正解は時間切れ。端末の時間を短く偽っても順位用の時間は縮まない', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    const idx = await answerIndex(db, s.run_id);
+    await setTestTime(db, '2026-10-01T12:00:10+09:00'); // 7秒 + 猶予2.5秒 を超える
+    const late = await answer(db, a, s.run_id, idx, 500);
+    assert.equal(late.correct, false);
+    assert.equal(late.timeout, true);
+
+    const s2 = await start(db, a, 'streak');
+    await setTestTime(db, '2026-10-01T12:00:16+09:00'); // 出題から6秒後
+    await answerRight(db, a, s2.run_id, 100);
+    const total = (await db.query('select total_ms from public.runs where id=$1', [s2.run_id])).rows[0].total_ms;
+    assert.ok(total >= 3500, `total_ms ${total}`);
+  } finally {
+    await db.close();
+  }
+});
+
+test('100本ノック: 間違えても続く。100問で終わり、やり切った回だけが記録とランキングに出る', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const b = await player(db, 'B');
+    const s = await start(db, a, 'knock');
+    assert.equal(s.band, 1);
+    assert.equal(s.total, 100);
+    assert.equal(s.question.limit_ms, 6000);
+
+    let last;
+    for (let i = 0; i < 100; i++) {
+      last = i % 10 === 0 ? await answerWrong(db, a, s.run_id) : await answerRight(db, a, s.run_id);
+      if (i < 99) assert.equal(last.state, 'next');
+    }
+    assert.equal(last.state, 'finished');
+    assert.equal(last.result.correct, 90);
+    assert.equal(last.result.end_reason, 'complete');
+    assert.equal(last.result.nuts, 6); // (9 + 5 + 3) × 1/3
+    assert.equal(last.result.missed.length, 10);
+
+    // 途中でやめた回は記録に出ない
+    const sb = await start(db, b, 'knock');
+    for (let i = 0; i < 5; i++) await answerRight(db, b, sb.run_id);
+    const quit = await call(db, b, 'select public.end_run($1) as r', [sb.run_id]);
+    assert.equal(quit.end_reason, 'quit');
+    assert.equal(quit.best, null);
+
+    const rows = (await db.query('select band, nickname, best_correct, rank from public.ranking_knock_week')).rows;
+    assert.deepEqual(rows, [{ band: 1, nickname: 'A', best_correct: 90, rank: 1 }]);
+
+    const bests = await call(db, a, 'select public.my_run_bests() as r');
+    assert.equal(bests.knock.correct, 90);
+    assert.equal(bests.streak, null);
+  } finally {
+    await db.close();
+  }
+});
+
+test('やりかけは次に始めたとき、そこまでの記録で締める。スタッフはランキングに出ない。他人の回には触れない', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const staff = await player(db, 'Staff', true);
+    const s = await start(db, a, 'streak');
+    await answerRight(db, a, s.run_id);
+    await answerRight(db, a, s.run_id);
+    await start(db, a, 'streak');
+    const old = (await db.query('select status, end_reason, correct from public.runs where id=$1', [s.run_id])).rows[0];
+    assert.deepEqual(old, { status: 'finished', end_reason: 'abandoned', correct: 2 });
+
+    const ss = await start(db, staff, 'streak');
+    for (let i = 0; i < 3; i++) await answerRight(db, staff, ss.run_id);
+    await answerWrong(db, staff, ss.run_id);
+    const names = (await db.query('select nickname from public.ranking_streak_all')).rows.map(r => r.nickname);
+    assert.deepEqual(names, ['A']);
+
+    await assert.rejects(answer(db, staff, s.run_id, 0), /permission_denied/);
+    await assert.rejects(start(db, a, 'hard'), /invalid_mode/);
+  } finally {
+    await db.close();
+  }
+});
+
+test('夢中にさせる仕掛け: 結果に今週の順位とすぐ上の相手。正解した単語は図鑑に入る。連続ログインでボーナス', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const b = await player(db, 'B');
+    // B が先に 8 問連続
+    const sb = await start(db, b, 'streak');
+    for (let i = 0; i < 8; i++) await answerRight(db, b, sb.run_id);
+    const rb = await answerWrong(db, b, sb.run_id);
+    assert.equal(rb.result.week_rank, 1);
+    assert.equal(rb.result.rival, null);
+
+    // A は 3 問連続 → 2位、すぐ上は B(8)
+    const sa = await start(db, a, 'streak');
+    for (let i = 0; i < 3; i++) await answerRight(db, a, sa.run_id);
+    const ra = await answerWrong(db, a, sa.run_id);
+    assert.equal(ra.result.week_rank, 2);
+    assert.deepEqual(ra.result.rival, { nickname: 'B', correct: 8, rank: 1 });
+
+    // 図鑑: A が対戦をしていなくても、連続チャレンジで正解した 3 語が入る
+    const words = await call(db, a, 'select public.my_words() as r');
+    assert.equal(words.words.length, 3);
+
+    // 連続ログイン: 3日目のログインボーナスは +1、7日目は +3（倍率 1/3 は掛けない）
+    await asUser(db, a, () => db.query('select public.touch_today()')); // 10/1（1日目）
+    for (const [day, expected] of [['2026-10-02', 2], ['2026-10-03', 3], ['2026-10-04', 3], ['2026-10-05', 3], ['2026-10-06', 3], ['2026-10-07', 5]]) {
+      await setTestTime(db, `${day}T09:00:00+09:00`);
+      await asUser(db, a, () => db.query('select public.touch_today()'));
+      const d = await call(db, a, 'select public.claim_daily_nuts() as r');
+      assert.equal(d.earned, expected, `${day}: streak ${d.streak_days}`);
+    }
+  } finally {
+    await db.close();
+  }
+});

@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { streakStage, streakPressureLabel, formatSeconds, knockGrade, translateError } from '../js/logic.js';
+
+test('streakStage: 5問ごとにステージが上がる', () => {
+  assert.deepEqual(streakStage(0), { stage: 1, inStage: 0, toNext: 5 });
+  assert.deepEqual(streakStage(4), { stage: 1, inStage: 4, toNext: 1 });
+  assert.deepEqual(streakStage(5), { stage: 2, inStage: 0, toNext: 5 });
+  assert.deepEqual(streakStage(-3), { stage: 1, inStage: 0, toNext: 5 });
+});
+
+test('streakPressureLabel: 自己ベストが近いときだけ言う', () => {
+  assert.equal(streakPressureLabel(3, null), '');
+  assert.equal(streakPressureLabel(3, 10), '');
+  assert.equal(streakPressureLabel(8, 10), '自己ベスト更新まであと3問');
+  assert.equal(streakPressureLabel(10, 10), 'あと1問で自己ベスト更新！');
+  assert.equal(streakPressureLabel(11, 10), '自己ベスト更新中！');
+});
+
+test('formatSeconds / knockGrade', () => {
+  assert.equal(formatSeconds(12345), '12.3秒');
+  assert.equal(knockGrade(100).mark, 'PERFECT');
+  assert.equal(knockGrade(90).mark, 'S');
+  assert.equal(knockGrade(74).mark, 'B');
+  assert.equal(knockGrade(10).mark, 'C');
+});
+
+test('translateError: チャレンジのエラー', () => {
+  assert.equal(translateError('revive_not_available'), '復活はもう使えません');
+  assert.equal(translateError('run_not_active'), 'このチャレンジはもう終わっています');
+});

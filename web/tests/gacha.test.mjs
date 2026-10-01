@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcNutsDisplay,
+  gachaPrice,
   calcRemainingCap,
   formatGachaRates,
   checkGuaranteedSr,
@@ -22,25 +23,30 @@ test('木の実の表示計算: 残高・1回可能・10連可能・残り上限
   assert.equal(d0.canPull10, false);
   assert.equal(d0.label, '0 🌰');
 
-  // 14🌰: どちらも不可
-  const d14 = calcNutsDisplay(14);
-  assert.equal(d14.canPull1, false);
-  assert.equal(d14.canPull10, false);
+  // 4🌰: どちらも不可
+  const d4 = calcNutsDisplay(4);
+  assert.equal(d4.canPull1, false);
+  assert.equal(d4.canPull10, false);
 
-  // 15🌰: 1回のみ可能
-  const d15 = calcNutsDisplay(15);
-  assert.equal(d15.canPull1, true);
-  assert.equal(d15.canPull10, false);
+  // 5🌰: 1回のみ可能
+  const d5 = calcNutsDisplay(5);
+  assert.equal(d5.canPull1, true);
+  assert.equal(d5.canPull10, false);
 
-  // 149🌰: 1回のみ可能
-  const d149 = calcNutsDisplay(149);
-  assert.equal(d149.canPull1, true);
-  assert.equal(d149.canPull10, false);
+  // 49🌰: 1回のみ可能
+  const d49 = calcNutsDisplay(49);
+  assert.equal(d49.canPull1, true);
+  assert.equal(d49.canPull10, false);
 
-  // 150🌰: 10連可能
-  const d150 = calcNutsDisplay(150);
-  assert.equal(d150.canPull1, true);
-  assert.equal(d150.canPull10, true);
+  // 50🌰: 11連可能
+  const d50 = calcNutsDisplay(50);
+  assert.equal(d50.canPull1, true);
+  assert.equal(d50.canPull10, true);
+
+  // 値段はサーバーの設定に従う
+  assert.deepEqual(gachaPrice({ pull_cost: 3, pull10_cost: 30, pull10_count: 12 }), { single: 3, multi: 30, multiCount: 12 });
+  assert.deepEqual(gachaPrice(null), { single: 5, multi: 50, multiCount: 11 });
+  assert.equal(calcNutsDisplay(29, gachaPrice({ pull_cost: 3, pull10_cost: 30 })).canPull10, false);
 
   // 上限計算
   assert.equal(calcRemainingCap(300, 100), 200);

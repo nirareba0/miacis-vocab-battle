@@ -13,7 +13,7 @@ const paths = {
 export function icon(name) { return `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.home}</svg>`; }
 export function updateNavigation(route, signedIn) {
   document.getElementById('app-navigation')?.remove();
-  const visible = signedIn && route !== '#/battle';
+  const visible = signedIn && !['#/battle', '#/streak', '#/knock'].includes(route);
   document.body.classList.toggle('has-navigation', visible);
   if (!visible) return;
   const nav = document.createElement('nav');

@@ -46,7 +46,10 @@ import {
   staffListTickets,
   staffRedeemTicket,
   getStaffRewardOverview,
-  getWeeklyRewardRules
+  getWeeklyRewardRules,
+  getRankingStreak,
+  getRankingKnock,
+  getMyRunBests
 } from './api.js';
 
 import {
@@ -75,6 +78,7 @@ import { renderMiacis } from './look.js';
 import { updateNavigation, icon } from './ui.js';
 import { renderGachaView } from './gacha.js';
 import { renderClosetView } from './closet.js';
+import { renderChallengeView, stopChallenge } from './challenge.js';
 
 // グローバル状態
 const state = {
@@ -82,7 +86,7 @@ const state = {
   player: null,
   isStaff: false,
   progress: null,
-  nuts: { balance: 0, today_earned: 0, daily_cap: 300, remaining_cap: 300 },
+  nuts: { balance: 0, today_earned: 0, daily_cap: 200, remaining_cap: 200 },
   shards: 0,
   myLooks: {},
   allItems: [],
@@ -105,7 +109,8 @@ const state = {
     prevProgress: null,
     resultData: null
   },
-  rankingTab: 'learn', // 'learn' | 'commit'
+  rankingTab: 'learn', // 'learn' | 'commit' | 'streak' | 'knock'
+  streakScope: 'week', // 'week' | 'all'
   zukanTab: 1 // band 1..5
 };
 
@@ -144,6 +149,7 @@ async function init() {
  */
 async function render() {
   cleanBattleTimers();
+  stopChallenge();
   const signedIn = Boolean(state.session && state.player);
   const route = signedIn ? (state.currentHash || '#/home') : '#/auth';
   document.body.dataset.screen = route.slice(2);
@@ -167,6 +173,8 @@ async function render() {
     renderCloset();
   } else if (hash === '#/battle') {
     renderBattle();
+  } else if (hash === '#/streak' || hash === '#/knock') {
+    renderChallenge(hash.slice(2));
   } else if (hash === '#/content') {
     renderContent();
   } else if (hash === '#/ranking') {
@@ -529,9 +537,16 @@ async function renderHome() {
     // デイリーボーナス案内
     let dailyToastHtml = '';
     if (dailyNutsRes.earned > 0) {
+      const bonus = dailyNutsRes.streak_bonus || 0;
+      const days = dailyNutsRes.streak_days || 0;
+      const streakLine = bonus > 0
+        ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">🔥 ${days}日連続ログインで +${bonus} 上乗せ</div>`
+        : days >= 1 && days < 3
+          ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">あと ${3 - days} 日連続で来ると、ボーナスが増える</div>`
+          : '';
       dailyToastHtml = `
         <div class="alert alert-success" style="margin-bottom:12px; font-weight:700; text-align:center;">
-          🎉 今日のログインボーナス: 🌰 +${dailyNutsRes.earned} 獲得！
+          🎉 今日のログインボーナス: 🌰 +${dailyNutsRes.earned} 獲得！${streakLine}
         </div>
       `;
     }
@@ -545,6 +560,8 @@ async function renderHome() {
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
       <button class="battle-launch" id="go-battle"><span class="launch-icon">${icon('battle')}</span><span><strong>対戦する</strong><small>10問の勝負で、相棒を育てよう</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <div class="record-strip" id="record-strip" hidden></div>
+      <div class="challenge-launch"><button id="go-streak"><span class="challenge-launch-mark" aria-hidden="true">🔥</span><strong>連続チャレンジ</strong><span>間違えたら終わり。記録で勝負</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問を一気に打ち返す</span></button></div>
       <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日集めた木の実 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個</p></div>
       <div class="section-heading"><h2>今週のチャレンジ</h2><span>月曜にリセット</span></div>
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>段内 ${learnRankStr}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
@@ -565,6 +582,34 @@ async function renderHome() {
     });
     document.getElementById('go-battle').addEventListener('click', () => {
       window.location.hash = '#/battle';
+    });
+    // 今週の連続記録: 自分と1位（開くたびに「抜かれた/抜ける」が見える）
+    Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week').catch(() => [])]).then(([bests, rows]) => {
+      const strip = document.getElementById('record-strip');
+      if (!strip) return;
+      const mine = bests?.streak_week?.correct ?? null;
+      const top = rows?.[0] || null;
+      if (mine === null && !top) return;
+      const myRow = rows.find(r => isMyRow(r, state.player.nickname));
+      let msg;
+      if (top && isMyRow(top, state.player.nickname)) {
+        msg = rows[1] ? `今週の1位はあなた。2位の ${escapeHtml(rows[1].nickname)} さんは ${rows[1].best_streak} 連続` : '今週の1位はあなた。挑戦者を待とう';
+      } else if (top && mine !== null) {
+        msg = `1位 ${escapeHtml(top.nickname)} さん ${top.best_streak} 連続まで、あと ${top.best_streak + 1 - mine} 問`;
+      } else if (top) {
+        msg = `今週の1位は ${escapeHtml(top.nickname)} さんの ${top.best_streak} 連続。挑戦してみる？`;
+      } else {
+        msg = 'まだ誰も記録を出していない。1位を取るチャンス';
+      }
+      strip.innerHTML = `<span class="eyebrow">今週の連続記録</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
+      strip.hidden = false;
+    });
+
+    document.getElementById('go-streak').addEventListener('click', () => {
+      window.location.hash = '#/streak';
+    });
+    document.getElementById('go-knock').addEventListener('click', () => {
+      window.location.hash = '#/knock';
     });
     document.getElementById('go-content').addEventListener('click', () => {
       window.location.hash = '#/content';
@@ -589,6 +634,24 @@ async function renderHome() {
       homeContent.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
     }
   }
+}
+
+/**
+ * 連続チャレンジ (#/streak) ・ 100本ノック (#/knock)
+ */
+function renderChallenge(mode) {
+  renderChallengeView(appEl, mode, {
+    onGoHome: () => {
+      window.location.hash = '#/home';
+    },
+    onGoRanking: (m) => {
+      state.rankingTab = m;
+      window.location.hash = '#/ranking';
+    },
+    onNuts: () => {
+      getMyNuts().then(n => { state.nuts = n; }).catch(() => {});
+    }
+  });
 }
 
 /**
@@ -1526,9 +1589,11 @@ async function renderRanking() {
     <div class="tab-bar">
       <button id="tab-learn" class="tab-btn ${state.rankingTab === 'learn' ? 'active' : ''}">学習（自分の段）</button>
       <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット（全員）</button>
+      <button id="tab-streak" class="tab-btn ${state.rankingTab === 'streak' ? 'active' : ''}">連続記録</button>
+      <button id="tab-knock" class="tab-btn ${state.rankingTab === 'knock' ? 'active' : ''}">100本ノック</button>
     </div>
 
-    <div class="notice-line">コミットポイントは1日10点まで。毎日ちょっとずつが強い</div>
+    <div class="notice-line" id="ranking-notice"></div>
 
     <div id="ranking-reward"></div>
     <div id="ranking-container">読み込み中...</div>
@@ -1552,22 +1617,13 @@ async function renderRanking() {
     window.location.hash = '#/home';
   });
 
-  const tabLearn = document.getElementById('tab-learn');
-  const tabCommit = document.getElementById('tab-commit');
-
-  tabLearn.addEventListener('click', () => {
-    state.rankingTab = 'learn';
-    tabLearn.classList.add('active');
-    tabCommit.classList.remove('active');
-    loadRankingData();
-  });
-
-  tabCommit.addEventListener('click', () => {
-    state.rankingTab = 'commit';
-    tabCommit.classList.add('active');
-    tabLearn.classList.remove('active');
-    loadRankingData();
-  });
+  for (const tab of ['learn', 'commit', 'streak', 'knock']) {
+    document.getElementById(`tab-${tab}`).addEventListener('click', () => {
+      state.rankingTab = tab;
+      document.querySelectorAll('.tab-bar .tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${tab}`));
+      loadRankingData();
+    });
+  }
 
   await loadRankingData();
 }
@@ -1577,11 +1633,41 @@ async function loadRankingData() {
   if (!container) return;
   container.innerHTML = '読み込み中...';
 
+  const tab = state.rankingTab;
+  const notices = {
+    learn: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
+    commit: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
+    streak: state.streakScope === 'all'
+      ? 'これまでの最高記録。同じ記録なら、かかった時間が短い人が上'
+      : '今週の自己ベスト。月曜にリセット。同じ記録なら、かかった時間が短い人が上',
+    knock: `${tierToLabel(state.player.tier)}の今週の自己ベスト（100問やり切った回）。同じ数なら速い人が上`
+  };
+  const notice = document.getElementById('ranking-notice');
+  if (notice) {
+    notice.innerHTML = tab === 'streak'
+      ? `${notices.streak} <button class="btn-inline" id="btn-streak-scope">${state.streakScope === 'all' ? '今週を見る' : '歴代を見る'}</button>`
+      : notices[tab];
+    document.getElementById('btn-streak-scope')?.addEventListener('click', () => {
+      state.streakScope = state.streakScope === 'all' ? 'week' : 'all';
+      loadRankingData();
+    });
+  }
+  const reward = document.getElementById('ranking-reward');
+  if (reward) reward.hidden = tab === 'streak' || tab === 'knock';
+
+  const fetchRows = {
+    learn: () => getRankingLearn(state.player.tier),
+    commit: () => getRankingCommit(),
+    streak: () => getRankingStreak(state.streakScope),
+    knock: () => getRankingKnock(state.player.tier)
+  }[tab];
+
   try {
     const [rows, publicLooks] = await Promise.all([
-      state.rankingTab === 'learn' ? getRankingLearn(state.player.tier) : getRankingCommit(),
+      fetchRows(),
       getPublicLooks().catch(() => [])
     ]);
+    if (state.rankingTab !== tab) return;
 
     if (rows.length === 0) {
       container.innerHTML = '<div class="card" style="text-align: center;">まだランキングデータがありません</div>';
@@ -1593,7 +1679,12 @@ async function loadRankingData() {
     const itemsHtml = rows.map(r => {
       const myRow = isMyRow(r, state.player.nickname);
       const rankText = formatRank(r.rank);
-      const pts = state.rankingTab === 'learn' ? r.learn_points : r.commit_points;
+      const pts = {
+        learn: `${r.learn_points}点`,
+        commit: `${r.commit_points}点`,
+        streak: `${r.best_streak}連続`,
+        knock: `${r.best_correct}/100`
+      }[tab];
       const tierText = tierToLabel(r.tier);
       const look = looksMap[r.nickname] || null;
       const miacisAvatarHtml = renderMiacis(look, 36);
@@ -1608,7 +1699,7 @@ async function loadRankingData() {
             ${titleName ? `<div class="ranking-title-badge">👑 ${titleName}</div>` : ''}
           </div>
           <div class="tier-col">${tierText}</div>
-          <div class="pts-col">${pts}点</div>
+          <div class="pts-col">${pts}</div>
         </div>
       `;
     }).join('');
@@ -1834,7 +1925,7 @@ async function renderStaff() {
             <div><dt>今週の利用者</dt><dd>${stats.weekly_active}人</dd></div>
             <div><dt>今週の抽選回数</dt><dd>${stats.weekly_pulls}回</dd></div>
             <div><dt>スタッフ</dt><dd>${stats.staff}人</dd></div>
-          </dl><p class="notice-line">利用者・抽選回数にスタッフは含みません。10連は10回と数えます。</p>
+          </dl><p class="notice-line">利用者・抽選回数にスタッフは含みません。まとめ引き（11連）は11回と数えます。</p>
         </div>
         <div class="card"><div class="card-title">週ごとの無料券</div>
           <p>ガチャ：今週 ${stats.gacha_issued} / 1枚 発行</p>

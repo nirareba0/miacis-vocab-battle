@@ -130,13 +130,13 @@ test('claim_match_nuts と claim_daily_nuts: 正解と勝利ボーナス、1matc
     assert.equal(subRes.rows[0].res.correct, 10);
     assert.equal(subRes.rows[0].res.result, 'win');
 
-    // claim_match_nuts 呼び出し: 10(正解) + 3(勝利) + 5(全問正解) = 18 木の実
+    // claim_match_nuts 呼び出し: 10(正解) + 3(勝利) + 5(全問正解) = 18 に 1/3 を掛けて 6 木の実
     const claimRes = await db.query(`select public.claim_match_nuts($1) as n`, [matchId]);
     const nuts = claimRes.rows[0].n;
-    assert.equal(nuts.raw, 18);
-    assert.equal(nuts.earned, 18);
+    assert.equal(nuts.raw, 6);
+    assert.equal(nuts.earned, 6);
     assert.equal(nuts.capped, false);
-    assert.equal(nuts.balance, 18);
+    assert.equal(nuts.balance, 6);
 
     // 同じ match で2回目は拒否 (already_claimed)
     await assert.rejects(
@@ -146,15 +146,15 @@ test('claim_match_nuts と claim_daily_nuts: 正解と勝利ボーナス、1matc
 
     // claim_daily_nuts
     const daily1 = await db.query(`select public.claim_daily_nuts() as d`);
-    assert.equal(daily1.rows[0].d.earned, 5);
+    assert.equal(daily1.rows[0].d.earned, 2); // 5 × 1/3 を四捨五入
     assert.equal(daily1.rows[0].d.already_claimed, false);
-    assert.equal(daily1.rows[0].d.balance, 23); // 18 + 5 = 23
+    assert.equal(daily1.rows[0].d.balance, 8); // 6 + 2
 
     // 同日2回目は earned 0
     const daily2 = await db.query(`select public.claim_daily_nuts() as d`);
     assert.equal(daily2.rows[0].d.earned, 0);
     assert.equal(daily2.rows[0].d.already_claimed, true);
-    assert.equal(daily2.rows[0].d.balance, 23);
+    assert.equal(daily2.rows[0].d.balance, 8);
   });
 });
 
@@ -175,28 +175,29 @@ test('ガチャ: 値段・足りない・1と10以外は拒否・10連の SR 以
     await assert.rejects(db.query(`select public.pull_gacha(0)`), /invalid_pull_count/);
   });
 
-  // 木の実を 200 付与
+  // 木の実を 100 付与（1日の上限 100 ちょうど）
   await asAdmin(db, async () => {
-    await db.query(`select public.add_nuts($1, 200, 'admin_grant', 'ref1')`, [uid]);
+    await db.query(`select public.add_nuts($1, 100, 'admin_grant', 'ref1')`, [uid]);
   });
 
   await asUser(db, uid, async () => {
-    // 1回引く (15消費、残高 185)
+    // 1回引く (5消費、残高 95)
     const { rows: r1 } = await db.query(`select public.pull_gacha(1) as res`);
     const g1 = r1[0].res;
-    assert.equal(g1.spent_nuts, 15);
-    assert.equal(g1.balance, 185);
+    assert.equal(g1.spent_nuts, 5);
+    assert.equal(g1.balance, 95);
     assert.equal(g1.results.length, 1);
     assert.equal(g1.results[0].kind, 'item');
     assert.equal(g1.results[0].is_new, true);
     assert.equal(g1.results[0].shards, 0);
 
-    // 10連引く (150消費、残高 35)
+    // まとめ引き (50消費で11回、残高 45)
     const { rows: r10 } = await db.query(`select public.pull_gacha(10) as res`);
     const g10 = r10[0].res;
-    assert.equal(g10.spent_nuts, 150);
-    assert.equal(g10.balance, 35);
-    assert.equal(g10.results.length, 10);
+    assert.equal(g10.spent_nuts, 50);
+    assert.equal(g10.balance, 45);
+    assert.equal(g10.results.length, 11);
+    assert.equal(g10.count, 11);
 
     // 10連の中に SR (rarity 3) 以上が必ず1つ以上含まれる
     const hasSrOrAbove = g10.results.some(it => it.rarity >= 3);

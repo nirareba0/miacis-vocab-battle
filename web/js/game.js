@@ -213,6 +213,27 @@ export function playSfx(type, options = {}) {
 }
 
 
+/**
+ * 振動（対応端末だけ。iOS Safari は無視する）。ミュート中は振動もしない
+ * @param {'wrong'|'timeout'|'stageUp'|'record'} type
+ */
+export function vibrate(type) {
+  if (isMuted()) return;
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const pattern = {
+    wrong: [60],
+    timeout: [40, 40, 120],
+    stageUp: [20, 30, 20, 30, 60],
+    record: [30, 40, 30, 40, 30, 40, 120]
+  }[type];
+  try {
+    if (pattern) navigator.vibrate(pattern);
+  } catch {
+    // 振動できない端末は無視
+  }
+}
+
 // ==========================================
 // 2. 紙吹雪 (自前 Canvas 実装・外部ライブラリなし)
 // ==========================================

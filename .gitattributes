@@ -1,0 +1,3 @@
+# Supabase は seed の中身のハッシュで「流し済みか」を判定する。Windows で CRLF に化けると流し直しになるので LF に固定する
+*.sql text eol=lf
+*.sh text eol=lf

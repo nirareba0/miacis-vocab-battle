@@ -323,6 +323,15 @@ export function translateError(error) {
   if (msg.includes('invite_not_set')) {
     return '合言葉がまだ設定されていません。スタッフに確認してね';
   }
+  if (msg.includes('run_not_active') || msg.includes('run_not_found')) {
+    return 'このチャレンジはもう終わっています';
+  }
+  if (msg.includes('revive_not_available')) {
+    return '復活はもう使えません';
+  }
+  if (msg.includes('invalid_mode')) {
+    return 'モードを選び直してください';
+  }
   if (msg.includes('invite_invalid')) {
     return '合言葉が違います（館内の掲示を見てね）';
   }
@@ -342,7 +351,7 @@ export function translateError(error) {
     return 'かけらが足りません';
   }
   if (msg.includes('invalid_pull_count')) {
-    return 'ガチャは1回か10連で引いてください';
+    return 'ガチャは1回か11連で引いてください';
   }
   if (msg.includes('already_claimed')) {
     return 'すでに獲得済みです';
@@ -568,12 +577,27 @@ export function getStageName(stage, route) {
  * @param {number} balance
  * @returns {{ balance: number, canPull1: boolean, canPull10: boolean, label: string }}
  */
-export function calcNutsDisplay(balance) {
+export const GACHA_PRICE = { single: 5, multi: 50, multiCount: 11 };
+
+/**
+ * ガチャの値段。gacha_rates() が返す値を優先し、無ければ既定
+ */
+export function gachaPrice(rates) {
+  const r = rates || {};
+  const n = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : d);
+  return {
+    single: n(r.pull_cost, GACHA_PRICE.single),
+    multi: n(r.pull10_cost, GACHA_PRICE.multi),
+    multiCount: n(r.pull10_count, GACHA_PRICE.multiCount)
+  };
+}
+
+export function calcNutsDisplay(balance, price = GACHA_PRICE) {
   const b = Math.max(0, parseInt(balance, 10) || 0);
   return {
     balance: b,
-    canPull1: b >= 15,
-    canPull10: b >= 150,
+    canPull1: b >= price.single,
+    canPull10: b >= price.multi,
     label: `${b} 🌰`
   };
 }
@@ -586,7 +610,7 @@ export function calcNutsDisplay(balance) {
  * @returns {number}
  */
 export function calcRemainingCap(dailyCap, todayEarned) {
-  const cap = Math.max(0, parseInt(dailyCap, 10) || 300);
+  const cap = Math.max(0, parseInt(dailyCap, 10) || 200);
   const earned = Math.max(0, parseInt(todayEarned, 10) || 0);
   return Math.max(0, cap - earned);
 }
@@ -656,3 +680,53 @@ export function itemExchangeCost(rarity) {
 }
 
 
+
+// ==========================================
+// 連続チャレンジ・100本ノック
+// ==========================================
+
+/**
+ * 連続チャレンジのいまのステージ。5問正解ごとに1つ上がる
+ * @param {number} streak - いまの連続正解数
+ */
+export function streakStage(streak) {
+  const n = Math.max(0, parseInt(streak, 10) || 0);
+  return { stage: Math.floor(n / 5) + 1, inStage: n % 5, toNext: 5 - (n % 5) };
+}
+
+/**
+ * 自己ベストとの距離をひとことで（プレッシャー用）。言うことが無ければ空文字
+ * @param {number} score - いまの連続正解数
+ * @param {number|null} best - これまでの自己ベスト
+ */
+export function streakPressureLabel(score, best) {
+  const s = parseInt(score, 10) || 0;
+  const b = parseInt(best, 10) || 0;
+  if (b <= 0) return '';
+  if (s > b) return '自己ベスト更新中！';
+  const remaining = b + 1 - s;
+  if (remaining === 1) return 'あと1問で自己ベスト更新！';
+  if (remaining <= 3) return `自己ベスト更新まであと${remaining}問`;
+  return '';
+}
+
+/**
+ * ミリ秒を「12.3秒」に
+ */
+export function formatSeconds(ms) {
+  const n = Math.max(0, parseInt(ms, 10) || 0);
+  return `${(n / 1000).toFixed(1)}秒`;
+}
+
+/**
+ * 100本ノックの評価
+ * @param {number} correct - 100問中の正解数
+ */
+export function knockGrade(correct) {
+  const c = parseInt(correct, 10) || 0;
+  if (c >= 100) return { mark: 'PERFECT', label: '全問正解！' };
+  if (c >= 90) return { mark: 'S', label: 'ほぼ完璧' };
+  if (c >= 75) return { mark: 'A', label: 'しっかり身についてる' };
+  if (c >= 50) return { mark: 'B', label: '半分以上いける' };
+  return { mark: 'C', label: '伸びしろたっぷり' };
+}
