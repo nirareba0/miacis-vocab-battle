@@ -209,7 +209,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">ミアキス 英単語バトル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>ことばで、<br>相棒と強くなる。</h1><p>10問のバトル。集まる単語。自分だけの着せ替え。</p></div>
+    <div class="auth-hero"><span class="eyebrow">ミアキス 英単語バトル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
