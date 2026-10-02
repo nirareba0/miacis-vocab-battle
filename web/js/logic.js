@@ -788,3 +788,11 @@ export function passedPlayers(prevScore, score, others) {
     .sort((a, b) => (parseInt(b.score, 10) || 0) - (parseInt(a.score, 10) || 0))
     .map(o => String(o.nickname || ''));
 }
+
+/**
+ * ランキングに出すときの名前。スタッフには「（スタッフ）」を付ける（2026-10-02 本人）
+ */
+export function withStaffTag(nickname, isStaff) {
+  const n = String(nickname ?? '');
+  return isStaff ? `${n}（スタッフ）` : n;
+}

@@ -340,3 +340,5 @@ html[data-textsize="large"] .word-prompt { font-size: clamp(34px, 9vw, 48px); }
 
 body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-height:40px; }
 .header-user > span { max-width:72px; }
+
+.staff-tag { margin-left:2px; font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; }

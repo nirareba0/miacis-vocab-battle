@@ -43,3 +43,10 @@ test('liveRank / passedPlayers: いまの順位と、抜いた人', async () => 
   assert.deepEqual(passedPlayers(0, 13, others), ['みく', 'れん']);
   assert.deepEqual(liveRank(3, []), { rank: 1, next: null, above: 0 });
 });
+
+test('withStaffTag: スタッフにだけ（スタッフ）を付ける', async () => {
+  const { withStaffTag } = await import('../js/logic.js');
+  assert.equal(withStaffTag('ひかり', true), 'ひかり（スタッフ）');
+  assert.equal(withStaffTag('にしむ', false), 'にしむ');
+  assert.equal(withStaffTag('にしむ', undefined), 'にしむ');
+});

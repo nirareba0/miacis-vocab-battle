@@ -224,7 +224,7 @@ test('100本ノック: 間違えても続く。100問で終わり、やり切っ
   }
 });
 
-test('やりかけは次に始めたとき、そこまでの記録で締める。スタッフはランキングに出ない。他人の回には触れない', async () => {
+test('やりかけは次に始めたとき、そこまでの記録で締める。スタッフは「スタッフ」の印つきでランキングに出る。他人の回には触れない', async () => {
   const db = await setup();
   try {
     const a = await player(db, 'A');
@@ -239,8 +239,8 @@ test('やりかけは次に始めたとき、そこまでの記録で締める�
     const ss = await start(db, staff, 'streak');
     for (let i = 0; i < 3; i++) await answerRight(db, staff, ss.run_id);
     await answerWrong(db, staff, ss.run_id);
-    const names = (await db.query('select nickname from public.ranking_streak_all')).rows.map(r => r.nickname);
-    assert.deepEqual(names, ['A']);
+    const rows = (await db.query('select nickname, is_staff from public.ranking_streak_all order by rank')).rows;
+    assert.deepEqual(rows, [{ nickname: 'Staff', is_staff: true }, { nickname: 'A', is_staff: false }]);
 
     await assert.rejects(answer(db, staff, s.run_id, 0), /permission_denied/);
     await assert.rejects(start(db, a, 'hard'), /invalid_mode/);
@@ -266,7 +266,7 @@ test('夢中にさせる仕掛け: 結果に今週の順位とすぐ上の相手
     for (let i = 0; i < 3; i++) await answerRight(db, a, sa.run_id);
     const ra = await answerWrong(db, a, sa.run_id);
     assert.equal(ra.result.week_rank, 2);
-    assert.deepEqual(ra.result.rival, { nickname: 'B', correct: 8, rank: 1 });
+    assert.deepEqual(ra.result.rival, { nickname: 'B', correct: 8, rank: 1, is_staff: false });
 
     // 図鑑: A が対戦をしていなくても、連続チャレンジで正解した 3 語が入る
     const words = await call(db, a, 'select public.my_words() as r');

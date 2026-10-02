@@ -8,6 +8,7 @@
  *   node tools/admin.mjs make-staff <nickname>
  *   node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]
  *   node tools/admin.mjs merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]
+ *   node tools/admin.mjs delete-player <nickname> [--yes]
  *   node tools/admin.mjs set-picker <nickname> on|off
  *   node tools/admin.mjs rename <旧ニックネーム> <新ニックネーム>
  *   node tools/admin.mjs import-words
@@ -50,6 +51,9 @@ function printUsageAndExit(message = null) {
       空のアカウント（遊んだ記録が無いもの）を消し、残すアカウントをその名前に変えます。
       記録は残すアカウントのものが引き継がれます。消す側がスタッフなら、残す側もスタッフにします。
       --pass-file に消す側の名前の行があれば、残す側のあいことばをそれに揃えます（画面には出さない）。
+  delete-player <nickname> [--yes]
+      アカウントと、その人の記録（対戦・連続チャレンジ・ポイント・木の実・着せ替え・抽選券など）を全部消します。
+      --yes なしだと、消える件数を表示するだけで何もしません。元に戻せません。
   set-picker <nickname> on|off
       指定したプレイヤーのピッカー権限を設定します。
   rename <旧ニックネーム> <新ニックネーム>
@@ -348,6 +352,38 @@ async function main() {
       console.log(`統合: "${keepNick}" の記録を残したまま、名前を "${dropNick}" にした（空の "${dropNick}" は削除）`);
       console.log(dropWasStaff ? 'スタッフ権限: 付けた' : 'スタッフ権限: 変えていない');
       console.log(newPass ? `あいことば: ${passFile} の "${dropNick}" の行に揃えた` : `あいことば: 変えていない（元の "${keepNick}" のまま）`);
+      break;
+    }
+
+    case 'delete-player': {
+      const nickname = args.find(a => a !== '--yes');
+      const yes = args.includes('--yes');
+      if (!nickname) {
+        printUsageAndExit('使い方: node tools/admin.mjs delete-player <nickname> [--yes]');
+      }
+      const player = await admin.getPlayerByNickname(nickname);
+      if (!player) {
+        console.error(`エラー: "${nickname}" が見つかりません。`);
+        process.exit(1);
+      }
+      const tables = ['matches', 'runs', 'points', 'nut_ledger', 'player_items', 'writings', 'raffle_entries', 'prize_tickets', 'weekly_results'];
+      const counts = [];
+      for (const t of tables) {
+        counts.push(`${t} ${await admin.countRows(t, 'player_id', player.id)}`);
+      }
+      const staff = await admin.isStaff(player.id);
+      console.log(`対象: "${nickname}"（${staff ? 'スタッフ' : '生徒'}・段${player.tier}）`);
+      console.log(`消える記録: ${counts.join(' / ')}`);
+      if (!yes) {
+        console.log('確認だけして止めた。消すときは --yes を付ける（元に戻せない）');
+        break;
+      }
+      await admin.deleteAuthUser(player.id);
+      if (await admin.getPlayerByNickname(nickname)) {
+        console.error(`エラー: "${nickname}" を消せなかった。`);
+        process.exit(1);
+      }
+      console.log(`削除: "${nickname}" と、その記録を消した`);
       break;
     }
 

@@ -107,8 +107,9 @@ test('スタッフは学年なし・ランキングと抽選券から除外。�
     assert.equal(result.results.filter(i => i.kind === 'raffle').length, 0);
     assert.equal(result.balance, 1950);
     assert.equal((await pull(db, student)).results[0].kind, 'raffle');
+    // ランキングの表示には「スタッフ」の印つきで出る（景品・抽選・週間1位の券は生徒だけ）
     for (const view of ['ranking_learn_week', 'ranking_commit_week']) {
-      assert.equal((await db.query(`select count(*)::int n from public.${view} where nickname='Staff'`)).rows[0].n, 0);
+      assert.equal((await db.query(`select is_staff from public.${view} where nickname='Staff'`)).rows[0].is_staff, true);
     }
     const rate = await call(db, staff, 'select public.gacha_rates() as r');
     assert.equal(rate.staff_mode, true);

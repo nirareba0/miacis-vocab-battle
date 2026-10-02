@@ -13,7 +13,8 @@ import {
   formatSeconds,
   knockGrade,
   liveRank,
-  passedPlayers
+  passedPlayers,
+  withStaffTag
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -191,7 +192,7 @@ async function begin(mode) {
       if (run.id !== res.run_id) return;
       run.board = (rows || [])
         .filter(r => r.nickname !== run.nickname)
-        .map(r => ({ nickname: r.nickname, score: mode === 'streak' ? r.best_streak : r.best_correct }));
+        .map(r => ({ nickname: withStaffTag(r.nickname, r.is_staff), score: mode === 'streak' ? r.best_streak : r.best_correct }));
     }).catch(() => {});
   } catch (err) {
     showError(err);
@@ -516,8 +517,8 @@ function showResult(result) {
     } else if (rival) {
       const gap = rival.correct + 1 - (result.week_best?.correct ?? result.correct);
       chase = mode === 'streak'
-        ? `${rival.nickname}（${rival.correct}連続）まで あと${gap}問`
-        : `${rival.nickname}（${rival.correct}問）まで あと${gap}問`;
+        ? `${withStaffTag(rival.nickname, rival.is_staff)}・${rival.correct}連続 まで あと${gap}問`
+        : `${withStaffTag(rival.nickname, rival.is_staff)}・${rival.correct}問 まで あと${gap}問`;
     }
     rankHtml = `<div class="rank-card"><div><span>今週</span><strong>${result.week_rank}<small>位</small></strong></div><p>${chase}</p></div>`;
   }

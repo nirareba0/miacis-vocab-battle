@@ -669,7 +669,7 @@ test('9. ranking views: no grade or id exposed, rank calculations are correct', 
     // 1. ranking_learn_week
     const learnView = await db.query(`select * from public.ranking_learn_week;`);
     const learnCols = Object.keys(learnView.rows[0]);
-    assert.deepEqual(learnCols.sort(), ['learn_points', 'nickname', 'rank', 'tier'].sort());
+    assert.deepEqual(learnCols.sort(), ['is_staff', 'learn_points', 'nickname', 'rank', 'tier'].sort());
     assert.ok(!learnCols.includes('grade'), 'grade must not be in learn view');
     assert.ok(!learnCols.includes('id'), 'id must not be in learn view');
     assert.ok(!learnCols.includes('player_id'), 'player_id must not be in learn view');
@@ -677,7 +677,7 @@ test('9. ranking views: no grade or id exposed, rank calculations are correct', 
     // 2. ranking_commit_week
     const commitView = await db.query(`select * from public.ranking_commit_week;`);
     const commitCols = Object.keys(commitView.rows[0]);
-    assert.deepEqual(commitCols.sort(), ['commit_points', 'nickname', 'rank', 'tier'].sort());
+    assert.deepEqual(commitCols.sort(), ['commit_points', 'is_staff', 'nickname', 'rank', 'tier'].sort());
     assert.ok(!commitCols.includes('grade'), 'grade must not be in commit view');
     assert.ok(!commitCols.includes('id'), 'id must not be in commit view');
     assert.ok(!commitCols.includes('player_id'), 'player_id must not be in commit view');
