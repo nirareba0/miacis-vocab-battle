@@ -187,7 +187,7 @@ test('formatRank / gradeToLabel / tierToLabel: 表示フォーマット', () => 
 });
 
 test('translateError: エラーメッセージの日本語変換', () => {
-  assert.equal(translateError('nickname_taken'), 'そのニックネームはもう使われています');
+  assert.equal(translateError('nickname_taken'), 'その名前はもう使われている。自分の名前なら「ログイン」タブから');
   assert.equal(translateError('invalid_nickname_length'), 'ニックネームは1〜10文字で入力してください');
   assert.equal(translateError('invalid_grade'), '学年を正しく選択してください');
   assert.equal(translateError('too_fast'), '回答時間が短すぎます');
@@ -198,3 +198,12 @@ test('translateError: エラーメッセージの日本語変換', () => {
 });
 
 
+
+test('normalizeNickname: 波線の種類と前後の空白をそろえる（端末ごとの打ち分けでログインできなくならない）', async () => {
+  const { normalizeNickname, nicknameToEmail } = await import('../js/logic.js');
+  for (const v of ['にしむ～', 'にしむ〜', 'にしむ~', ' にしむ～ ', 'にしむ∼']) {
+    assert.equal(normalizeNickname(v), 'にしむ～', v);
+    assert.equal(nicknameToEmail(v), nicknameToEmail('にしむ～'), v);
+  }
+  assert.equal(normalizeNickname('ひかり'), 'ひかり');
+});

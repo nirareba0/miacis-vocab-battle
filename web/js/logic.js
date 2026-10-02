@@ -13,11 +13,23 @@
  * @param {string} nickname
  * @returns {string}
  */
+/**
+ * ニックネームの表記ゆれをそろえる（前後の空白、NFC、波線）。
+ * 波線は端末で打ち出される文字が違う（Windows は「～」U+FF5E、iPhone・Mac は「〜」U+301C、半角「~」など）ので、
+ * 全部「～」U+FF5E にそろえる。既存の登録名はすべて U+FF5E（2026-10-02 確認）
+ */
+export function normalizeNickname(nickname) {
+  return String(nickname ?? '')
+    .normalize('NFC')
+    .trim()
+    .replace(/[~〜∼⁓～]/g, '～');
+}
+
 export function nicknameToEmail(nickname) {
   if (typeof nickname !== 'string') {
     throw new TypeError('ニックネームは文字列である必要があります');
   }
-  const normalized = nickname.normalize('NFC');
+  const normalized = normalizeNickname(nickname);
   const encoder = new TextEncoder();
   const bytes = encoder.encode(normalized);
   let hex = '';
@@ -237,7 +249,7 @@ export function translateError(error) {
   const msg = typeof error === 'string' ? error : error.message || '';
 
   if (msg.includes('nickname_taken')) {
-    return 'そのニックネームはもう使われています';
+    return 'その名前はもう使われている。自分の名前なら「ログイン」タブから';
   }
   if (msg.includes('invalid_nickname_length')) {
     return 'ニックネームは1〜10文字で入力してください';
@@ -255,7 +267,7 @@ export function translateError(error) {
     return 'ニックネームまたはあいことばが違います';
   }
   if (msg.includes('User already registered')) {
-    return 'そのニックネームはすでに登録されています';
+    return 'その名前はもう登録済み。上の「ログイン」タブから入って';
   }
   if (msg.includes('Password should be at least 6 characters')) {
     return 'あいことばは6文字以上で入力してください';

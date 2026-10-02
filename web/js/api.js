@@ -3,7 +3,7 @@
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from './config.js';
-import { nicknameToEmail, translateError, escapeDeep } from './logic.js';
+import { nicknameToEmail, normalizeNickname, translateError, escapeDeep } from './logic.js';
 
 export { isConfigured, translateError };
 
@@ -44,7 +44,7 @@ export async function checkInvite(code) {
  */
 export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   checkClient();
-  const trimmedNick = (nickname || '').trim();
+  const trimmedNick = normalizeNickname(nickname);
   if (trimmedNick.length < 1 || trimmedNick.length > 10) {
     throw new Error('ニックネームは1〜10文字で入力してください');
   }
@@ -104,7 +104,7 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
  */
 export async function signInPlayer(nickname, passphrase) {
   checkClient();
-  const trimmedNick = (nickname || '').trim();
+  const trimmedNick = normalizeNickname(nickname);
   if (!trimmedNick) {
     throw new Error('ニックネームを入力してください');
   }
@@ -112,10 +112,15 @@ export async function signInPlayer(nickname, passphrase) {
     throw new Error('あいことばを入力してください');
   }
   const email = nicknameToEmail(trimmedNick);
-  const { data, error } = await supabase.auth.signInWithPassword({
+  let { data, error } = await supabase.auth.signInWithPassword({
     email,
     password: passphrase
   });
+  // コピペで前後に空白・タブ・改行が付いたあいことばを救う（そのままで失敗したときだけ試す）
+  const trimmedPass = passphrase.trim();
+  if (error && trimmedPass !== passphrase && trimmedPass.length > 0) {
+    ({ data, error } = await supabase.auth.signInWithPassword({ email, password: trimmedPass }));
+  }
   if (error) {
     throw new Error(translateError(error));
   }
