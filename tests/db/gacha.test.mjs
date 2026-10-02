@@ -162,8 +162,8 @@ test('ガチャ: 値段・足りない・1と10以外は拒否・10連の SR 以
   const db = await setupGachaTest();
   const uid = await createPlayer(db, 'gacha_hero');
 
-  // 景品率を 0 にしてアイテムガチャをテスト
-  await db.query(`insert into public.app_settings (key, value) values ('prize_rate', '0')
+  // 景品率・抽選券率を 0 にしてアイテムガチャをテスト
+  await db.query(`insert into public.app_settings (key, value) values ('prize_rate', '0'), ('raffle_rate', '0')
                   on conflict (key) do update set value = excluded.value`);
 
   await asUser(db, uid, async () => {
@@ -239,61 +239,28 @@ test('ガチャ: 値段・足りない・1と10以外は拒否・10連の SR 以
   });
 });
 
-test('景品: 在庫0の景品は出ない・景品の在庫が減る・prize_rate=1 にすると必ず景品・チケット発行', async () => {
+test('抽選券: raffle_rate=1 なら必ず抽選券。景品の在庫は減らず、引換券も発行されない（当たるのは月末の抽選）', async () => {
   const db = await setupGachaTest();
   const uid = await createPlayer(db, 'p_winner');
-
-  // 木の実を付与
   await asAdmin(db, async () => {
     await db.query(`select public.add_nuts($1, 100, 'admin_grant', 'ref1')`, [uid]);
+    await db.query(`insert into public.app_settings (key, value) values ('raffle_rate', '1')
+                    on conflict (key) do update set value = excluded.value`);
+    await db.query(`insert into public.prizes (name, description, stock, active, reward_channel) values ('特製シール', '館内引換券', 1, true, 'raffle')`);
   });
-
-  // prize_rate を 1.0 に設定（必ず景品判定に入る）
-  await db.query(`insert into public.app_settings (key, value) values ('prize_rate', '1.0')
-                  on conflict (key) do update set value = excluded.value`);
-
-  // 1. 景品が 0 件のときは、景品が出ずに通常のアイテム抽選に倒れる
-  await asUser(db, uid, async () => {
-    const { rows } = await db.query(`select public.pull_gacha(1) as res`);
-    assert.equal(rows[0].res.results[0].kind, 'item');
-  });
-
-  // 2. 在庫 0 の景品があっても出ない
-  const prizeId0 = crypto.randomUUID();
-  await asAdmin(db, async () => {
-    await db.query(`insert into public.prizes (id, name, description, stock, active) values ($1, '品切れ景品', '在庫なし', 0, true)`, [prizeId0]);
-  });
-  await asUser(db, uid, async () => {
-    const { rows } = await db.query(`select public.pull_gacha(1) as res`);
-    assert.equal(rows[0].res.results[0].kind, 'item');
-  });
-
-  // 3. 在庫 1 の景品を追加 -> 必ず当選して在庫が 0 になり、チケットが発行される
-  const prizeId1 = crypto.randomUUID();
-  await asAdmin(db, async () => {
-    await db.query(`insert into public.prizes (id, name, description, stock, active) values ($1, '特製シール', '館内引換券', 1, true)`, [prizeId1]);
-  });
-
   await asUser(db, uid, async () => {
     const { rows } = await db.query(`select public.pull_gacha(1) as res`);
     const result = rows[0].res.results[0];
-    assert.equal(result.kind, 'prize');
-    assert.equal(result.name, '特製シール');
-    assert.ok(result.ticket_id);
-
-    // チケット一覧（my_tickets）で確認
+    assert.equal(result.kind, 'raffle');
+    assert.equal(result.name, '抽選券');
+    assert.equal(result.ticket_id, null);
+    assert.equal(rows[0].res.raffle_entries_month, 1);
     const { rows: tRows } = await db.query(`select public.my_tickets() as t`);
-    const tickets = tRows[0].t;
-    assert.equal(tickets.length, 1);
-    assert.equal(tickets[0].prize_name, '特製シール');
-    assert.equal(tickets[0].redeemed_at, null);
+    assert.equal(tRows[0].t.length, 0);
   });
-
-  // 在庫が 0 になっていること (admin で確認)
-  await asAdmin(db, async () => {
-    const { rows: pRows } = await db.query(`select stock from public.prizes where id = $1`, [prizeId1]);
-    assert.equal(pRows[0].stock, 0);
-  });
+  const stock = (await db.query(`select stock from public.prizes where reward_channel='raffle'`)).rows[0].stock;
+  assert.equal(stock, 1);
+  await db.close();
 });
 
 test('交換: かけらで交換・足りないとエラー・景品とは交換不可', async () => {

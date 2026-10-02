@@ -754,3 +754,36 @@ export async function getRankingKnock(band) {
 export function getAppFlags() {
   return rpc('app_flags');
 }
+
+// ==========================================
+// 抽選券・スタッフの設定・登録前の1問
+// ==========================================
+
+export function getMyRaffle() {
+  return rpc('my_raffle');
+}
+
+/** @param {string} month - 'YYYY-MM-01' */
+export function staffDrawRaffle(month) {
+  return rpc('staff_draw_raffle', { p_month: month });
+}
+
+export function getStaffSettings() {
+  return rpc('staff_settings');
+}
+
+export function staffSetSetting(key, value) {
+  return rpc('staff_set_setting', { p_key: key, p_value: String(value) });
+}
+
+/** 登録前に1問だけ遊ぶための単語（頻度上位・匿名で読める）。選ぶのは端末側 */
+export async function getTryoutWords() {
+  checkClient();
+  const { data, error } = await supabase
+    .from('words')
+    .select('id, en, ja, rank')
+    .lte('rank', 400)
+    .limit(60);
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}

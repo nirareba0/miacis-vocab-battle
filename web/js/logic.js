@@ -329,6 +329,21 @@ export function translateError(error) {
   if (msg.includes('revive_not_available')) {
     return '復活はもう使えません';
   }
+  if (msg.includes('month_not_closed')) {
+    return 'その月はまだ終わっていない。月が替わってから';
+  }
+  if (msg.includes('invalid_month')) {
+    return '月の指定が違う（1日の日付で）';
+  }
+  if (msg.includes('setting_not_allowed')) {
+    return 'その設定は画面から変えられない';
+  }
+  if (msg.includes('setting_out_of_range')) {
+    return '範囲の外。最小〜最大の中で';
+  }
+  if (msg.includes('invalid_setting_value')) {
+    return '数字（または オン/オフ）で';
+  }
   if (msg.includes('invalid_mode')) {
     return 'モードを選び直してください';
   }

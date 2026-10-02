@@ -279,3 +279,64 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .challenge-knock .result-banner.lose { background: #eef7f2; border-color: #bfe0cf; }
 .challenge-knock .result-banner.lose .result-big { color: #247956; }
 @media (prefers-reduced-motion: reduce) { #challenge-area.shake, .stage-up strong { animation: none; } }
+
+/* 抽選券・称号・相棒の表情・設定・登録前の1問 */
+html[data-textsize="large"] { font-size: 112%; }
+html[data-textsize="large"] .word-prompt { font-size: clamp(34px, 9vw, 48px); }
+.raffle-count { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0; }
+.raffle-count div { background:#fff; border:1px solid #e9c9c6; border-radius:14px; padding:10px; text-align:center; }
+.raffle-count span { display:block; font-size:11px; color:var(--text-muted); }
+.raffle-count strong { font-size:24px; color:#c2413a; }
+.raffle-count strong small { font-size:12px; margin-left:2px; }
+.gacha-showcase.raffle { border:2px solid #e9c9c6; background:#fff6f5; }
+.gacha-showcase.raffle h2 { color:#c2413a; }
+.gacha-summary-item.is-raffle { border-color:#c2413a; background:#fff6f5; }
+.prize-ticket-box.raffle { background:#fff6f5; border-color:#c2413a; }
+.raffle-card { border:2px solid #e9c9c6; }
+.raffle-results div { display:grid; grid-template-columns:auto 1fr auto auto; gap:8px; align-items:baseline; padding:8px 0; border-top:1px solid var(--border); font-size:14px; }
+.raffle-results div.is-me { background:#fff6f5; border-radius:10px; padding:8px; }
+.raffle-results small { color:var(--text-muted); }
+.title-award { margin:14px 0 0; padding:14px 16px; border-radius:16px; background:#2a2140; color:#fff; text-align:center; }
+.title-award .eyebrow { color:#f5ce65; }
+.title-award strong { display:block; font-size:20px; margin:4px 0; }
+.title-award p { margin:4px 0 0; font-size:12px; color:#e5dbff; }
+.nut-drop { display:inline-block; animation: nut-drop .6s cubic-bezier(.3,1.5,.5,1); }
+@keyframes nut-drop { 0% { transform: translateY(-28px) scale(.8); opacity:0; } 60% { transform: translateY(2px) scale(1.15, .85); opacity:1; } 80% { transform: translateY(-3px) scale(.95, 1.05); } 100% { transform: none; } }
+.hud-miacis { position:relative; display:inline-block; width:48px; height:48px; margin-right:8px; vertical-align:middle; }
+.hud-miacis .miacis-wrapper, .hud-miacis > div { width:48px !important; height:48px !important; }
+.hud-miacis .mood-mark { position:absolute; right:-6px; top:-6px; font-size:14px; font-style:normal; font-weight:900; opacity:0; }
+.hud-miacis.mood-happy { animation: mood-happy .45s cubic-bezier(.3,1.6,.5,1); }
+.hud-miacis.mood-happy .mood-mark::before { content:'♪'; color:#247956; }
+.hud-miacis.mood-ouch { animation: mood-ouch .4s ease-out; }
+.hud-miacis.mood-ouch .mood-mark::before { content:'！'; color:#c2413a; }
+.hud-miacis.mood-wow { animation: mood-wow .6s cubic-bezier(.2,1.6,.4,1); }
+.hud-miacis.mood-wow .mood-mark::before { content:'✦'; color:#f5ce65; }
+.hud-miacis.mood-happy .mood-mark, .hud-miacis.mood-ouch .mood-mark, .hud-miacis.mood-wow .mood-mark { animation: mood-mark .9s ease-out forwards; }
+@keyframes mood-happy { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-8px) scale(.95, 1.08); } 70% { transform: translateY(0) scale(1.08, .92); } 100% { transform: none; } }
+@keyframes mood-ouch { 0% { transform: none; } 20% { transform: translateX(-4px) rotate(-10deg) scale(1.1, .9); } 50% { transform: translateX(3px) rotate(6deg); } 100% { transform: none; } }
+@keyframes mood-wow { 0% { transform: scale(1); } 50% { transform: scale(1.35) rotate(-6deg); } 100% { transform: none; } }
+@keyframes mood-mark { 0% { opacity:0; transform: translateY(4px) scale(.6); } 20% { opacity:1; transform: translateY(-2px) scale(1.2); } 70% { opacity:1; } 100% { opacity:0; transform: translateY(-8px); } }
+.settings-card h2 { margin:0 0 14px; font-size:20px; }
+.settings-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0; }
+.settings-row > span { font-weight:700; }
+.settings-row .tab-bar { margin:0; flex:0 0 auto; width:160px; }
+.settings-row .tab-bar .tab-btn { flex:1; min-height:36px; }
+.settings-row .btn-secondary { width:auto; min-width:88px; min-height:40px; }
+.settings-card .btn-primary { margin-top:12px; }
+.setting-row { display:grid; grid-template-columns:1fr; gap:6px; padding:12px 0; border-top:1px solid var(--border); }
+.setting-row label strong { display:block; font-size:14px; }
+.setting-row label small { color:var(--text-muted); font-size:11px; }
+.setting-row .btn-secondary { min-height:40px; }
+.tryout { text-align:center; margin-bottom:16px; border:2px solid #e9c9c6; }
+.tryout h2 { margin:4px 0 6px; font-size:24px; }
+.tryout p { margin:0 0 12px; color:var(--text-muted); font-size:14px; }
+.tryout .choices-list { margin-top:10px; }
+.tryout-result { margin-top:12px; }
+.tryout-result strong { font-size:20px; color:#c2413a; }
+.tryout-result p { margin:4px 0 0; font-size:13px; }
+.debug-panel { position:fixed; left:8px; bottom:8px; z-index:9999; display:flex; gap:4px; }
+.debug-panel button { font-size:11px; padding:4px 8px; min-height:0; width:auto; background:#2a2140; color:#fff; border:0; border-radius:8px; }
+@media (prefers-reduced-motion: reduce) { .nut-drop, .hud-miacis, .hud-miacis .mood-mark { animation:none !important; } }
+
+body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-height:40px; }
+.header-user > span { max-width:72px; }

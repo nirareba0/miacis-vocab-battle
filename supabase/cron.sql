@@ -38,3 +38,10 @@ select cron.schedule(
   '0 19 * * *',
   $$select public.purge_inactive();$$
 );
+
+-- 毎日 JST 0:05（UTC 15:05）に呼び、JST の 1 日だけ前月の抽選券を抽選する
+select cron.schedule(
+  'draw-raffle-job',
+  '5 15 * * *',
+  $$select public.draw_monthly_raffle_if_due();$$
+);

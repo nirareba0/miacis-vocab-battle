@@ -56,9 +56,12 @@ test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲�
       assert.equal(r.state, 'next');
       q = r.question;
     }
+    // STAGE 2 に上がった直後の 2 問は「平地」: 時間は短くなるが、範囲は 1 のまま
     assert.equal(q.stage, 2);
-    assert.equal(q.range, 2);
+    assert.equal(q.range, 1);
     assert.equal(q.limit_ms, 6600);
+    for (let i = 0; i < 2; i++) q = (await answerRight(db, a, s.run_id)).question;
+    assert.equal(q.range, 2);
     // 範囲2の単語は頻度順で 16〜30 番目
     const rank = (await db.query('select rank from public.words where id=$1', [q.word_id])).rows[0].rank;
     assert.ok(rank >= 16 && rank <= 30, `rank ${rank}`);
@@ -87,7 +90,7 @@ test('連続チャレンジ: 間違えたら即終了。ポイント・木の実
     assert.equal(r.result.correct, 6);
     assert.equal(r.result.end_reason, 'wrong');
     assert.equal(r.result.learn_points, 6);
-    assert.equal(r.result.nuts, 1); // 5問連続ごとに2、それに1/3を掛けて四捨五入（最低1）
+    assert.equal(r.result.nuts, 1); // 素点 6×10=60 → 2 個 × 1/3 → 四捨五入で 1
     assert.equal(r.result.new_best, true);
     assert.equal(r.result.missed.length, 1);
 
@@ -200,7 +203,7 @@ test('100本ノック: 間違えても続く。100問で終わり、やり切っ
     assert.equal(last.state, 'finished');
     assert.equal(last.result.correct, 90);
     assert.equal(last.result.end_reason, 'complete');
-    assert.equal(last.result.nuts, 6); // (9 + 5 + 3) × 1/3
+    assert.equal(last.result.nuts, 15); // 素点 90×10=900 → 36 個、完走 +5、90問以上 +3 → 44 × 1/3
     assert.equal(last.result.missed.length, 10);
 
     // 途中でやめた回は記録に出ない
@@ -277,6 +280,41 @@ test('夢中にさせる仕掛け: 結果に今週の順位とすぐ上の相手
       const d = await call(db, a, 'select public.claim_daily_nuts() as r');
       assert.equal(d.earned, expected, `${day}: streak ${d.streak_days}`);
     }
+  } finally {
+    await db.close();
+  }
+});
+
+test('称号: 10連続・復活からの逆転・100本完走で入手。ガチャには出ない。2回目は付かない', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    // 復活を使ってから 10 連続 → 10連続サバイバー + 逆転のサバイバー
+    const s = await start(db, a, 'streak');
+    await answerRight(db, a, s.run_id);
+    await answer(db, a, s.run_id, null, null);
+    await call(db, a, 'select public.revive_run($1) as r', [s.run_id]);
+    for (let i = 0; i < 9; i++) await answerRight(db, a, s.run_id);
+    const r = await answerWrong(db, a, s.run_id);
+    assert.deepEqual(r.result.new_titles.map(t => t.id).sort(), ['title_comeback', 'title_streak10']);
+
+    // もう一度 10 連続しても、同じ称号は付かない
+    const s2 = await start(db, a, 'streak');
+    for (let i = 0; i < 10; i++) await answerRight(db, a, s2.run_id);
+    const r2 = await answerWrong(db, a, s2.run_id);
+    assert.deepEqual(r2.result.new_titles, []);
+
+    // 後半ほど木の実の素点が高い: STAGE 2 以降の正解は +3 ずつ
+    const score = (await db.query('select nut_score from public.runs where id=$1', [s2.run_id])).rows[0].nut_score;
+    assert.equal(score, 10 * 10 + 3 * 5); // 問 6〜10 が STAGE 2
+
+    // 装備はできる（active）が、ガチャの抽選対象（source='gacha'）には入らない
+    const titles = (await db.query("select id from public.items where source='achievement' and active")).rows;
+    assert.equal(titles.length, 6);
+    await asUser(db, a, () => db.query("select public.equip_item('title', 'title_streak10')"));
+    assert.equal((await db.query('select title from public.player_looks where player_id=$1', [a])).rows[0].title, 'title_streak10');
+    const owned = (await db.query("select item_id from public.player_items where player_id=$1 order by item_id", [a])).rows.map(x => x.item_id);
+    assert.deepEqual(owned, ['title_comeback', 'title_streak10']);
   } finally {
     await db.close();
   }

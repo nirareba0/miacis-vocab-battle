@@ -50,7 +50,12 @@ import {
   getRankingStreak,
   getRankingKnock,
   getMyRunBests,
-  getAppFlags
+  getAppFlags,
+  getMyRaffle,
+  staffDrawRaffle,
+  getStaffSettings,
+  staffSetSetting,
+  getTryoutWords
 } from './api.js';
 
 import {
@@ -72,7 +77,10 @@ import {
   playSfx,
   triggerConfetti,
   isMuted,
-  toggleMute
+  toggleMute,
+  isVibrationOff,
+  toggleVibration,
+  vibrate
 } from './game.js';
 
 import { renderMiacis } from './look.js';
@@ -122,7 +130,14 @@ const appEl = document.getElementById('app-container');
 /**
  * 初期化
  */
+function applyTextSize() {
+  let v = 'standard';
+  try { v = localStorage.getItem('miacis_textsize') || 'standard'; } catch {}
+  document.documentElement.dataset.textsize = v;
+}
+
 async function init() {
+  applyTextSize();
   if (!isConfigured()) {
     renderPreparation();
     return;
@@ -215,6 +230,13 @@ function renderAuth(mode = 'register') {
   appEl.innerHTML = `
     <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問6秒。間違えたら終わり。</p></div>
 
+    <div class="card tryout" id="tryout-card">
+      <span class="eyebrow">登録の前に</span>
+      <h2>まず、1問。</h2>
+      <p>7秒。合ってたら、続きは登録して</p>
+      <button class="btn-primary" id="btn-tryout">1問やってみる</button>
+    </div>
+
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
       <button id="tab-login" class="tab-btn ${mode === 'login' ? 'active' : ''}">ログイン</button>
@@ -275,6 +297,7 @@ function renderAuth(mode = 'register') {
   `;
 
   // イベント設定
+  document.getElementById('btn-tryout')?.addEventListener('click', startTryout);
   document.getElementById('tab-register').addEventListener('click', () => renderAuth('register'));
   document.getElementById('tab-login').addEventListener('click', () => renderAuth('login'));
 
@@ -380,6 +403,57 @@ function renderAuth(mode = 'register') {
 /**
  * 登録直後の「スクショしてね」モーダル
  */
+/**
+ * 登録前の1問。端末だけで完結する（記録は残らない）。桜井「とにかくゲームさせてみて」
+ */
+async function startTryout() {
+  const card = document.getElementById('tryout-card');
+  if (!card) return;
+  card.innerHTML = '<div class="loading-state" role="status"><span class="loading-orbit"></span>用意中…</div>';
+  let words;
+  try {
+    words = await getTryoutWords();
+  } catch {
+    card.innerHTML = '<p>いまは出せない。登録して始めよう</p>';
+    return;
+  }
+  if (!words || words.length < 4) { card.innerHTML = '<p>いまは出せない。登録して始めよう</p>'; return; }
+  const pick = [...words].sort(() => Math.random() - 0.5).slice(0, 4);
+  const target = pick[0];
+  const choices = [...pick].sort(() => Math.random() - 0.5);
+  const started = performance.now();
+  const limit = 7000;
+  let done = false;
+  card.innerHTML = `
+    <div class="timer-bar-bg"><div id="tryout-bar" class="timer-bar-fill"></div></div>
+    <div class="word-prompt" style="font-size:clamp(26px,7vw,36px); padding:20px 8px;">${escapeHtml(target.en)}</div>
+    <div class="choices-list">${choices.map((c, i) => `<button class="btn-choice" data-id="${c.id}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c.ja)}</span></button>`).join('')}</div>
+  `;
+  const bar = document.getElementById('tryout-bar');
+  const iv = setInterval(() => {
+    const left = Math.max(0, limit - (performance.now() - started));
+    if (bar) { bar.style.width = `${(left / limit) * 100}%`; bar.classList.toggle('danger', left / limit < 0.3); }
+  }, 50);
+  const finish = (ok, btn) => {
+    if (done) return;
+    done = true;
+    clearInterval(iv);
+    clearTimeout(to);
+    card.querySelectorAll('.btn-choice').forEach(b => { b.disabled = true; if (b.dataset.id === String(target.id)) b.classList.add('correct'); });
+    if (btn) btn.classList.add(ok ? 'choice-correct' : 'choice-wrong');
+    if (ok) { playSfx('correct'); } else { playSfx('wrong'); vibrate('wrong'); }
+    const msg = document.createElement('div');
+    msg.className = 'tryout-result';
+    msg.innerHTML = ok
+      ? '<strong>正解！</strong><p>この調子で何問続く？ 登録して記録を残そう</p>'
+      : `<strong>${btn ? 'おしい！' : '時間切れ！'}</strong><p>${escapeHtml(target.en)} = ${escapeHtml(target.ja)}。本番は 1問 7秒</p>`;
+    card.append(msg);
+    setTimeout(() => document.getElementById('auth-nick')?.focus({ preventScroll: false }), 900);
+  };
+  const to = setTimeout(() => finish(false, null), limit);
+  card.querySelectorAll('.btn-choice').forEach(b => b.addEventListener('click', () => finish(b.dataset.id === String(target.id), b)));
+}
+
 function showScreenshotModal(nick, pass, gradeVal) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
@@ -464,6 +538,7 @@ async function renderHome() {
         <span class="brand-mark" aria-hidden="true">✦</span><span class="brand-name">ミアキス</span>
       </h1>
       <div class="header-user">
+        <button class="btn-mute" id="btn-settings" aria-label="設定">⚙️</button>
         <button class="btn-mute" id="btn-mute-toggle" aria-label="効果音ミュート切り替え">${muteIcon}</button>
         <span id="header-user-nick">${escapeHtml(state.player.nickname)} さん</span>
         <button class="btn-logout" id="btn-logout">ログアウト</button>
@@ -476,6 +551,8 @@ async function renderHome() {
     const nextMuted = toggleMute();
     document.getElementById('btn-mute-toggle').textContent = nextMuted ? '🔇' : '🔊';
   });
+
+  document.getElementById('btn-settings').addEventListener('click', showSettingsModal);
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     await signOutPlayer();
@@ -566,7 +643,7 @@ async function renderHome() {
       <div class="record-strip" id="record-strip" hidden></div>
       <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>連続チャレンジ</strong><small>間違えたら終わり。何問続く？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
       <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦</strong><span>10問 vs だれかの記録</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問 ノンストップ</span></button></div>
-      <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日集めた木の実 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個</p></div>
+      <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク 準備中'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
       <p class="week-history">${lastWeekDiff}</p>
@@ -587,6 +664,20 @@ async function renderHome() {
     document.getElementById('go-battle').addEventListener('click', () => {
       window.location.hash = '#/battle';
     });
+    getMyRaffle().then(r => {
+      const el = document.getElementById('home-raffle');
+      if (!el) return;
+      el.textContent = `🎟️ 今月の抽選券 ${r.my_entries}枚`;
+      const win = (r.last_results || []).find(x => x.is_me);
+      if (win) {
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success';
+        toast.style.cssText = 'margin-bottom:12px; font-weight:700; text-align:center;';
+        toast.innerHTML = `🎁 ${escapeHtml(win.month)} の抽選で「${escapeHtml(win.prize)}」が当たった！ 引換券は「自分の記録」へ`;
+        document.getElementById('home-content')?.prepend(toast);
+      }
+    }).catch(() => {});
+
     // 今週の連続記録: 自分と1位（開くたびに「抜かれた/抜ける」が見える）
     Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week').catch(() => [])]).then(([bests, rows]) => {
       const strip = document.getElementById('record-strip');
@@ -641,11 +732,48 @@ async function renderHome() {
 }
 
 /**
+ * 設定（文字サイズ・振動・効果音）。端末ごとに保存
+ */
+function showSettingsModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const textsize = document.documentElement.dataset.textsize || 'standard';
+  overlay.innerHTML = `
+    <div class="screenshot-modal-card settings-card" role="dialog" aria-labelledby="settings-title">
+      <h2 id="settings-title">設定</h2>
+      <div class="settings-row"><span>文字の大きさ</span><div class="tab-bar"><button class="tab-btn ${textsize === 'standard' ? 'active' : ''}" data-size="standard">標準</button><button class="tab-btn ${textsize === 'large' ? 'active' : ''}" data-size="large">大きく</button></div></div>
+      <div class="settings-row"><span>効果音</span><button class="btn-secondary" id="set-sound">${isMuted() ? 'オフ' : 'オン'}</button></div>
+      <div class="settings-row"><span>振動</span><button class="btn-secondary" id="set-vibe">${isVibrationOff() ? 'オフ' : 'オン'}</button></div>
+      <button class="btn-primary" id="set-close">閉じる</button>
+    </div>`;
+  document.body.append(overlay);
+  overlay.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => {
+    try { localStorage.setItem('miacis_textsize', b.dataset.size); } catch {}
+    applyTextSize();
+    overlay.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('active', x === b));
+  }));
+  overlay.querySelector('#set-sound').addEventListener('click', e => {
+    e.target.textContent = toggleMute() ? 'オフ' : 'オン';
+    document.getElementById('btn-mute-toggle') && (document.getElementById('btn-mute-toggle').textContent = isMuted() ? '🔇' : '🔊');
+  });
+  overlay.querySelector('#set-vibe').addEventListener('click', e => {
+    const off = toggleVibration();
+    e.target.textContent = off ? 'オフ' : 'オン';
+    if (!off) vibrate('wrong');
+  });
+  overlay.querySelector('#set-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+/**
  * 連続チャレンジ (#/streak) ・ 100本ノック (#/knock)
  */
 function renderChallenge(mode) {
+  const itemMap = Object.fromEntries((state.allItems || []).map(it => [it.id, it]));
+  const look = Object.fromEntries(['hat', 'face', 'neck', 'background', 'aura', 'title'].map(k => [k, itemMap[state.myLooks?.[k]] || null]));
   renderChallengeView(appEl, mode, {
     nickname: state.player.nickname,
+    look,
     onGoHome: () => {
       window.location.hash = '#/home';
     },
@@ -1747,10 +1875,11 @@ async function renderMe() {
   });
 
   try {
-    const [weeklyResults, writings, tickets] = await Promise.all([
+    const [weeklyResults, writings, tickets, raffle] = await Promise.all([
       getMyWeeklyResults().catch(() => []),
       getMyWritings().catch(() => []),
-      getMyTickets().catch(() => [])
+      getMyTickets().catch(() => []),
+      getMyRaffle().catch(() => null)
     ]);
 
     const container = document.getElementById('me-container');
@@ -1830,7 +1959,17 @@ async function renderMe() {
       }).join('');
     }
 
+    const raffleHtml = raffle ? `
+      <div class="card raffle-card">
+        <div class="card-title" style="margin-top:0;">🎟️ 月末抽選</div>
+        <div class="raffle-count"><div><span>${escapeHtml(raffle.month)} の自分の券</span><strong>${raffle.my_entries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${raffle.total_entries}<small>枚</small></strong></div></div>
+        <p class="notice-line">券はガチャで出る。多いほど当たりやすい。月初に抽選</p>
+        ${(raffle.prizes || []).length ? `<p>景品: ${raffle.prizes.map(p => `${escapeHtml(p.name)}（${p.stock}名）`).join('、')}</p>` : ''}
+        ${(raffle.last_results || []).length ? `<div class="raffle-results">${raffle.last_results.map(r => `<div class="${r.is_me ? 'is-me' : ''}"><span>${escapeHtml(r.month)}</span><strong>${escapeHtml(r.prize)}</strong><span>${r.is_me ? 'あなた！' : escapeHtml(r.nickname || '—')}</span><small>${r.winner_entries}/${r.total_entries}枚</small></div>`).join('')}</div>` : ''}
+      </div>` : '';
+
     container.innerHTML = `
+      ${raffleHtml}
       <div class="card-title">館の景品 引換券</div>
       <div style="margin-bottom: 24px;">
         ${unusedTicketsHtml}
@@ -1893,6 +2032,8 @@ async function renderStaff() {
       <button class="tab-btn ${state.staffTab === 'overview' ? 'active' : ''}" data-tab="overview">利用状況</button>
       <button class="tab-btn ${state.staffTab === 'tickets' ? 'active' : ''}" data-tab="tickets">引換券</button>
       <button class="tab-btn ${state.staffTab === 'prizes' ? 'active' : ''}" data-tab="prizes">景品</button>
+      <button class="tab-btn ${state.staffTab === 'raffle' ? 'active' : ''}" data-tab="raffle">抽選</button>
+      <button class="tab-btn ${state.staffTab === 'settings' ? 'active' : ''}" data-tab="settings">設定</button>
       <button class="tab-btn ${state.staffTab === 'contents' ? 'active' : ''}" data-tab="contents">英語</button>
       <button class="tab-btn ${state.staffTab === 'writings' ? 'active' : ''}" data-tab="writings">一言</button>
     </div>
@@ -1933,10 +2074,9 @@ async function renderStaff() {
             <div><dt>スタッフ</dt><dd>${stats.staff}人</dd></div>
           </dl><p class="notice-line">利用者・抽選回数にスタッフは含みません。まとめ引き（11連）は11回と数えます。</p>
         </div>
-        <div class="card"><div class="card-title">週ごとの無料券</div>
-          <p>ガチャ：今週 ${stats.gacha_issued} / 1枚 発行</p>
+        <div class="card"><div class="card-title">景品</div>
+          <p>🎟️ 抽選券：${escapeHtml(stats.raffle_month || '')} ${stats.raffle_entries ?? 0}枚（${stats.raffle_holders ?? 0}人）。月初に前月分を自動抽選</p>
           <p>ランキング：先週分 ${stats.ranking_issued_last_week} / 1枚 発行</p>
-          <p class="notice-line">ガチャの目安確率：残り枠がある間、1回 ${(overview.prize_rate * 100).toFixed(1)}%。当選後は次の週まで0%。繰り越しなし。</p>
           <p class="notice-line">ランキングは週間コミット1位（1点以上）。同点はニックネーム順で1名。月曜0:05に前週分を確定します。</p>
           ${overview.rewards.map(r => `<div class="weekly-reward-row"><strong>${escapeHtml(r.name)}</strong><span>${r.active ? '有効' : '停止中'}</span><p>${escapeHtml(r.description)}</p></div>`).join('')}
         </div>`;
@@ -2040,7 +2180,7 @@ async function renderStaff() {
 
       container.innerHTML = `
         <div class="card">
-          <div class="card-title">景品を新しく追加・補充</div>
+          <div class="card-title">月末抽選の景品を追加</div>
           <form id="prize-upsert-form">
             <div class="form-group">
               <label class="form-label" for="prize-name">景品名</label>
@@ -2051,19 +2191,19 @@ async function renderStaff() {
               <input class="form-input" id="prize-desc" type="text" placeholder="例: ホログラム仕様の限定ステッカー">
             </div>
             <div class="form-group">
-              <label class="form-label" for="prize-stock">在庫数</label>
+              <label class="form-label" for="prize-stock">当選人数（在庫）</label>
               <input class="form-input" id="prize-stock" type="number" min="0" value="10" required>
             </div>
             <div class="form-group" style="display:flex; align-items:center; gap:8px;">
               <input type="checkbox" id="prize-active" checked style="width:20px; height:20px;">
-              <label for="prize-active" style="font-size:15px; font-weight:700;">ガチャから排出する（有効）</label>
+              <label for="prize-active" style="font-size:15px; font-weight:700;">抽選の対象にする（有効）</label>
             </div>
             <button type="submit" class="btn-primary" id="btn-save-prize" style="margin-top: 10px;">景品を登録する</button>
           </form>
         </div>
 
-        <div class="card-title">現在のガチャ排出景品一覧</div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">現在の景品排出確率: ${(rates.prize_rate * 100).toFixed(1)}%</div>
+        <div class="card-title">今月の抽選の景品</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">抽選券が出る確率: ガチャ1回 ${Math.round((Number(rates.raffle_rate) || 0) * 100)}%（11連の最後は確定）</div>
         <div style="margin-bottom: 20px;">
           ${prizesHtml}
         </div>
@@ -2093,6 +2233,64 @@ async function renderStaff() {
         }
       });
 
+    } else if (state.staffTab === 'raffle') {
+      const raffle = await getMyRaffle();
+      const now = new Date();
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+      container.innerHTML = `
+        <div class="card">
+          <div class="card-title">今月（${escapeHtml(raffle.month)}）</div>
+          <p>券 ${raffle.total_entries}枚 ・ 持っている人 ${raffle.holders}人</p>
+          <p class="notice-line">景品ごとに1人。券の枚数がくじの本数。同じ月に同じ人は2つ当たらない</p>
+        </div>
+        <div class="card">
+          <div class="card-title">前月（${prevKey}）の抽選</div>
+          ${(raffle.last_results || []).length
+            ? `<div class="raffle-results">${raffle.last_results.map(r => `<div><span>${escapeHtml(r.month)}</span><strong>${escapeHtml(r.prize)}</strong><span>${escapeHtml(r.nickname || '—')}</span><small>${r.winner_entries}/${r.total_entries}枚</small></div>`).join('')}</div>`
+            : '<p>まだ抽選していない（毎月1日 0:05 に自動。手で回すなら下のボタン）</p>'}
+          <button class="btn-secondary" id="btn-draw-raffle">前月分をいま抽選する</button>
+        </div>`;
+      document.getElementById('btn-draw-raffle').addEventListener('click', async () => {
+        if (!confirm(`${prevKey} の抽選券で抽選します。景品ごとに1人を選び、引換券を発行します。よろしいですか？`)) return;
+        try {
+          const res = await staffDrawRaffle(`${prevKey}-01`);
+          alert(res.length ? `${res.length}件 当選を決めました` : '新しく決まった当選はありません（抽選済み・券なし・景品なし のどれか）');
+          renderStaff();
+        } catch (err) { alert(err.message); }
+      });
+    } else if (state.staffTab === 'settings') {
+      const settings = await getStaffSettings();
+      const rows = Object.entries(settings).map(([key, v]) => `
+        <div class="setting-row">
+          <label for="set-${key}"><strong>${escapeHtml(v.label)}</strong><small>${escapeHtml(key)}${v.kind === 'bool' ? '' : `（${escapeHtml(String(v.min))}〜${escapeHtml(String(v.max))}）`}</small></label>
+          ${v.kind === 'bool'
+            ? `<select class="form-input" id="set-${key}" data-key="${key}"><option value="false" ${v.value === 'false' ? 'selected' : ''}>オフ</option><option value="true" ${v.value === 'true' ? 'selected' : ''}>オン</option></select>`
+            : `<input class="form-input" id="set-${key}" data-key="${key}" type="number" step="${v.kind === 'int' ? '1' : '0.01'}" value="${escapeHtml(String(v.value))}">`}
+          <button class="btn-secondary" data-save="${key}">保存</button>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="card">
+          <div class="card-title">調整値</div>
+          <p class="notice-line">保存した瞬間から効く（画面の再読み込みは不要。遊んでいる途中の回は始めたときの値のまま）</p>
+          ${rows}
+        </div>`;
+      container.querySelectorAll('[data-save]').forEach(btn => btn.addEventListener('click', async () => {
+        const key = btn.dataset.save;
+        const input = container.querySelector(`[data-key="${key}"]`);
+        btn.disabled = true; btn.textContent = '…';
+        try {
+          await staffSetSetting(key, input.value);
+          btn.textContent = '保存した';
+          if (key === 'rank_mode_enabled') state.flags.rank_mode_enabled = input.value === 'true';
+        } catch (err) {
+          alert(err.message);
+          btn.textContent = '保存';
+        } finally {
+          btn.disabled = false;
+          setTimeout(() => { btn.textContent = '保存'; }, 1500);
+        }
+      }));
     } else if (state.staffTab === 'contents') {
       const unapproved = await getUnapprovedContents();
       let unapprovedHtml = '<div style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">未承認の今週の英語はありません</div>';

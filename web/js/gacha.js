@@ -84,18 +84,22 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const untilTen = Math.max(0, price.multi - nutsDisp.balance);
   const stockPrizes = formattedRates.prizes.filter(p => p.stock > 0);
   const staffNotice = ratesData.staff_mode ? '<div class="alert">スタッフ用：着せ替え・称号のみ出ます。実物景品の週1枚は消費しません。</div>' : '';
-  const weeklyNotice = ratesData.weekly_limit ? `<p class="notice-line">ガチャの実物景品は全員で週1枚まで。${ratesData.weekly_remaining === 0 ? '今週分は当選済みです。' : '当選者が出ない週もあります。'} 月曜0:00に枠が戻ります。繰り越しはありません。</p>` : '';
-  const prizeShowcase = stockPrizes.length ? `
-    <section class="gacha-showcase" aria-labelledby="gacha-showcase-title">
-      <p class="gacha-showcase-kicker">館で受け取れる、おくりもの</p>
-      <h2 id="gacha-showcase-title">今回の景品ラインナップ</h2>
-      <div class="gacha-prize-list">${stockPrizes.map(p => `
-        <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>在庫 ${p.stock}個</p><p>${escapeHtml(p.description || '')}</p></div></article>
-      `).join('')}</div>
-      <p class="gacha-showcase-note">景品全体の当選確率：1回あたり ${formattedRates.prizeRatePercent}。個々の景品の確率ではありません。在庫は抽選時に確認されます。</p>
-      <p class="gacha-showcase-note">当選した引換券は「自分の記録」から確認できます。</p>
-    </section>` : `
-    <section class="gacha-showcase"><p class="gacha-showcase-kicker">自分らしいミアキスを見つけよう</p><h2>着せ替え・称号をコレクション</h2><p class="gacha-showcase-note">館の景品は準備中・品切れです。現在は着せ替え・称号が出ます。</p></section>`;
+  const weeklyNotice = '';
+  // 抽選券: ガチャで出る。月末に抽選。券が多いほど当たりやすい
+  const rafflePct = `${Math.round((Number(ratesData.raffle_rate) || 0) * 100)}%`;
+  const myEntries = Number(ratesData.raffle_my_entries) || 0;
+  const allEntries = Number(ratesData.raffle_total_entries) || 0;
+  const prizeShowcase = `
+    <section class="gacha-showcase raffle" aria-labelledby="gacha-showcase-title">
+      <p class="gacha-showcase-kicker">🎟️ 抽選券</p>
+      <h2 id="gacha-showcase-title">月末、館の景品が当たる</h2>
+      <div class="raffle-count"><div><span>今月の自分の券</span><strong>${myEntries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${allEntries}<small>枚</small></strong></div></div>
+      <p class="gacha-showcase-note">ガチャ1回で ${rafflePct}。${multiLabel}なら 1枚確定。券が多いほど当たりやすい</p>
+      ${stockPrizes.length ? `<div class="gacha-prize-list">${stockPrizes.map(p => `
+        <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>${p.stock}名</p><p>${escapeHtml(p.description || '')}</p></div></article>
+      `).join('')}</div>` : '<p class="gacha-showcase-note">今月の景品は スタッフが準備中</p>'}
+      <p class="gacha-showcase-note">結果は月初に「自分の記録」へ</p>
+    </section>`;
 
 
   let prizesHtml = '';
@@ -103,11 +107,11 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     prizesHtml = formattedRates.prizes.map(p => `
       <li style="display:flex; justify-content:space-between; margin-bottom:4px;">
         <span>🎁 ${escapeHtml(p.name)}</span>
-        <span style="font-weight:700; color:var(--primary);">残り ${p.stock}個</span>
+        <span style="font-weight:700; color:var(--primary);">${p.stock}名</span>
       </li>
     `).join('');
   } else {
-    prizesHtml = '<li style="color:var(--text-muted);">景品は準備中。いまは着せ替えと称号</li>';
+    prizesHtml = '<li style="color:var(--text-muted);">今月の景品は準備中</li>';
   }
 
   const ratesTableHtml = formattedRates.itemRates.map(r => `
@@ -149,7 +153,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
         ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel} 引ける</span>` : ''}
         ${multiLabel}引く (${price.multi}🌰)
-        <div style="font-size:12px; font-weight:normal; margin-top:2px;">SR以上 1つ確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
+        <div style="font-size:12px; font-weight:normal; margin-top:2px;">SR以上 1つ確定 ＋ 🎟️ 1枚確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
       </button>
     </div>
 
@@ -159,11 +163,11 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
         <span>確率と景品</span>
-        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品 ${stockPrizes.length ? formattedRates.prizeRatePercent : '在庫なし'}</span>
+        <span style="font-size:13px; color:var(--primary); font-weight:700;">抽選券 ${rafflePct}</span>
       </div>
 
       <div style="margin-bottom:14px;">
-        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">館の景品（引換券）</div>
+        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">月末抽選の景品</div>
         <ul style="list-style:none; font-size:14px; padding-left:4px;">
           ${prizesHtml}
         </ul>
@@ -231,6 +235,7 @@ async function executeGacha(mainEl, state, count, callbacks) {
     if (callbacks.onUpdateNuts) callbacks.onUpdateNuts(state.nuts.balance);
 
     // ガチャ演出の開始
+    state.lastGacha = result;
     startGachaRevealSequence(mainEl, state, result.results, count, callbacks);
   } catch (err) {
     mainEl.innerHTML = `
@@ -304,11 +309,16 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     }
 
     const item = items[idx];
-    const isPrize = item.kind === 'prize';
+    const isPrize = item.kind === 'prize' || item.kind === 'raffle';
     const rInfo = rarityInfo(item.rarity || 1);
 
     let visualHtml = '';
-    if (isPrize) {
+    if (item.kind === 'raffle') {
+      visualHtml = `
+        <div style="font-size:56px; margin-bottom:8px;">🎟️</div>
+        <div style="font-size:14px; font-weight:800; color:#c2413a; margin-bottom:4px;">月末抽選の券</div>
+      `;
+    } else if (isPrize) {
       visualHtml = `
         <div style="font-size:56px; margin-bottom:8px;">🎁</div>
         <div style="font-size:14px; font-weight:800; color:#ec4899; margin-bottom:4px;">館の実物景品！</div>
@@ -425,14 +435,19 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     if (!mainEl.isConnected) return;
     let gainedShards = 0;
     let prizeCount = 0;
+    let raffleCount = 0;
     const itemsHtml = items.map(item => {
       const isPrize = item.kind === 'prize';
+      const isRaffle = item.kind === 'raffle';
       if (isPrize) prizeCount++;
+      if (isRaffle) raffleCount++;
       if (item.shards) gainedShards += item.shards;
       const rInfo = rarityInfo(item.rarity || 1);
 
       let itemIcon = '✨';
-      if (isPrize) {
+      if (isRaffle) {
+        itemIcon = '🎟️';
+      } else if (isPrize) {
         itemIcon = '🎁';
       } else if (item.display?.emoji) {
         itemIcon = escapeHtml(item.display.emoji);
@@ -445,18 +460,27 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       }
 
       return `
-        <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''}">
+        <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''} ${isRaffle ? 'is-raffle' : ''}">
           <div style="font-size:32px; margin-bottom:4px;">${itemIcon}</div>
           <div style="font-size:14px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
-          <div style="font-size:11px; color:${rInfo.color}; font-weight:700;">${isPrize ? '景品' : rInfo.code}</div>
+          <div style="font-size:11px; color:${isRaffle ? '#c2413a' : rInfo.color}; font-weight:700;">${isRaffle ? '抽選券' : isPrize ? '景品' : rInfo.code}</div>
           <div style="margin-top:4px;">
-            ${isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:var(--link);">💎+${item.shards}</span>`)}
+            ${isRaffle ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#c2413a;">月末</span>' : isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:var(--link);">💎+${item.shards}</span>`)}
           </div>
         </div>
       `;
     }).join('');
 
     let prizeAlertHtml = '';
+    if (raffleCount > 0) {
+      const monthTotal = state.lastGacha?.raffle_entries_month;
+      prizeAlertHtml = `
+        <div class="prize-ticket-box raffle" style="margin-bottom:16px;">
+          <div style="font-size:18px; font-weight:900; color:#c2413a;">🎟️ 抽選券 +${raffleCount}</div>
+          <div style="font-size:14px; margin-top:6px;">今月 ${monthTotal ?? '—'}枚。月末の抽選で、館の景品が当たる</div>
+        </div>
+      `;
+    }
     if (prizeCount > 0) {
       prizeAlertHtml = `
         <div class="prize-ticket-box" style="margin-bottom:16px;">

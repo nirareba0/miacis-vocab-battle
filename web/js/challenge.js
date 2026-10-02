@@ -5,6 +5,7 @@
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
 import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock } from './api.js';
+import { renderMiacis } from './look.js';
 import {
   escapeHtml,
   streakStage,
@@ -46,6 +47,8 @@ const run = {
   nickname: '',
   rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
   milestone: null,    // 100本ノックの 10本ごとの区切り
+  look: null,         // 相棒の着せ替え（HUD の小さなミアキス用）
+  mood: '',           // 相棒の表情: happy / ouch / wow
   startedAt: 0,
   timers: [],
   busy: false,
@@ -94,6 +97,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   run.mode = mode;
   run.callbacks = callbacks;
   run.nickname = callbacks.nickname || '';
+  run.look = callbacks.look || null;
   const conf = MODES[mode];
 
   containerEl.innerHTML = `
@@ -145,6 +149,23 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
     </div>
   `;
   document.getElementById('btn-challenge-start').addEventListener('click', () => begin(mode));
+
+  if (/[?&]debug/.test(window.location.search)) {
+    const panel = document.createElement('div');
+    panel.className = 'debug-panel';
+    panel.innerHTML = '<button data-d="rankup">浮上</button><button data-d="stage">STAGE</button><button data-d="shake">揺れ</button><button data-d="title">称号</button>';
+    a.append(panel);
+    panel.addEventListener('click', e => {
+      const d = e.target.dataset.d;
+      if (!d) return;
+      const q = { no: 6, stage: 2, range: 2, limit_ms: 6600, prompt: 'debug', choices: ['a', 'b', 'c', 'd'] };
+      run.score = 7; run.board = [{ nickname: 'テスト', score: 6 }];
+      if (d === 'rankup') { run.rankUp = { rank: 2, passed: ['テスト'] }; playSfx('rankUp'); showQuestion(q); }
+      if (d === 'stage') showStageUp(q);
+      if (d === 'shake') { showQuestion(q); shake(area()); vibrate('wrong'); }
+      if (d === 'title') { run.id = null; showResult({ mode, correct: 10, answered: 11, end_reason: 'wrong', learn_points: 10, nuts: 4, nuts_raw: 4, missed: [], best: { correct: 10 }, week_best: { correct: 10 }, new_best: true, week_rank: 1, new_titles: [{ id: 'title_streak10', name: '10連続サバイバー' }] }); }
+    });
+  }
 }
 
 async function begin(mode) {
@@ -206,7 +227,7 @@ function headerHtml(q) {
     const pressure = chaseLabel();
     return `
       <div class="streak-hud">
-        <div class="streak-count"><span>連続</span><strong>${run.score}</strong>${rankPillHtml()}</div>
+        <div class="streak-count"><span class="hud-miacis mood-${run.mood}" aria-hidden="true">${renderMiacis(run.look, 48)}<i class="mood-mark"></i></span><span>連続</span><strong>${run.score}</strong>${rankPillHtml()}</div>
         <div class="streak-meta">
           <span class="stage-pill">STAGE ${q.stage}</span>
           <span class="stage-steps" aria-label="次のステージまであと${st.toNext}問">${Array.from({ length: 5 }, (_, i) => `<i class="${i < st.inStage ? 'done' : ''}"></i>`).join('')}</span>
@@ -313,6 +334,8 @@ async function submit(choice, ms, btn) {
   if (!area()) return;
 
   const buttons = a ? [...a.querySelectorAll('.btn-choice')] : [];
+  run.mood = res.correct ? 'happy' : 'ouch';
+  a?.querySelector('.hud-miacis')?.setAttribute('class', `hud-miacis mood-${run.mood}`);
   if (res.correct) {
     btn?.classList.add('choice-correct');
     playSfx('correct');
@@ -340,7 +363,7 @@ async function submit(choice, ms, btn) {
     const passed = passedPlayers(prevEff, effectiveScore(), run.board);
     if (passed.length) {
       run.rankUp = { rank: liveRank(effectiveScore(), run.board).rank, passed };
-      playSfx('nutGet');
+      playSfx('rankUp');
       vibrate('stageUp');
     }
   }
@@ -350,6 +373,7 @@ async function submit(choice, ms, btn) {
   } else if (res.state === 'revive_offer') {
     later(() => showRevive(), 600);
   } else if (run.mode === 'streak' && res.question.stage > prevStage) {
+    run.mood = 'wow';
     playSfx('combo');
     vibrate('stageUp');
     later(() => showStageUp(res.question), 400);
@@ -465,6 +489,8 @@ function showResult(result) {
     playSfx('lose');
   }
   if (result.nuts > 0) run.callbacks.onNuts?.();
+  const titles = Array.isArray(result.new_titles) ? result.new_titles : [];
+  if (titles.length) { playSfx('evolution'); vibrate('record'); }
 
   let headline;
   let sub;
@@ -511,9 +537,10 @@ function showResult(result) {
     <div class="challenge-bests">${bestLine('今週ベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
     <div class="points-grid">
       <div class="point-box"><div class="point-label">学習ポイント</div><div class="point-val">+${result.learn_points}</div></div>
-      <div class="point-box"><div class="point-label">木の実</div><div class="point-val">🌰 +${result.nuts}</div></div>
+      <div class="point-box"><div class="point-label">木の実</div><div class="point-val"><span class="nut-drop" aria-hidden="true">🌰</span> +${result.nuts}</div></div>
     </div>
     ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の上限 到達</div>' : ''}
+    ${titles.length ? `<div class="title-award"><span class="eyebrow">称号 獲得！</span>${titles.map(t => `<strong>👑 ${escapeHtml(t.name)}</strong>`).join('')}<p>着せ替えで付けられる</p></div>` : ''}
     ${missedHtml(result.missed)}
     <button class="btn-primary" id="btn-challenge-again" style="margin-top: 16px;">もう一度</button>
     <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 10px;">ランキング</button>

@@ -200,6 +200,15 @@ export function playSfx(type, options = {}) {
         break;
       }
 
+      case 'rankUp': {
+        // 順位を抜いた！（上昇する3音＋長めの終止。終了・レアと同じ最大級）
+        playTone(587.33, 0.08, 'triangle', 0, 0.2);
+        playTone(880.0, 0.08, 'triangle', 0.07, 0.22);
+        playTone(1174.66, 0.1, 'triangle', 0.14, 0.24);
+        playTone(1760.0, 0.45, 'sine', 0.22, 0.26);
+        break;
+      }
+
       case 'nutGet': {
         // 木の実獲得（かわいい鈴・コイン風）
         playTone(880.0, 0.08, 'sine', 0, 0.12);
@@ -217,8 +226,17 @@ export function playSfx(type, options = {}) {
  * 振動（対応端末だけ。iOS Safari は無視する）。ミュート中は振動もしない
  * @param {'wrong'|'timeout'|'stageUp'|'record'} type
  */
+export function isVibrationOff() {
+  try { return localStorage.getItem('miacis_vibrate_off') === 'true'; } catch { return false; }
+}
+export function toggleVibration() {
+  const next = !isVibrationOff();
+  try { localStorage.setItem('miacis_vibrate_off', String(next)); } catch {}
+  return next;
+}
+
 export function vibrate(type) {
-  if (isMuted()) return;
+  if (isMuted() || isVibrationOff()) return;
   if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
   if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const pattern = {
