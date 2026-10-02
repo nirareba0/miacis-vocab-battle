@@ -319,3 +319,47 @@ test('称号: 10連続・復活からの逆転・100本完走で入手。ガチ�
     await db.close();
   }
 });
+
+test('同じ単語を出さない: 範囲を使い切っても、ほかの範囲のまだ出ていない単語から出す', async () => {
+  const db = await setup(); // 150語。範囲は15語ずつ
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    for (let i = 0; i < 120; i++) {
+      const r = await answerRight(db, a, s.run_id);
+      assert.equal(r.state, 'next');
+    }
+    const used = (await db.query('select used_word_ids from public.runs where id=$1', [s.run_id])).rows[0].used_word_ids;
+    assert.equal(used.length, 120);
+    assert.equal(new Set(used).size, 120, '120問すべて別の単語');
+  } finally {
+    await db.close();
+  }
+});
+
+test('訳が同じ単語（start / begin）: 1回の挑戦で両方は出さない。日本語→英語の選択肢にもう一つの正解を混ぜない', async () => {
+  const db = await setup();
+  try {
+    // 段1の単語のうち 2 語を同じ訳にする
+    await db.exec(`update public.words set ja = '始まる、始める' where rank in (1, 2)`);
+    const ids = (await db.query('select id, en from public.words where rank in (1, 2) order by rank')).rows;
+    for (let t = 0; t < 6; t++) {
+      const a = await player(db, `P${t}`);
+      const s = await start(db, a, 'knock'); // 段1は30語
+      let q = s.question;
+      for (let i = 0; i < 30; i++) {
+        if (q.dir === 'ja2en' && q.prompt === '始まる、始める') {
+          const both = ids.filter(w => q.choices.includes(w.en));
+          assert.equal(both.length, 1, '正解の1つだけが並ぶ');
+        }
+        const r = await answerRight(db, a, s.run_id);
+        q = r.question;
+      }
+      const used = (await db.query('select used_word_ids from public.runs where id=$1', [s.run_id])).rows[0].used_word_ids;
+      const hit = ids.filter(w => used.includes(w.id)).length;
+      assert.ok(hit <= 1, `訳が同じ2語は1回の挑戦で1つまで（${hit}）`);
+    }
+  } finally {
+    await db.close();
+  }
+});
