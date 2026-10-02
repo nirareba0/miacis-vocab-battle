@@ -349,8 +349,8 @@ function showRevive() {
   a.innerHTML = `
     <div class="card revive-card" role="alertdialog" aria-labelledby="revive-title">
       <span class="eyebrow">時間切れ ・ ${run.score}連続</span>
-      <h2 id="revive-title">復活する？</h2>
-      <p>次の問題から再開。復活はこれが最後</p>
+      <h2 id="revive-title">まだ、いける？</h2>
+      <p>❤️ を使って次の問題へ。これが最後の1回</p>
       <div class="revive-count" aria-live="assertive"><strong id="revive-sec">${REVIVE_SECONDS}</strong></div>
       <div class="timer-bar-bg"><div id="revive-bar" class="timer-bar-fill danger"></div></div>
       <button class="btn-primary" id="btn-revive">❤️ 復活</button>
@@ -441,14 +441,14 @@ function showResult(result) {
   let sub;
   if (mode === 'streak') {
     headline = `<div class="result-big">${result.correct}<small>連続</small></div>`;
-    sub = result.end_reason === 'timeout' ? '時間切れ。記録は残る' : result.end_reason === 'wrong' ? 'ここまで。記録は残る' : 'ここまで';
+    sub = result.end_reason === 'timeout' ? '時間切れ！ 次は速く' : result.end_reason === 'wrong' ? `おしい！ 次は ${result.correct + 1} を越えろ` : 'おつかれ';
   } else if (complete) {
     const g = knockGrade(result.correct);
     headline = `<div class="knock-grade big">${g.mark}</div><div class="result-big">${result.correct}<small> / ${KNOCK_TOTAL}</small></div>`;
     sub = `${g.label} ・ ${formatSeconds(result.total_ms)}`;
   } else {
     headline = `<div class="result-big">${result.answered}<small>本</small></div>`;
-    sub = `正解 ${result.correct}。記録は100本完走で`;
+    sub = `正解 ${result.correct}。次は100本 走りきれ`;
   }
 
   // 今週の順位と、すぐ上の相手（次にやる理由）
@@ -457,7 +457,7 @@ function showResult(result) {
     const rival = result.rival;
     let chase = '';
     if (result.week_rank === 1) {
-      chase = '今週1位。守りきれるか';
+      chase = '今週1位。追われる側だ';
     } else if (rival) {
       const gap = rival.correct + 1 - (result.week_best?.correct ?? result.correct);
       chase = mode === 'streak'

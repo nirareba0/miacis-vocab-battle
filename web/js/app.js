@@ -597,7 +597,7 @@ async function renderHome() {
       const myRow = rows.find(r => isMyRow(r, state.player.nickname));
       let msg;
       if (top && isMyRow(top, state.player.nickname)) {
-        msg = rows[1] ? `1位。2位 ${escapeHtml(rows[1].nickname)} は ${rows[1].best_streak}連続` : '1位。挑戦者を待て';
+        msg = rows[1] ? `1位。${escapeHtml(rows[1].nickname)} が ${rows[1].best_streak}連続で追ってくる` : '1位。追われる側だ';
       } else if (top && mine !== null) {
         msg = `1位 ${escapeHtml(top.nickname)} まで あと${top.best_streak + 1 - mine}問`;
       } else if (top) {
