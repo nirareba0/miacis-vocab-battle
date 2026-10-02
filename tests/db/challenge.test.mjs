@@ -46,45 +46,6 @@ async function answerWrong(db, id, runId) {
   return answer(db, id, runId, ((await answerIndex(db, runId)) + 1) % 4);
 }
 
-test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲が上がる。制限時間は7秒のまま', async () => {
-  const db = await setup();
-  try {
-    const a = await player(db, 'A');
-    const s = await start(db, a, 'streak');
-    assert.equal(s.question.answer_index, undefined);
-    assert.equal(s.question.issued_at, undefined);
-    assert.equal(s.question.stage, 1);
-    assert.equal(s.question.range, 1);
-    assert.equal(s.question.limit_ms, 7000);
-
-    let q = s.question;
-    for (let i = 0; i < 5; i++) {
-      const r = await answerRight(db, a, s.run_id);
-      assert.equal(r.correct, true);
-      assert.equal(r.state, 'next');
-      q = r.question;
-    }
-    // STAGE 2 に上がった直後の 2 問は「平地」: 範囲は 1 のまま。時間は 7 秒固定（0012）
-    assert.equal(q.stage, 2);
-    assert.equal(q.range, 1);
-    assert.equal(q.limit_ms, 7000);
-    for (let i = 0; i < 2; i++) q = (await answerRight(db, a, s.run_id)).question;
-    assert.equal(q.range, 2);
-    // 範囲2の単語は頻度順で 16〜30 番目
-    const rank = (await db.query('select rank from public.words where id=$1', [q.word_id])).rows[0].rank;
-    assert.ok(rank >= 16 && rank <= 30, `rank ${rank}`);
-
-    await asAnon(db, async () => {
-      await assert.rejects(db.exec('select * from public.runs'), /permission denied/);
-    });
-    await asUser(db, a, async () => {
-      await assert.rejects(db.exec('select * from public.runs'), /permission denied/);
-      await assert.rejects(db.exec("select public.run_finish(gen_random_uuid(),'quit')"), /permission denied/);
-    });
-  } finally {
-    await db.close();
-  }
-});
 
 test('連続チャレンジ: 間違えたら即終了。ポイント・木の実が付き、ランキングに出る', async () => {
   const db = await setup();
@@ -314,7 +275,7 @@ test('称号: 10連続・復活からの逆転・100本完走で入手。ガチ�
 
     // 後半ほど木の実の素点が高い: STAGE 2 以降の正解は +3 ずつ
     const score = (await db.query('select nut_score from public.runs where id=$1', [s2.run_id])).rows[0].nut_score;
-    assert.equal(score, 10 * 10 + 3 * 5); // 問 6〜10 が STAGE 2
+    assert.equal(score, 10 * 10); // 10問目まではペース1（ペースは10問正解ごと）
 
     // 装備はできる（active）が、ガチャの抽選対象（source='gacha'）には入らない
     const titles = (await db.query("select id from public.items where source='achievement' and active")).rows;
@@ -328,22 +289,6 @@ test('称号: 10連続・復活からの逆転・100本完走で入手。ガチ�
   }
 });
 
-test('同じ単語を出さない: 範囲を使い切っても、ほかの範囲のまだ出ていない単語から出す', async () => {
-  const db = await setup(); // 150語。範囲は15語ずつ
-  try {
-    const a = await player(db, 'A');
-    const s = await start(db, a, 'streak');
-    for (let i = 0; i < 120; i++) {
-      const r = await answerRight(db, a, s.run_id);
-      assert.equal(r.state, 'next');
-    }
-    const used = (await db.query('select used_word_ids from public.runs where id=$1', [s.run_id])).rows[0].used_word_ids;
-    assert.equal(used.length, 120);
-    assert.equal(new Set(used).size, 120, '120問すべて別の単語');
-  } finally {
-    await db.close();
-  }
-});
 
 test('訳が同じ単語（start / begin）: 1回の挑戦で両方は出さない。日本語→英語の選択肢にもう一つの正解を混ぜない', async () => {
   const db = await setup();
@@ -372,39 +317,6 @@ test('訳が同じ単語（start / begin）: 1回の挑戦で両方は出さな�
   }
 });
 
-test('単語の区分（0015）: STAGE は stage_range の範囲から出る。STAGE 10 から最難関。使わない語（active=false）は出ない', async () => {
-  const db = await setup(); // 150語
-  try {
-    // 15語ずつ 1..10 の範囲を割り当て、範囲10を「最難関」にする。範囲1の最初の5語は使わない語にする
-    await db.exec(`
-      update public.words set stage_range = ((rank - 1) / 15) + 1, sort_key = rank, level = 'B1';
-      update public.words set level = 'AC' where stage_range = 10;
-      update public.words set active = false where rank <= 5;
-    `);
-    const inactive = (await db.query('select id from public.words where not active')).rows.map(r => r.id);
-    const a = await player(db, 'A');
-    const s = await start(db, a, 'streak');
-    let q = s.question;
-    const seen = [];
-    for (let i = 0; i < 47; i++) {
-      seen.push(q);
-      q = (await answerRight(db, a, s.run_id)).question;
-    }
-    // 47問正解 → STAGE 10。段差直後の2問（平地）を越えたので範囲10
-    assert.equal(q.stage, 10);
-    assert.equal(q.range, 10);
-    const sr = (await db.query('select stage_range, level from public.words where id=$1', [q.word_id])).rows[0];
-    assert.deepEqual(sr, { stage_range: 10, level: 'AC' });
-    // 最初の5問は範囲1から（使わない語を除く）
-    for (const x of seen.slice(0, 5)) {
-      const w = (await db.query('select stage_range from public.words where id=$1', [x.word_id])).rows[0];
-      assert.equal(w.stage_range, 1);
-      assert.ok(!inactive.includes(x.word_id));
-    }
-  } finally {
-    await db.close();
-  }
-});
 
 test('100本ノックはレベルを選んで始める。自己ベストはレベルごと', async () => {
   const db = await setup();
@@ -429,95 +341,140 @@ test('100本ノックはレベルを選んで始める。自己ベストはレ�
   }
 });
 
-test('ローグライク（0017）: STAGE が上がるとカードを選ぶ。選ぶまで問題は来ない。たて・50:50・じかん+2・スキップが効く', async () => {
-  const db = await setup();
+
+
+test('ステージのコース（0018）: 正解は端末に来ない。出るのはそのステージの単語だけ。10問正解ごとに 0.5秒ずつ短くなる', async () => {
+  const db = await setup(); // 段ごとに30語
   try {
     const a = await player(db, 'A');
     const s = await start(db, a, 'streak');
-    assert.equal(s.start_stage, 1);
-    assert.equal(s.offer, null, 'Lv1 は最初のカードなし');
-    let r;
-    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
-    assert.equal(r.state, 'card_offer');
-    assert.equal(r.question, null, '選ぶまで問題を渡さない');
-    assert.deepEqual([...r.offer].sort(), ['fifty', 'shield', 'time']);
-    await asUser(db, a, async () => {
-      await assert.rejects(db.query('select public.answer_run($1,0,1000)', [s.run_id]), /run_not_active/);
-      await assert.rejects(db.query("select public.pick_card($1,'double')", [s.run_id]), /card_not_offered/);
-    });
-    // じかん+2: 止めていた問題にも効く
-    let p = await call(db, a, "select public.pick_card($1,'time') as r", [s.run_id]);
-    assert.equal(p.question.limit_ms, 9000);
-    assert.equal(p.inventory.time_bonus_ms, 2000);
-
-    // 次の STAGE で たて を取り、わざと間違えても続く
-    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
-    assert.equal(r.state, 'card_offer');
-    await call(db, a, "select public.pick_card($1,'shield') as r", [s.run_id]);
-    const w = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, ((await answerIndex(db, s.run_id)) + 1) % 4, 1000]);
-    assert.equal(w.state, 'next');
-    assert.equal(w.shield_used, true);
-    assert.equal(w.score, 10);
-    assert.equal(w.inventory.shields, 0);
-
-    // 50:50（3 回目の STAGE で取る）
-    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
-    await call(db, a, "select public.pick_card($1,'fifty') as r", [s.run_id]);
-    const f = await call(db, a, 'select public.use_fifty($1) as r', [s.run_id]);
-    assert.equal(f.hidden.length, 2);
-    assert.ok(!f.hidden.includes(await answerIndex(db, s.run_id)), '正解は消さない');
-    await asUser(db, a, async () => {
-      await assert.rejects(db.query('select public.use_fifty($1)', [s.run_id]), /no_card_left/);
-      await assert.rejects(db.query('select public.skip_question($1)', [s.run_id]), /no_card_left/);
+    assert.equal(s.band, 1);
+    assert.equal(s.question.answer_index, undefined);
+    assert.equal(s.question.issued_at, undefined);
+    assert.equal(s.question.limit_ms, 7000);
+    let q = s.question;
+    for (let i = 0; i < 10; i++) {
+      const w = (await db.query('select band from public.words where id=$1', [q.word_id])).rows[0];
+      assert.equal(w.band, 1);
+      const r = await answerRight(db, a, s.run_id);
+      assert.equal(r.state, 'next', 'カードは出ない');
+      q = r.question;
+    }
+    assert.equal(q.limit_ms, 6500);
+    for (let i = 0; i < 10; i++) q = (await answerRight(db, a, s.run_id)).question;
+    assert.equal(q.limit_ms, 6000);
+    await asAnon(db, async () => {
+      await assert.rejects(db.exec('select * from public.runs'), /permission denied/);
     });
   } finally {
     await db.close();
   }
 });
 
-test('ローグライク（0017）: スタート地点は一度たどり着いた段階だけ。記録は「到達」。系統樹は累計正解でレベルが上がる', async () => {
+test('ステージのコース（0018）: そのステージの単語を出し切ったらコンプリート。同じ単語は出ない。ステージ制覇の称号', async () => {
   const db = await setup();
   try {
     const a = await player(db, 'A');
-    await asUser(db, a, async () => {
-      await assert.rejects(db.query("select public.start_run('streak', null, 5)"), /start_stage_locked/);
-      await assert.rejects(db.query("select public.start_run('streak', null, 4)"), /invalid_start_stage/);
-    });
-    // 22 問続けて終わる → STAGE 5（到達20）までたどり着いた
     const s = await start(db, a, 'streak');
-    for (let i = 0; i < 22; i++) await answerRight(db, a, s.run_id);
-    const e = await answerWrong(db, a, s.run_id);
-    assert.equal(e.result.correct, 22);
+    let r;
+    for (let i = 0; i < 40; i++) {
+      r = await answerRight(db, a, s.run_id);
+      if (r.state === 'finished') break;
+    }
+    assert.equal(r.state, 'finished');
+    assert.equal(r.result.end_reason, 'complete');
+    assert.equal(r.result.correct, 30);
+    const used = (await db.query('select used_word_ids from public.runs where id=$1', [s.run_id])).rows[0].used_word_ids;
+    assert.equal(new Set(used).size, 30);
+    assert.ok(r.result.new_titles.some(t => t.id === 'title_stage5'));
+  } finally {
+    await db.close();
+  }
+});
 
-    const s5 = await call(db, a, "select public.start_run('streak', null, 5) as r");
-    assert.equal(s5.start_stage, 5);
-    assert.equal(s5.depth, 20);
-    assert.equal(s5.question.stage, 5);
-    for (let i = 0; i < 3; i++) await answerRight(db, a, s5.run_id);
-    const e5 = await answerWrong(db, a, s5.run_id);
-    // 到達 23 は自己ベスト 22 を超える
-    assert.equal(e5.result.new_best, true);
-    const rk = (await db.query("select best_streak from public.ranking_streak_week where nickname='A'")).rows[0];
-    assert.equal(rk.best_streak, 23);
+test('ステージのコース（0018）: 入口は前のステージで30連続で開く。ランキングと自己ベストはステージごと。スタッフは全部開いている', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const staff = await player(db, 'Staff', true);
     await asUser(db, a, async () => {
-      await assert.rejects(db.query("select public.start_run('streak', null, 8)"), /start_stage_locked/);
+      await assert.rejects(db.query("select public.start_run('streak', 2)"), /stage_locked/);
     });
+    let st = await call(db, a, 'select public.my_stages() as r');
+    assert.deepEqual(st.map(x => x.unlocked), [true, false, false, false, false]);
+    assert.equal(st[0].words, 30);
 
-    const meta = await call(db, a, 'select public.my_meta() as r');
-    assert.equal(meta.total_correct, 25);
-    assert.equal(meta.level, 1);
-    assert.equal(meta.next_at, 50);
-    assert.equal(meta.max_depth, 23);
-    // 累計を 300 にすると Lv4: 最初の1問の前にカード。スキップと Mi×2 も候補に入る
-    await db.query("update public.runs set correct = 300 where id = $1", [s.run_id]);
-    const m4 = await call(db, a, 'select public.my_meta() as r');
-    assert.equal(m4.level, 4);
-    assert.ok(m4.cards.includes('skip') && m4.cards.includes('double'));
-    const s4 = await start(db, a, 'streak');
-    assert.equal(s4.question, null);
-    assert.equal(s4.offer.length, 3);
-    const p = await call(db, a, 'select public.pick_card($1,$2) as r', [s4.run_id, s4.offer[0]]);
-    assert.ok(p.question.prompt);
+    // A1 を出し切る（30連続）→ A2 が開く
+    const s1 = await start(db, a, 'streak');
+    for (let i = 0; i < 30; i++) await answerRight(db, a, s1.run_id);
+    st = await call(db, a, 'select public.my_stages() as r');
+    assert.deepEqual(st.map(x => x.unlocked), [true, true, false, false, false]);
+    assert.equal(st[0].completed, true);
+    assert.equal(st[0].best.correct, 30);
+
+    const s2 = await call(db, a, "select public.start_run('streak', 2) as r");
+    assert.equal(s2.band, 2);
+    assert.equal(s2.best, null, 'A2 の自己ベストはまだ無い');
+    for (let i = 0; i < 3; i++) await answerRight(db, a, s2.run_id);
+    await answerWrong(db, a, s2.run_id);
+
+    const rows = (await db.query("select band, nickname, best_streak, rank from public.ranking_streak_week where nickname='A' order by band")).rows;
+    assert.deepEqual(rows, [{ band: 1, nickname: 'A', best_streak: 30, rank: 1 }, { band: 2, nickname: 'A', best_streak: 3, rank: 1 }]);
+
+    const ss = await call(db, staff, 'select public.my_stages() as r');
+    assert.ok(ss.every(x => x.unlocked));
+    const s5 = await call(db, staff, "select public.start_run('streak', 5) as r");
+    assert.equal(s5.band, 5);
+  } finally {
+    await db.close();
+  }
+});
+
+test('選択肢が細かくなる（0019）: 31問目からは、似た単語か 1文字違いのつづりの罠が並ぶ', async () => {
+  const db = await setup();
+  try {
+    // 段1の単語に「似た単語」と「つづりの罠」を持たせる（似た単語は段2の語）
+    await db.exec(`
+      update public.words w set
+        lookalikes = array[(select en from public.words where band = 2 and rank = w.rank + 30)],
+        misspellings = array[w.en || 'xa', w.en || 'xe', w.en || 'xi']
+      where band = 1;
+    `);
+    await db.exec(`insert into public.words (rank, en, ja, pos, band) select 1000 + g, 'extra_' || g, '追加_' || g, 'noun', 1 from generate_series(1, 30) g`);
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    let q = s.question;
+    for (let i = 0; i < 30; i++) {
+      if (i < 10) assert.equal(q.tier, 0);
+      q = (await answerRight(db, a, s.run_id)).question;
+    }
+    let traps = 0;
+    for (let i = 0; i < 12 && q; i++) {
+      assert.ok(q.tier >= 2, `31問目以降は tier 2 以上（${q.tier}）`);
+      if (q.tier === 3) {
+        traps++;
+        assert.equal(q.dir, 'ja2en');
+        const w = (await db.query('select en from public.words where id=$1', [q.word_id])).rows[0];
+        const wrong = q.choices.filter(c => c !== w.en);
+        assert.equal(wrong.length, 3);
+        assert.ok(wrong.every(c => c.startsWith(w.en) && c.length === w.en.length + 2), 'つづりの罠だけが並ぶ');
+      }
+      const r = await answerRight(db, a, s.run_id);
+      q = r.question;
+    }
+    assert.ok(traps > 0, 'つづりの罠が出た');
+  } finally {
+    await db.close();
+  }
+});
+
+test('ガチャ（0019）: 子孫の動物8種はガチャから外れ、SECRET はネコ・イヌ＋スタッフモチーフ7種', async () => {
+  const db = await setup();
+  try {
+    const secret = (await db.query("select id from public.items where active and rarity = 5 order by id")).rows.map(r => r.id);
+    assert.deepEqual(secret, ['form_cat', 'form_dog', 'staff_aussie', 'staff_backpacker', 'staff_designer', 'staff_engineer', 'staff_family', 'staff_shisa', 'staff_stylist']);
+    const off = (await db.query("select count(*)::int n from public.items where id like 'form_%' and active")).rows[0].n;
+    assert.equal(off, 2);
   } finally {
     await db.close();
   }

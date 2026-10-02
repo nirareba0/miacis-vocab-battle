@@ -74,7 +74,9 @@ import {
   withStaffTag,
   KNOCK_LEVELS,
   savedKnockBand,
-  saveKnockBand
+  saveKnockBand,
+  savedStreakBand,
+  saveStreakBand
 } from './logic.js';
 
 import {
@@ -684,10 +686,11 @@ async function renderHome() {
     }).catch(() => {});
 
     // 今週の連続記録: 自分と1位（開くたびに「抜かれた/抜ける」が見える）
-    Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week').catch(() => [])]).then(([bests, rows]) => {
+    Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week', savedStreakBand()).catch(() => [])]).then(([bests, rows]) => {
       const strip = document.getElementById('record-strip');
       if (!strip) return;
-      const mine = bests?.streak_week?.correct ?? null;
+      const mineRow = rows.find(r => isMyRow(r, state.player.nickname));
+      const mine = mineRow ? mineRow.best_streak : null;
       const top = rows?.[0] || null;
       if (mine === null && !top) return;
       const myRow = rows.find(r => isMyRow(r, state.player.nickname));
@@ -701,7 +704,7 @@ async function renderHome() {
       } else {
         msg = 'まだ誰も出していない。1位をとれる';
       }
-      strip.innerHTML = `<span class="eyebrow">今週の連続記録</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
+      strip.innerHTML = `<span class="eyebrow">今週の連続記録（${['', 'A1', 'A2', 'B1', 'B2', '最難関'][savedStreakBand()]}）</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
       strip.hidden = false;
     });
 
@@ -1784,8 +1787,12 @@ async function loadRankingData() {
   const notice = document.getElementById('ranking-notice');
   if (notice) {
     notice.innerHTML = tab === 'streak'
-      ? `${notices.streak} <button class="btn-inline" id="btn-streak-scope">${state.streakScope === 'all' ? '今週を見る' : '歴代を見る'}</button>`
+      ? `${KNOCK_LEVELS.map(l => `<button class="btn-inline" ${l.band === savedStreakBand() ? 'aria-pressed="true" style="background:#5d43b5;color:#fff"' : ''} data-streak-band="${l.band}">${l.label}</button>`).join('')} ${notices.streak} <button class="btn-inline" id="btn-streak-scope">${state.streakScope === 'all' ? '今週を見る' : '歴代を見る'}</button>`
       : notices[tab];
+    notice.querySelectorAll('[data-streak-band]').forEach(b => b.addEventListener('click', () => {
+      saveStreakBand(parseInt(b.dataset.streakBand, 10));
+      loadRankingData();
+    }));
     notice.querySelectorAll('[data-knock-band]').forEach(b => b.addEventListener('click', () => {
       saveKnockBand(parseInt(b.dataset.knockBand, 10));
       loadRankingData();
@@ -1801,7 +1808,7 @@ async function loadRankingData() {
   const fetchRows = {
     learn: () => getRankingLearn(state.player.tier),
     commit: () => getRankingCommit(),
-    streak: () => getRankingStreak(state.streakScope),
+    streak: () => getRankingStreak(state.streakScope, savedStreakBand()),
     knock: () => getRankingKnock(savedKnockBand())
   }[tab];
 

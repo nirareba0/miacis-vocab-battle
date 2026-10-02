@@ -4,7 +4,7 @@
  * 対戦と違い、1問ずつサーバーに答えを送り、正誤と次の問題を受け取る。
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
-import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta } from './api.js';
+import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages } from './api.js';
 import { renderMiacis } from './look.js';
 import {
   escapeHtml,
@@ -21,7 +21,10 @@ import {
   CARDS,
   START_STAGES,
   startStageUnlocked,
-  nextMetaUnlock
+  nextMetaUnlock,
+  savedStreakBand,
+  saveStreakBand,
+  tierLabel
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -32,7 +35,7 @@ const MODES = {
   streak: {
     title: '連続チャレンジ',
     lead: '間違えたら終わり。',
-    rules: ['1問 7秒', '5問ごと 難度↑ ＋ カード', '❤️ 復活 1回', '到達で順位']
+    rules: ['1問 7秒から', '10問ごと 時間↓', '選択肢がどんどん細かく', '❤️ 復活 1回']
   },
   knock: {
     title: '100本ノック',
@@ -137,7 +140,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   let bests = null;
   let meta = null;
   try {
-    [bests, meta] = await Promise.all([getMyRunBests(), mode === 'streak' ? getMyMeta() : Promise.resolve(null)]);
+    [bests, meta] = await Promise.all([getMyRunBests(), mode === 'streak' ? getMyStages() : Promise.resolve(null)]);
   } catch {
     bests = bests || null;
   }
@@ -149,7 +152,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   const weekBest = bests?.[`${mode}_week`];
   const bestText = (b) => {
     if (!b) return '—';
-    return mode === 'streak' ? `到達 ${b.depth ?? b.correct}` : `${b.correct} / ${KNOCK_TOTAL}`;
+    return mode === 'streak' ? `${b.correct}連続` : `${b.correct} / ${KNOCK_TOTAL}`;
   };
 
   a.innerHTML = `
@@ -157,21 +160,19 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
       <span class="eyebrow">${conf.lead}</span>
       <div class="challenge-rules">${conf.rules.map(r => `<span>${r}</span>`).join('')}</div>
       ${mode === 'knock' ? `<div class="tab-bar knock-levels" role="group" aria-label="レベル">${KNOCK_LEVELS.map(l => `<button class="tab-btn ${l.band === savedKnockBand() ? 'active' : ''}" data-band="${l.band}" aria-pressed="${l.band === savedKnockBand()}">${l.label}<small style="display:block; font-size:10px; font-weight:500;">${l.sub}</small></button>`).join('')}</div>` : ''}
-      ${mode === 'streak' ? startStagesHtml(meta) : ''}
-      ${mode === 'streak' && meta ? metaHtml(meta) : ''}
-      <div class="challenge-bests">
-        <div><span>今週ベスト</span><strong>${bestText(weekBest)}</strong></div>
+      ${mode === 'streak' && meta ? stageGatesHtml(meta) : ''}
+      ${mode === 'streak' ? '' : `<div class="challenge-bests">`}
+      ${mode === 'streak' ? '' : `<div><span>今週ベスト</span><strong>${bestText(weekBest)}</strong></div>
         <div><span>自己ベスト</span><strong>${bestText(best)}</strong></div>
-      </div>
+      </div>`}
       <button class="btn-primary" id="btn-challenge-start" style="font-size: 20px;">スタート</button>
     </div>
   `;
   document.getElementById('btn-challenge-start').addEventListener('click', () => begin(mode));
-  a.querySelectorAll('.start-stages [data-stage]').forEach(btn => btn.addEventListener('click', () => {
+  a.querySelectorAll('.stage-gate[data-band]').forEach(btn => btn.addEventListener('click', () => {
     if (btn.disabled) return;
-    run.startStage = parseInt(btn.dataset.stage, 10);
-    try { localStorage.setItem('miacis_start_stage', String(run.startStage)); } catch {}
-    a.querySelectorAll('.start-stages [data-stage]').forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', String(b === btn)); });
+    saveStreakBand(parseInt(btn.dataset.band, 10));
+    a.querySelectorAll('.stage-gate[data-band]').forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', String(b === btn)); });
   }));
   a.querySelectorAll('.knock-levels [data-band]').forEach(btn => btn.addEventListener('click', () => {
     saveKnockBand(parseInt(btn.dataset.band, 10));
@@ -201,16 +202,17 @@ async function begin(mode) {
   if (!a) return;
   a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">用意中…</div>';
   try {
-    const res = await startRun(mode, mode === 'knock' ? savedKnockBand() : undefined, mode === 'streak' ? run.startStage : undefined);
+    const res = await startRun(mode, mode === 'knock' ? savedKnockBand() : savedStreakBand());
     if (run.mode !== mode || !area()) return;
     run.id = res.run_id;
     run.score = 0;
     run.answered = 0;
     run.reviveUsed = false;
-    run.best = res.best ? (res.best.depth ?? res.best.correct) : null;
-    run.weekBest = res.week_best ? (res.week_best.depth ?? res.week_best.correct) : null;
+    run.best = res.best ? res.best.correct : null;
+    run.weekBest = res.week_best ? res.week_best.correct : null;
     run.depth = res.depth || 0;
-    run.startStage = res.start_stage || 1;
+    run.startStage = 1;
+    run.band = res.band || 1;
     run.inv = res.inventory || run.inv;
     run.startedAt = performance.now();
     run.rankUp = null;
@@ -222,7 +224,7 @@ async function begin(mode) {
       showQuestion(res.question);
     }
     // 他の人の今週ベスト（いまの順位の計算用）。遅れて届いても次の問題から効く
-    const fetchBoard = mode === 'streak' ? getRankingStreak('week') : getRankingKnock(res.band);
+    const fetchBoard = mode === 'streak' ? getRankingStreak('week', res.band) : getRankingKnock(res.band);
     fetchBoard.then(rows => {
       if (run.id !== res.run_id) return;
       run.board = (rows || [])
@@ -236,7 +238,7 @@ async function begin(mode) {
 
 // いまやめたときの記録（今週ベストは残るので、それより下には落ちない）
 function effectiveScore() {
-  return Math.max(run.mode === 'streak' ? run.depth : run.score, run.weekBest || 0);
+  return Math.max(run.score, run.weekBest || 0);
 }
 
 function rankPillHtml() {
@@ -253,7 +255,7 @@ function chaseLabel() {
       ? `あと1問で ${escapeHtml(lr.next.nickname)} を抜く`
       : `${escapeHtml(lr.next.nickname)} まで あと${lr.next.gap}問`;
   }
-  if (run.mode === 'streak') return streakPressureLabel(run.depth, run.best);
+  if (run.mode === 'streak') return streakPressureLabel(run.score, run.best);
   return '';
 }
 
@@ -263,10 +265,10 @@ function headerHtml(q) {
     const pressure = chaseLabel();
     return `
       <div class="streak-hud">
-        <div class="streak-count"><span class="hud-miacis mood-${run.mood}" aria-hidden="true">${renderMiacis(run.look, 48)}<i class="mood-mark"></i></span><span>${run.startStage > 1 ? '到達' : '連続'}</span><strong>${run.depth}</strong>${rankPillHtml()}</div>
+        <div class="streak-count"><span class="hud-miacis mood-${run.mood}" aria-hidden="true">${renderMiacis(run.look, 48)}<i class="mood-mark"></i></span><span>連続</span><strong>${run.score}</strong>${rankPillHtml()}</div>
         <div class="streak-meta">
-          <span class="stage-pill">STAGE ${q.stage}</span>
-          <span class="stage-steps" aria-label="次のステージまであと${st.toNext}問">${Array.from({ length: 5 }, (_, i) => `<i class="${i < st.inStage ? 'done' : ''}"></i>`).join('')}</span>
+          <span class="stage-pill">${STAGE_NAMES[run.band] || ''}</span>
+          <span class="stage-steps" aria-label="次のペースまであと${10 - (run.score % 10)}問">${Array.from({ length: 10 }, (_, i) => `<i class="${i < run.score % 10 ? 'done' : ''}"></i>`).join('')}</span>
           <span class="revive-life" aria-label="${run.reviveUsed ? '復活は使用済み' : '復活が1回残っている'}">${run.reviveUsed ? '🖤' : '❤️'}</span>
         </div>
       </div>
@@ -295,6 +297,7 @@ function showQuestion(q) {
     ${headerHtml(q)}
     <div class="timer-bar-bg"><div id="timer-bar" class="timer-bar-fill"></div></div>
     <div class="timer-label"><span id="timer-sec">${(q.limit_ms / 1000).toFixed(1)}</span> 秒</div>
+    ${q.tier ? `<div class="tier-tag tier-${q.tier}">${tierLabel(q.tier)}</div>` : ''}
     <div class="word-prompt">${escapeHtml(q.prompt)}</div>
     <div class="choices-list">
       ${q.choices.map((c, i) => `<button class="btn-choice" data-choice="${i}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c)}</span></button>`).join('')}
@@ -529,14 +532,34 @@ function metaHtml(meta) {
 const META_AT = { 1: 0, 2: 50, 3: 150, 4: 300, 5: 600 };
 const META_UNLOCK = { 2: 'スキップのカード', 3: 'Mi×2 のカード', 4: '最初の1問の前にカード', 5: 'カードの候補が4枚に' };
 
+const STAGE_NAMES = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: '最難関' };
+const STAGE_SUBS = { 1: '中学前半', 2: '中学', 3: '高校', 4: '大学受験', 5: '学術語' };
+
+function stageGatesHtml(stages) {
+  let saved = savedStreakBand();
+  const open = (stages || []).filter(s => s.unlocked).map(s => s.band);
+  if (!open.includes(saved)) saved = 1;
+  saveStreakBand(saved);
+  return `<div class="stage-gates" role="group" aria-label="ステージ">
+    ${(stages || []).map(s => {
+      const best = s.best ? s.best.correct : null;
+      const lock = s.unlocked ? '' : `<small class="lock">🔒 ${STAGE_NAMES[s.band - 1]}で${s.need}連続で開く</small>`;
+      return `<button class="stage-gate ${s.band === saved ? 'active' : ''} ${s.completed ? 'done' : ''}" data-band="${s.band}" ${s.unlocked ? '' : 'disabled'} aria-pressed="${s.band === saved}">
+        <strong>${STAGE_NAMES[s.band]}</strong><span>${STAGE_SUBS[s.band]} ・ ${s.words}語</span>
+        ${s.unlocked ? `<em>${s.completed ? 'コンプリート済み' : best !== null ? `自己ベスト ${best}連続` : 'まだ挑戦していない'}</em>` : lock}
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
 function showStageUp(q) {
   const a = area();
   if (!a) return;
   a.innerHTML = `
     <div class="stage-up" role="status">
       <span class="eyebrow">${run.score}連続</span>
-      <strong>STAGE ${q.stage}</strong>
-      <p>${q.range >= 10 ? '最難関の単語' : '単語の難度↑'}</p>
+      <strong>ペース ${q.stage}</strong>
+      <p>1問 ${(q.limit_ms / 1000).toFixed(1)}秒${q.tier ? ` ・ ${tierLabel(q.tier)}` : ''}</p>
     </div>
   `;
   later(() => showQuestion(q), 1300);
@@ -642,9 +665,11 @@ function showResult(result) {
   let headline;
   let sub;
   if (mode === 'streak') {
-    const depth = run.depth;
-    headline = `<div class="result-big">${depth}<small>${run.startStage > 1 ? '到達' : '連続'}</small></div>${run.startStage > 1 ? `<div class="result-sub">STAGE ${run.startStage} から ${result.correct}連続</div>` : ''}`;
-    sub = result.end_reason === 'timeout' ? '時間切れ！ 次は速く' : result.end_reason === 'wrong' ? `おしい！ 次は <em class="num">${depth + 1}</em> を越えろ` : 'おつかれ';
+    const depth = result.correct;
+    headline = result.end_reason === 'complete'
+      ? `<div class="record-badge">コンプリート！</div><div class="result-big">${depth}<small>連続</small></div>`
+      : `<div class="result-big">${depth}<small>連続</small></div>`;
+    sub = result.end_reason === 'complete' ? `${STAGE_NAMES[run.band]} の単語を全部クリア` : result.end_reason === 'timeout' ? '時間切れ！ 次は速く' : result.end_reason === 'wrong' ? `おしい！ 次は <em class="num">${depth + 1}</em> を越えろ` : 'おつかれ';
   } else if (complete) {
     const g = knockGrade(result.correct);
     headline = `<div class="knock-grade big">${g.mark}</div><div class="result-big">${result.correct}<small> / ${KNOCK_TOTAL}</small></div>`;
@@ -673,10 +698,10 @@ function showResult(result) {
   const recordBadge = isNewBest
     ? '<div class="record-badge">自己ベスト更新！</div>'
     : isWeekBest ? '<div class="record-badge">今週ベスト更新！</div>' : '';
-  const bestLine = (label, b) => b ? `<div><span>${label}</span><strong>${mode === 'streak' ? `到達 ${b.depth ?? b.correct}` : `${b.correct} / ${KNOCK_TOTAL}`}</strong></div>` : `<div><span>${label}</span><strong>—</strong></div>`;
+  const bestLine = (label, b) => b ? `<div><span>${label}</span><strong>${mode === 'streak' ? `${b.correct}連続` : `${b.correct} / ${KNOCK_TOTAL}`}</strong></div>` : `<div><span>${label}</span><strong>—</strong></div>`;
   // 系統樹の伸び（レベルが上がったら大きく知らせる）
   let metaGainHtml = '';
-  if (mode === 'streak' && result.meta) {
+  if (false && mode === 'streak' && result.meta) {  // 系統樹は 0018 でやめた
     const before = run.meta?.level || result.meta.level;
     const up = result.meta.level > before;
     const next = nextMetaUnlock(result.meta.level);

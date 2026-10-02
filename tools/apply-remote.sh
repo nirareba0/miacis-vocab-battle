@@ -28,8 +28,12 @@ if [ -n "$DRY" ]; then
 fi
 echo "2/4 ログインの設定（確認メールを送らない・公開 URL）"
 "${CLI[@]}" config push --project-ref "$REF" --yes >/dev/null
-echo "3/4 DB（テーブル・権限・関数）と単語 2,642 語・定期の仕事"
+echo "3/4 DB（テーブル・権限・関数）と単語・定期の仕事"
 "${CLI[@]}" db push --include-seed --yes
+# CLI は、中身の変わった seed を「hash の更新」だけで済ませて流し直さない（2026-10-03 に罠データが入らなかった）。
+# 単語の seed は何度流しても同じ結果になる作りなので、毎回流し直す
+echo "  単語の seed を流し直す"
+"${CLI[@]}" db query --linked -f supabase/seed/words_v2.sql >/dev/null
 echo "4/4 公開用の anon key を web/js/config.js に入れる（鍵は画面に出さない）"
 KEY="$("${CLI[@]}" projects api-keys --project-ref "$REF" -o json \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const k=JSON.parse(s).find(k=>k.name==="anon");if(!k)process.exit(1);process.stdout.write(k.api_key)})')"

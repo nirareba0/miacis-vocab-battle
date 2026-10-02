@@ -865,3 +865,26 @@ export const META_LEVELS = [
 export function nextMetaUnlock(level) {
   return META_LEVELS.find(m => m.level === (parseInt(level, 10) || 1) + 1) || null;
 }
+
+// ==========================================
+// 連続チャレンジのステージ（0018）と選択肢の細かさ（0019）
+// ==========================================
+
+/** 連続チャレンジで選んだステージ（端末に保存）。無ければ 1 */
+export function savedStreakBand() {
+  try {
+    const v = parseInt(localStorage.getItem('miacis_streak_band'), 10);
+    return v >= 1 && v <= 5 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function saveStreakBand(band) {
+  try { localStorage.setItem('miacis_streak_band', String(band)); } catch {}
+}
+
+/** 選択肢の細かさ（tier）の言い方。0 は何も言わない */
+export function tierLabel(tier) {
+  return ['', '同じ品詞', '似た単語に注意', 'つづりの罠'][parseInt(tier, 10) || 0] || '';
+}

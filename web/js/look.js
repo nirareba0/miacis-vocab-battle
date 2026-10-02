@@ -3,7 +3,7 @@
  */
 import { escapeHtml } from './logic.js';
 import { renderAccessory, renderBackdrop, renderAuraArt } from './miacis-accessories.js';
-import { renderForm } from './miacis-forms.js';
+import { renderForm, formHidesHat } from './miacis-forms.js';
 
 /**
  * 許可された CSS（linear-gradient または 単色カラー）のみを通す
@@ -167,7 +167,7 @@ export function renderMiacis(look, size = 120) {
         ${bodyHtml}
       </div>
       <!-- 着せ替えパーツ -->
-      ${renderAccessory(l.hat, 'hat') || hatHtml}
+      ${formHidesHat(l.form) ? '' : (renderAccessory(l.hat, 'hat') || hatHtml)}
       ${renderAccessory(l.face, 'face') || faceHtml}
       ${renderAccessory(l.neck, 'neck') || neckHtml}
     </div>

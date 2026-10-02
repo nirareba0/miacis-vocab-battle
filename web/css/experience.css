@@ -384,3 +384,19 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .meta-gain.up { background:#fff6d6; border-color:#b8860b; }
 .meta-gain strong { display:block; font-size:20px; margin:2px 0; }
 .meta-gain p { margin:0; font-size:13px; color:var(--text-muted); }
+
+/* ステージの入口（0018）と選択肢の細かさ（0019） */
+.stage-gates { display:grid; gap:8px; margin:6px 0 16px; text-align:left; }
+.stage-gate { display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:12px; align-items:center; padding:10px 14px; border-radius:16px; border:2px solid var(--border); background:#fff; color:var(--text); min-height:60px; }
+.stage-gate strong { grid-row:1 / span 2; min-width:64px; font-size:22px; color:#2a2140; }
+.stage-gate span { font-size:12px; color:var(--text-muted); }
+.stage-gate em { font-style:normal; font-size:13px; font-weight:800; color:#c2413a; }
+.stage-gate .lock { font-size:12px; color:var(--text-muted); }
+.stage-gate.active { border-color:#2a2140; box-shadow:0 3px 0 #2a2140; background:#fff6d6; }
+.stage-gate.done strong::after { content:' ✓'; color:#247956; }
+.stage-gate:disabled { opacity:.55; }
+.stage-steps i { width:6px; height:6px; }
+.tier-tag { display:inline-block; margin:8px 0 -4px; padding:3px 12px; border-radius:999px; font-size:12px; font-weight:900; }
+.tier-tag.tier-1 { background:#eef0ff; color:#3b3f8f; }
+.tier-tag.tier-2 { background:#fff1d6; color:#8a5a00; }
+.tier-tag.tier-3 { background:#c2413a; color:#fff; }

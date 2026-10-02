@@ -732,6 +732,11 @@ export function skipQuestion(runId) {
   return rpc('skip_question', { p_run_id: runId });
 }
 
+/** 連続チャレンジのステージの入口（開いているか・自己ベスト・単語数・コンプリート） */
+export function getMyStages() {
+  return rpc('my_stages');
+}
+
 /** 系統樹（累計正解・レベル・解放・たどり着いた最高到達） */
 export function getMyMeta() {
   return rpc('my_meta');
@@ -754,12 +759,14 @@ export function getMyRunBests() {
   return rpc('my_run_bests');
 }
 
-/** @param {'week'|'all'} scope */
-export async function getRankingStreak(scope = 'week') {
+/** @param {'week'|'all'} scope  @param {number} [band] ステージ（1=A1 … 5=最難関）。省略すると全ステージ */
+export async function getRankingStreak(scope = 'week', band) {
   checkClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from(scope === 'all' ? 'ranking_streak_all' : 'ranking_streak_week')
-    .select('*')
+    .select('*');
+  if (band) query = query.eq('band', band);
+  const { data, error } = await query
     .order('rank', { ascending: true })
     .order('nickname', { ascending: true })
     .limit(50);

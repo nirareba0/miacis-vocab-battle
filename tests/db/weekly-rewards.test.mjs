@@ -230,7 +230,7 @@ test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた�
     await db.exec("update public.app_settings set value='0' where key='raffle_rate'; update public.app_settings set value='1' where key='secret_rate';");
     const r = await pull(db, a, 1);
     assert.equal(r.results[0].rarity, 5);
-    assert.ok(['form_cat', 'form_dog'].includes(r.results[0].id), r.results[0].id);
+    assert.ok(r.results[0].id.startsWith('form_') || r.results[0].id.startsWith('staff_'), r.results[0].id);
     const rates = await call(db, a, 'select public.gacha_rates() as r');
     assert.equal(rates.item_rates.SECRET, 1);
 
@@ -245,11 +245,12 @@ test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた�
     await asUser(db, a, async () => {
       await assert.rejects(db.query("select public.exchange_item('form_dog')"), /item_not_found/);
       await assert.rejects(db.query("select public.exchange_item('title_streak10')"), /item_not_found/);
-      const ok = (await db.query("select public.exchange_item('form_fox') as r")).rows[0].r;
+      await assert.rejects(db.query("select public.exchange_item('form_fox')"), /item_not_found/); // ガチャから外れた
+      const ok = (await db.query("select public.exchange_item('hat_kabuto') as r")).rows[0].r;
       assert.ok(ok);
     });
     const n = (await db.query("select count(*)::int n from public.items where active and source='gacha'")).rows[0].n;
-    assert.equal(n, 106);
+    assert.equal(n, 105); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した
   } finally {
     await db.close();
   }
