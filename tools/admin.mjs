@@ -7,6 +7,7 @@
  *   node tools/admin.mjs reset-passphrase <nickname> <新しいあいことば>
  *   node tools/admin.mjs make-staff <nickname>
  *   node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]
+ *   node tools/admin.mjs merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]
  *   node tools/admin.mjs set-picker <nickname> on|off
  *   node tools/admin.mjs rename <旧ニックネーム> <新ニックネーム>
  *   node tools/admin.mjs import-words
@@ -45,6 +46,10 @@ function printUsageAndExit(message = null) {
       あいことばはランダムに作り、画面には出さず --out のファイル（既定:
       ドキュメント/miacis-staff-passphrases.txt）に追記します。Git の外に置くこと。
       すでにあるニックネームは、あいことばを変えずにスタッフ権限だけ付けます。
+  merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]
+      空のアカウント（遊んだ記録が無いもの）を消し、残すアカウントをその名前に変えます。
+      記録は残すアカウントのものが引き継がれます。消す側がスタッフなら、残す側もスタッフにします。
+      --pass-file に消す側の名前の行があれば、残す側のあいことばをそれに揃えます（画面には出さない）。
   set-picker <nickname> on|off
       指定したプレイヤーのピッカー権限を設定します。
   rename <旧ニックネーム> <新ニックネーム>
@@ -122,6 +127,21 @@ class SupabaseAdminClient {
 
   async deleteAuthUser(userId) {
     await fetch(`${this.url}/auth/v1/admin/users/${userId}`, { method: 'DELETE', headers: this.headers });
+  }
+
+  async countRows(table, column, value) {
+    const res = await fetch(`${this.url}/rest/v1/${table}?select=${column}&${column}=eq.${value}`, {
+      headers: { ...this.headers, Prefer: 'count=exact', Range: '0-0' }
+    });
+    if (!res.ok) {
+      throw new Error(`件数の照会エラー（${table}）: ${res.status} ${await res.text()}`);
+    }
+    const range = res.headers.get('content-range') || '*/0';
+    return parseInt(range.split('/')[1], 10) || 0;
+  }
+
+  async isStaff(userId) {
+    return (await this.countRows('staff', 'user_id', userId)) > 0;
   }
 
   async makeStaff(userId) {
@@ -288,6 +308,46 @@ async function main() {
         fs.appendFileSync(outFile, header + `# ${new Date().toISOString()}\n` + lines.join('\n') + '\n', { encoding: 'utf8' });
         console.log(`あいことばは ${outFile} に書いた（画面には出さない）`);
       }
+      break;
+    }
+
+    case 'merge-into': {
+      const pfIdx = args.indexOf('--pass-file');
+      const passFile = pfIdx >= 0 ? args[pfIdx + 1] : null;
+      const [keepNick, dropNick] = args.filter((_, i) => pfIdx < 0 || (i !== pfIdx && i !== pfIdx + 1));
+      if (!keepNick || !dropNick) {
+        printUsageAndExit('使い方: node tools/admin.mjs merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]');
+      }
+      const keep = await admin.getPlayerByNickname(keepNick);
+      const drop = await admin.getPlayerByNickname(dropNick);
+      if (!keep) { console.error(`エラー: "${keepNick}" が見つかりません。`); process.exit(1); }
+      if (!drop) { console.error(`エラー: "${dropNick}" が見つかりません。`); process.exit(1); }
+      // 消す側に遊んだ記録が1件でもあれば止める（記録を消さない）
+      const tables = ['matches', 'runs', 'points', 'nut_ledger', 'player_items', 'writings', 'raffle_entries', 'prize_tickets'];
+      for (const t of tables) {
+        const n = await admin.countRows(t, 'player_id', drop.id);
+        if (n > 0) {
+          console.error(`中止: "${dropNick}" には ${t} の記録が ${n} 件ある。空のアカウントだけ消せる。`);
+          process.exit(1);
+        }
+      }
+      const dropWasStaff = await admin.isStaff(drop.id);
+      let newPass = null;
+      if (passFile && fs.existsSync(passFile)) {
+        const row = fs.readFileSync(passFile, 'utf8').split(/\r?\n/).reverse().find(l => l.split('\t')[0] === dropNick);
+        if (row) newPass = row.split('\t')[1];
+      }
+      await admin.deleteAuthUser(drop.id);
+      if (await admin.getPlayerByNickname(dropNick)) {
+        console.error(`エラー: "${dropNick}" を消せなかった。`);
+        process.exit(1);
+      }
+      await admin.updateNickname(keep.id, dropNick);
+      await admin.updateUserAuth(keep.id, { email: nicknameToEmail(dropNick), email_confirm: true, ...(newPass ? { password: newPass } : {}) });
+      if (dropWasStaff) await admin.makeStaff(keep.id);
+      console.log(`統合: "${keepNick}" の記録を残したまま、名前を "${dropNick}" にした（空の "${dropNick}" は削除）`);
+      console.log(dropWasStaff ? 'スタッフ権限: 付けた' : 'スタッフ権限: 変えていない');
+      console.log(newPass ? `あいことば: ${passFile} の "${dropNick}" の行に揃えた` : `あいことば: 変えていない（元の "${keepNick}" のまま）`);
       break;
     }
 
