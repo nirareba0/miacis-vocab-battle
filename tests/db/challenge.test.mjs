@@ -22,8 +22,16 @@ const call = (db, id, sql, params = []) =>
   asUser(db, id, async () => (await db.query(sql, params)).rows[0].r);
 
 const start = (db, id, mode) => call(db, id, 'select public.start_run($1) as r', [mode]);
-const answer = (db, id, runId, choice, ms = 1000) =>
-  call(db, id, 'select public.answer_run($1,$2,$3) as r', [runId, choice, ms]);
+// カードの候補が出たら、ほかの判定に影響しにくいものを選んで先へ進む（カード自体のテストは別にある）
+const CARD_PREF = ['fifty', 'skip', 'double', 'time', 'shield'];
+async function pickAndContinue(db, id, runId, r) {
+  if (r.state !== 'card_offer') return r;
+  const card = CARD_PREF.find(c => r.offer.includes(c));
+  const p = await call(db, id, 'select public.pick_card($1,$2) as r', [runId, card]);
+  return { ...r, state: 'next', question: p.question, picked: card };
+}
+const answer = async (db, id, runId, choice, ms = 1000) =>
+  pickAndContinue(db, id, runId, await call(db, id, 'select public.answer_run($1,$2,$3) as r', [runId, choice, ms]));
 
 // 正解は端末に来ないので、テストだけ管理者として覗く
 async function answerIndex(db, runId) {
@@ -416,6 +424,100 @@ test('100本ノックはレベルを選んで始める。自己ベストはレ�
     // 範囲外は丸める・省略すると自分の段
     assert.equal((await call(db, a, 'select public.start_run($1, $2) as r', ['knock', 9])).band, 5);
     assert.equal((await call(db, a, 'select public.start_run($1) as r', ['knock'])).band, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test('ローグライク（0017）: STAGE が上がるとカードを選ぶ。選ぶまで問題は来ない。たて・50:50・じかん+2・スキップが効く', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    assert.equal(s.start_stage, 1);
+    assert.equal(s.offer, null, 'Lv1 は最初のカードなし');
+    let r;
+    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
+    assert.equal(r.state, 'card_offer');
+    assert.equal(r.question, null, '選ぶまで問題を渡さない');
+    assert.deepEqual([...r.offer].sort(), ['fifty', 'shield', 'time']);
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query('select public.answer_run($1,0,1000)', [s.run_id]), /run_not_active/);
+      await assert.rejects(db.query("select public.pick_card($1,'double')", [s.run_id]), /card_not_offered/);
+    });
+    // じかん+2: 止めていた問題にも効く
+    let p = await call(db, a, "select public.pick_card($1,'time') as r", [s.run_id]);
+    assert.equal(p.question.limit_ms, 9000);
+    assert.equal(p.inventory.time_bonus_ms, 2000);
+
+    // 次の STAGE で たて を取り、わざと間違えても続く
+    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
+    assert.equal(r.state, 'card_offer');
+    await call(db, a, "select public.pick_card($1,'shield') as r", [s.run_id]);
+    const w = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, ((await answerIndex(db, s.run_id)) + 1) % 4, 1000]);
+    assert.equal(w.state, 'next');
+    assert.equal(w.shield_used, true);
+    assert.equal(w.score, 10);
+    assert.equal(w.inventory.shields, 0);
+
+    // 50:50（3 回目の STAGE で取る）
+    for (let i = 0; i < 5; i++) r = await call(db, a, 'select public.answer_run($1,$2,$3) as r', [s.run_id, await answerIndex(db, s.run_id), 1000]);
+    await call(db, a, "select public.pick_card($1,'fifty') as r", [s.run_id]);
+    const f = await call(db, a, 'select public.use_fifty($1) as r', [s.run_id]);
+    assert.equal(f.hidden.length, 2);
+    assert.ok(!f.hidden.includes(await answerIndex(db, s.run_id)), '正解は消さない');
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query('select public.use_fifty($1)', [s.run_id]), /no_card_left/);
+      await assert.rejects(db.query('select public.skip_question($1)', [s.run_id]), /no_card_left/);
+    });
+  } finally {
+    await db.close();
+  }
+});
+
+test('ローグライク（0017）: スタート地点は一度たどり着いた段階だけ。記録は「到達」。系統樹は累計正解でレベルが上がる', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query("select public.start_run('streak', null, 5)"), /start_stage_locked/);
+      await assert.rejects(db.query("select public.start_run('streak', null, 4)"), /invalid_start_stage/);
+    });
+    // 22 問続けて終わる → STAGE 5（到達20）までたどり着いた
+    const s = await start(db, a, 'streak');
+    for (let i = 0; i < 22; i++) await answerRight(db, a, s.run_id);
+    const e = await answerWrong(db, a, s.run_id);
+    assert.equal(e.result.correct, 22);
+
+    const s5 = await call(db, a, "select public.start_run('streak', null, 5) as r");
+    assert.equal(s5.start_stage, 5);
+    assert.equal(s5.depth, 20);
+    assert.equal(s5.question.stage, 5);
+    for (let i = 0; i < 3; i++) await answerRight(db, a, s5.run_id);
+    const e5 = await answerWrong(db, a, s5.run_id);
+    // 到達 23 は自己ベスト 22 を超える
+    assert.equal(e5.result.new_best, true);
+    const rk = (await db.query("select best_streak from public.ranking_streak_week where nickname='A'")).rows[0];
+    assert.equal(rk.best_streak, 23);
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query("select public.start_run('streak', null, 8)"), /start_stage_locked/);
+    });
+
+    const meta = await call(db, a, 'select public.my_meta() as r');
+    assert.equal(meta.total_correct, 25);
+    assert.equal(meta.level, 1);
+    assert.equal(meta.next_at, 50);
+    assert.equal(meta.max_depth, 23);
+    // 累計を 300 にすると Lv4: 最初の1問の前にカード。スキップと Mi×2 も候補に入る
+    await db.query("update public.runs set correct = 300 where id = $1", [s.run_id]);
+    const m4 = await call(db, a, 'select public.my_meta() as r');
+    assert.equal(m4.level, 4);
+    assert.ok(m4.cards.includes('skip') && m4.cards.includes('double'));
+    const s4 = await start(db, a, 'streak');
+    assert.equal(s4.question, null);
+    assert.equal(s4.offer.length, 3);
+    const p = await call(db, a, 'select public.pick_card($1,$2) as r', [s4.run_id, s4.offer[0]]);
+    assert.ok(p.question.prompt);
   } finally {
     await db.close();
   }

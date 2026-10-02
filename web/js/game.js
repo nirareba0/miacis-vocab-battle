@@ -150,7 +150,13 @@ export function playSfx(type, options = {}) {
 
       case 'cardReveal': {
         const rarity = parseInt(options.rarity, 10) || 1;
-        if (rarity === 1) {
+        if (rarity >= 5) {
+          // SECRET: いちばん派手。上昇→和音→長い余韻
+          [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0].forEach((f, i) => playTone(f, 0.1 + (i === 6 ? 0.9 : 0), 'triangle', i * 0.06, 0.2));
+          playTone(1046.5, 1.2, 'sine', 0.45, 0.24);
+          playTone(1318.51, 1.2, 'sine', 0.5, 0.2);
+          playTone(1567.98, 1.2, 'sine', 0.55, 0.18);
+        } else if (rarity === 1) {
           // N: やさしいベル
           playTone(659.25, 0.15, 'sine', 0, 0.12);
           playTone(783.99, 0.3, 'sine', 0.1, 0.15);

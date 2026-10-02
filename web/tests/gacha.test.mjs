@@ -21,7 +21,7 @@ test('木の実の表示計算: 残高・1回可能・10連可能・残り上限
   assert.equal(d0.balance, 0);
   assert.equal(d0.canPull1, false);
   assert.equal(d0.canPull10, false);
-  assert.equal(d0.label, '0 🌰');
+  assert.equal(d0.label, '0 Mi');
 
   // 4🌰: どちらも不可
   const d4 = calcNutsDisplay(4);

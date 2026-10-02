@@ -20,6 +20,7 @@ import { playSfx } from './game.js';
 import { renderMiacis } from './look.js';
 
 const SLOTS = [
+  { id: 'form', label: 'すがた' },
   { id: 'hat', label: '🎩 帽子' },
   { id: 'face', label: '👓 顔' },
   { id: 'neck', label: '🧣 首まわり' },
@@ -90,7 +91,8 @@ function renderClosetBody(mainEl, state, callbacks) {
     neck: itemMap[state.myLooks.neck] || null,
     background: itemMap[state.myLooks.background] || null,
     aura: itemMap[state.myLooks.aura] || null,
-    title: itemMap[state.myLooks.title] || null
+    title: itemMap[state.myLooks.title] || null,
+    form: itemMap[state.myLooks.form] || null
   };
 
   const previewHtml = renderMiacis(currentLook, 160);
@@ -136,7 +138,8 @@ function renderClosetBody(mainEl, state, callbacks) {
       const rInfo = rarityInfo(item.rarity);
 
       let visual = '✨';
-      if (item.display?.emoji) {
+      if (item.slot !== 'title') {
+        // 帽子・顔・首・すがた・背景・オーラは、相棒に付けた姿で見せる
         visual = renderMiacis({ [item.slot]: item }, 72);
       } else if (item.slot === 'background') {
         visual = `<div style="width:36px; height:36px; border-radius:50%; background:${item.display?.css || '#1e6b3c'}; box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`;
@@ -205,7 +208,7 @@ function renderClosetBody(mainEl, state, callbacks) {
     ${unownedSummaryHtml}
 
     <div style="display:flex; gap:10px; margin-top:24px;">
-      <button class="btn-sub" id="btn-to-gacha">木の実ガチャへ</button>
+      <button class="btn-sub" id="btn-to-gacha">Miコインガチャへ</button>
       <button class="btn-sub" id="btn-closet-home">ホーム</button>
     </div>
   `;

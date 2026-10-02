@@ -35,7 +35,7 @@ import { renderMiacis } from './look.js';
 export async function renderGachaView(containerEl, state, callbacks = {}) {
   containerEl.innerHTML = `
     <header class="app-header">
-      <h1 class="app-title">木の実ガチャ</h1>
+      <h1 class="app-title">Miコインガチャ</h1>
       <button class="btn-logout" id="btn-gacha-back-home">戻る</button>
     </header>
     <div id="gacha-main-content">読み込み中...</div>
@@ -126,10 +126,10 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     <section class="gacha-wardrobe"><span class="eyebrow">ガチャ</span><h2>次は、どんな相棒に？</h2><p>帽子・メガネ・称号。全45種</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div><p>着せ替えの一例です。各アイテムは個別に出ます。</p></section>
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
-        <span>🌰 ${state.nuts.balance}</span>
+        <span><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance}</span>
       </div>
       <div style="font-size:13px; color:var(--text-muted); margin-top:6px;">
-        今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 🌰
+        今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} <span class="mi-coin" aria-hidden="true">Mi</span>
       </div>
       <div style="font-size:13px; color:var(--link); margin-top:4px;">
         💎 かけら <strong>${state.shards}</strong>
@@ -137,22 +137,22 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     </div>
 
     <section class="gacha-next-goal" aria-label="ガチャまでの進み具合">
-      <div><strong>${untilSingle ? `1回まで あと${untilSingle}` : '1回 引ける'}</strong><span>🌰 ${nutsDisp.balance}</span></div>
-      <progress max="${price.multi}" value="${Math.min(price.multi, nutsDisp.balance)}" aria-label="${multiLabel}までの木の実"></progress>
+      <div><strong>${untilSingle ? `1回まで あと${untilSingle}` : '1回 引ける'}</strong><span><span class="mi-coin" aria-hidden="true">Mi</span> ${nutsDisp.balance}</span></div>
+      <progress max="${price.multi}" value="${Math.min(price.multi, nutsDisp.balance)}" aria-label="${multiLabel}までのMiコイン"></progress>
       <p>${untilTen ? `${multiLabel}まで あと${untilTen}` : `${multiLabel} 引ける`}</p>
-      <button class="btn-sub" id="btn-gacha-to-battle">木の実を集めに行く</button>
+      <button class="btn-sub" id="btn-gacha-to-battle">Miコインを集めに行く</button>
     </section>
 
     <div class="gacha-pull-actions">
       <!-- 1回ガチャボタン -->
       <button class="btn-secondary" id="btn-pull-1" style="min-height:60px; font-size:18px; font-weight:700;">
-        1回引く (${price.single}🌰)
+        1回引く (${price.single}<span class="mi-coin" aria-hidden="true">Mi</span>)
       </button>
 
       <!-- 10連ガチャボタン -->
       <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
         ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel} 引ける</span>` : ''}
-        ${multiLabel}引く (${price.multi}🌰)
+        ${multiLabel}引く (${price.multi}<span class="mi-coin" aria-hidden="true">Mi</span>)
         <div style="font-size:12px; font-weight:normal; margin-top:2px;">SR以上 1つ確定 ＋ 🎟️ 1枚確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
       </button>
     </div>
@@ -216,13 +216,13 @@ async function executeGacha(mainEl, state, count, callbacks) {
   const price = state.gachaPrice || gachaPrice(null);
   const cost = count === 1 ? price.single : price.multi;
   if (state.nuts.balance < cost) {
-    alert('木の実が足りない。集めてから');
+    alert('Miコインが足りない。集めてから');
     return;
   }
 
   mainEl.innerHTML = `
     <div style="text-align:center; padding:50px 16px;">
-      <div style="font-size:48px; margin-bottom:16px; animation: pulse-gold 1s infinite;">🌰</div>
+      <div style="margin-bottom:16px; animation: pulse-gold 1s infinite;"><span class="mi-coin big" aria-hidden="true">Mi</span></div>
       <div style="font-size:20px; font-weight:800;">開封中…</div>
     </div>
   `;
@@ -274,12 +274,12 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     mainEl.innerHTML = `
       <section class="gacha-opening" aria-labelledby="gacha-opening-title">
         <div class="gacha-opening-tools"><span>${items.length > 1 ? `${items.length}個のおくりもの` : 'ひとつのおくりもの'}</span><button class="btn-sub" data-gacha-sound></button></div>
-        <p class="gacha-opening-caption">木の実ガチャ</p>
+        <p class="gacha-opening-caption">Miコインガチャ</p>
         <h2 id="gacha-opening-title">おくりものが、届いた。</h2>
         <p role="status" id="gacha-opening-status">タップで開封</p>
         <button class="gacha-gift-pack" aria-label="パックを開封する">
           <img src="assets/miacis-logo.png" width="72" height="72" alt="">
-          <span>木の実の<br>おくりもの</span><small>タップして開封</small>
+          <span>Miコインの<br>おくりもの</span><small>タップして開封</small>
         </button>
         <p class="gacha-opening-note">獲得したアイテムを見てみよう</p>
         <button class="btn-sub" id="btn-opening-skip">演出をスキップして結果を見る</button>
@@ -324,7 +324,13 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
         <div style="font-size:14px; font-weight:800; color:#ec4899; margin-bottom:4px;">館の実物景品！</div>
       `;
     } else {
-      if (item.slot === 'hat' || item.slot === 'face' || item.slot === 'neck') {
+      if (item.rarity === 5) {
+        visualHtml = `
+          <div class="secret-flash" aria-hidden="true">SECRET</div>
+          ${renderMiacis({ [item.slot]: item }, 160)}
+          <div style="font-size:15px; font-weight:900; color:#c2413a; margin-top:6px;">ミアキスの子孫に、変身できる</div>
+        `;
+      } else if (item.slot !== 'title') {
         visualHtml = renderMiacis({ [item.slot]: item }, 144);
       } else if (item.slot === 'background') {
         visualHtml = `
@@ -449,6 +455,8 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
         itemIcon = '🎟️';
       } else if (isPrize) {
         itemIcon = '🎁';
+      } else if (item.slot !== 'title') {
+        itemIcon = renderMiacis({ [item.slot]: item }, 44);
       } else if (item.display?.emoji) {
         itemIcon = escapeHtml(item.display.emoji);
       } else if (item.slot === 'background') {
@@ -494,7 +502,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       <div style="text-align:center; padding:10px 0 20px 0;">
         <h2 style="font-size:22px; font-weight:900; margin-bottom:6px;">ガチャ結果</h2>
         <div style="font-size:14px; color:var(--text-muted);">
-          残高: <strong>${state.nuts.balance} 🌰</strong> / 獲得かけら: <strong>💎 +${gainedShards}</strong>
+          残高: <strong>${state.nuts.balance} <span class="mi-coin" aria-hidden="true">Mi</span></strong> / 獲得かけら: <strong>💎 +${gainedShards}</strong>
         </div>
       </div>
 
@@ -506,7 +514,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
 
       <div style="display:flex; flex-direction:column; gap:12px; margin-top:24px;">
         <button class="btn-primary" id="btn-pull-again" style="font-size:18px;">
-          もう一度引く (${count === 1 ? (state.gachaPrice || gachaPrice(null)).single : (state.gachaPrice || gachaPrice(null)).multi}🌰)
+          もう一度引く (${count === 1 ? (state.gachaPrice || gachaPrice(null)).single : (state.gachaPrice || gachaPrice(null)).multi}<span class="mi-coin" aria-hidden="true">Mi</span>)
         </button>
         <button class="btn-secondary" id="btn-summary-closet">着せ替え画面へ</button>
         <button class="btn-sub" id="btn-summary-home">ホーム</button>

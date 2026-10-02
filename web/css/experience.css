@@ -342,3 +342,45 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .header-user > span { max-width:72px; }
 
 .staff-tag { margin-left:2px; font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; }
+
+/* Miコイン（2026-10-02 木の実から改名） */
+.mi-coin { display:inline-flex; align-items:center; justify-content:center; width:1.35em; height:1.35em; border-radius:50%; background:#f5ce65; color:#2a2140; border:2px solid #b8860b; font-size:0.62em; font-weight:900; letter-spacing:-.04em; line-height:1; vertical-align:-0.18em; box-shadow:inset 0 -2px 0 #d9a92a; font-family:'Zen Kaku Gothic New', system-ui, sans-serif; }
+.mi-coin.big { font-size:36px; width:1.6em; height:1.6em; border-width:3px; }
+
+/* SECRET（ネコ・イヌのすがた） */
+.secret-flash { display:inline-block; margin-bottom:8px; padding:4px 16px; border-radius:999px; background:#2a2140; color:#f5ce65; font-weight:900; letter-spacing:.2em; animation: secret-pop .6s cubic-bezier(.2,1.6,.4,1); }
+@keyframes secret-pop { 0% { transform: scale(.4); opacity:0; } 60% { transform: scale(1.25); opacity:1; } 100% { transform:none; } }
+.gacha-summary-item .miacis-avatar-box { margin: 0 auto 4px; }
+@media (prefers-reduced-motion: reduce) { .secret-flash { animation:none; } }
+
+/* ローグライク（カード・スタート地点・系統樹） */
+.card-pick { text-align:center; padding:20px 4px; }
+.card-pick h2 { margin:4px 0; font-size:32px; letter-spacing:.04em; }
+.card-pick > p { margin:0 0 16px; color:var(--text-muted); font-weight:700; }
+.card-options { display:grid; gap:12px; }
+.card-option { display:grid; grid-template-columns:52px 1fr; grid-template-rows:auto auto; column-gap:12px; align-items:center; text-align:left; padding:14px 16px; border-radius:18px; border:2px solid #2a2140; background:#fff; color:var(--text); box-shadow:0 4px 0 #2a2140; min-height:76px; }
+.card-option .card-icon { grid-row:1 / span 2; display:flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:14px; background:#2a2140; color:#f5ce65; font-size:24px; font-weight:900; }
+.card-option strong { font-size:18px; }
+.card-option small { font-size:13px; color:var(--text-muted); }
+.card-option.picked { background:#fff6d6; transform:translateY(2px); box-shadow:0 2px 0 #2a2140; }
+.inv-row { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
+.inv-chip { padding:3px 10px; border-radius:999px; background:#2a2140; color:#f5ce65; font-size:12px; font-weight:900; }
+.inv-btn { width:auto; min-height:36px; padding:4px 12px; border-radius:999px; border:2px solid #2a2140; background:#fff; font-size:13px; font-weight:900; color:#2a2140; }
+.btn-choice.cut { opacity:.25; text-decoration:line-through; }
+.start-stages { margin:6px 0 12px; text-align:left; }
+.start-stages .tab-bar { flex-wrap:wrap; }
+.start-stages .tab-btn { flex:1 1 30%; min-height:48px; font-size:12px; }
+.start-stages .tab-btn:disabled { opacity:.55; }
+.meta-tree { margin:0 0 14px; padding:12px 14px; border-radius:16px; background:#2a2140; color:#fff; text-align:left; }
+.meta-tree > div { display:flex; align-items:baseline; gap:10px; }
+.meta-tree .eyebrow { color:#f5ce65; margin:0; }
+.meta-tree strong { font-size:22px; }
+.meta-tree small { color:#e5dbff; font-size:12px; }
+.meta-tree p { margin:6px 0 0; font-size:13px; }
+.meta-tree .num { color:#f5ce65; font-style:normal; font-weight:900; font-size:1.3em; }
+.meta-bar { height:8px; margin-top:8px; border-radius:999px; background:#4a3d6b; overflow:hidden; }
+.meta-bar i { display:block; height:100%; background:#f5ce65; }
+.meta-gain { margin:12px 0; padding:12px 16px; border-radius:16px; border:2px solid #2a2140; background:#fff; text-align:center; }
+.meta-gain.up { background:#fff6d6; border-color:#b8860b; }
+.meta-gain strong { display:block; font-size:20px; margin:2px 0; }
+.meta-gain p { margin:0; font-size:13px; color:var(--text-muted); }

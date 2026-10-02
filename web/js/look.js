@@ -3,6 +3,7 @@
  */
 import { escapeHtml } from './logic.js';
 import { renderAccessory, renderBackdrop, renderAuraArt } from './miacis-accessories.js';
+import { renderForm } from './miacis-forms.js';
 
 /**
  * 許可された CSS（linear-gradient または 単色カラー）のみを通す
@@ -76,7 +77,9 @@ export const MIACIS_OFFSETS = {
  * 順序: 背景（台座。既知の id は風景 SVG、未知の id はグラデーション）→ オーラ（既知の id は光の SVG ＋輪郭の光）
  *       → ミアキスくん → 帽子 → 顔 → 首まわり
  *
- * @param {object} look - 装備品情報 ({ hat, face, neck, background, aura, title })
+ * すがた（form）を着ていれば、ミアキスくんの画像の代わりにその動物の全身の絵を同じ場所に出す（未知の id は画像のまま）
+ *
+ * @param {object} look - 装備品情報 ({ hat, face, neck, background, aura, title, form })
  * @param {number} [size=120] - 描画サイズ (px)
  * @returns {string} HTML 文字列
  */
@@ -103,6 +106,14 @@ export function renderMiacis(look, size = 120) {
   }
 
   const backdropSvg = renderBackdrop(l.background);
+
+  // 相棒の体: すがたの絵（箱いっぱいの 100×100。オーラの枠 inset:6% の外側まで広げて箱に合わせる）か、いつもの画像
+  const formSvg = renderForm(l.form);
+  const bodyHtml = formSvg
+    ? `<div class="miacis-form-box" role="img" aria-label="${escapeHtml(l.form.name || 'ミアキス')}" style="position:absolute; left:-6.818%; top:-6.818%; width:113.636%; height:113.636%; pointer-events:none;">${formSvg}</div>`
+    : `<img src="assets/miacis-avatar.png"
+             alt="ミアキス"
+             style="width:90%; height:90%; object-fit:contain; z-index:3; pointer-events:none;">`;
   const auraArt = renderAuraArt(l.aura);
 
   // 3. 帽子 (hat)
@@ -153,9 +164,7 @@ export function renderMiacis(look, size = 120) {
       <!-- オーラ & ミアキスくん画像 -->
       <div class="${auraClass}"
            style="position:absolute; inset:6%; display:flex; align-items:center; justify-content:center; z-index:3; ${auraStyle}">
-        <img src="assets/miacis-avatar.png"
-             alt="ミアキス"
-             style="width:90%; height:90%; object-fit:contain; z-index:3; pointer-events:none;">
+        ${bodyHtml}
       </div>
       <!-- 着せ替えパーツ -->
       ${renderAccessory(l.hat, 'hat') || hatHtml}

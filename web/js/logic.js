@@ -372,7 +372,7 @@ export function translateError(error) {
     return '対戦がまだ完了していません';
   }
   if (msg.includes('not_enough_nuts')) {
-    return '木の実が足りません';
+    return 'Miコインが足りない';
   }
   if (msg.includes('not_enough_shards')) {
     return 'かけらが足りません';
@@ -532,6 +532,15 @@ export function rarityInfo(rarity) {
         borderColor: '#F2C200',
         isRainbow: false
       };
+    case 5:
+      return {
+        code: 'SECRET',
+        label: 'シークレット',
+        color: '#c2413a',
+        badgeBg: 'rgba(194, 65, 58, 0.15)',
+        borderColor: '#c2413a',
+        isRainbow: true
+      };
     case 4:
       return {
         code: 'UR',
@@ -625,7 +634,7 @@ export function calcNutsDisplay(balance, price = GACHA_PRICE) {
     balance: b,
     canPull1: b >= price.single,
     canPull10: b >= price.multi,
-    label: `${b} 🌰`
+    label: `${b} Mi`
   };
 }
 
@@ -817,4 +826,42 @@ export function saveKnockBand(band) {
 export function withStaffTag(nickname, isStaff) {
   const n = String(nickname ?? '');
   return isStaff ? `${n}（スタッフ）` : n;
+}
+
+// ==========================================
+// ローグライク（カード・スタート地点・系統樹）
+// ==========================================
+
+export const CARDS = {
+  shield: { icon: '🛡', name: 'たて', desc: '次の1回の不正解を無効にする' },
+  fifty: { icon: '✂', name: '50:50', desc: '好きな問題で1回、ハズレを2つ消す' },
+  time: { icon: '⏱', name: 'じかん+2', desc: 'この回の残りは1問 +2秒' },
+  skip: { icon: '↷', name: 'スキップ', desc: '好きな問題で1回、数えずに次へ' },
+  double: { icon: 'Mi', name: 'Mi×2', desc: 'この回のMiコインが2倍' }
+};
+
+export const START_STAGES = [
+  { stage: 1, label: 'A1', sub: '中学前半' },
+  { stage: 3, label: 'A2', sub: '中学' },
+  { stage: 5, label: 'B1', sub: '高校' },
+  { stage: 8, label: 'B2', sub: '大学受験' },
+  { stage: 10, label: '最難関', sub: '学術語' }
+];
+
+/** スタート地点が開いているか（その段階にたどり着いたことがある = 到達 >= (stage-1)*5） */
+export function startStageUnlocked(stage, maxDepth) {
+  return stage <= 1 || (parseInt(maxDepth, 10) || 0) >= (stage - 1) * 5;
+}
+
+/** 系統樹のレベルごとの解放（表示用） */
+export const META_LEVELS = [
+  { level: 1, at: 0, unlock: 'たて・50:50・じかん+2' },
+  { level: 2, at: 50, unlock: 'スキップのカード' },
+  { level: 3, at: 150, unlock: 'Mi×2 のカード' },
+  { level: 4, at: 300, unlock: '最初の1問の前にカード' },
+  { level: 5, at: 600, unlock: 'カードの候補が4枚に' }
+];
+
+export function nextMetaUnlock(level) {
+  return META_LEVELS.find(m => m.level === (parseInt(level, 10) || 1) + 1) || null;
 }

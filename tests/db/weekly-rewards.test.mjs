@@ -222,3 +222,35 @@ test('設定: スタッフだけが決め打ちの鍵を範囲内で変えられ
     await db.close();
   }
 });
+
+test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた。装備できて公開の見た目にも出る。SECRET と条件達成の称号はかけら交換できない', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    await db.exec("update public.app_settings set value='0' where key='raffle_rate'; update public.app_settings set value='1' where key='secret_rate';");
+    const r = await pull(db, a, 1);
+    assert.equal(r.results[0].rarity, 5);
+    assert.ok(['form_cat', 'form_dog'].includes(r.results[0].id), r.results[0].id);
+    const rates = await call(db, a, 'select public.gacha_rates() as r');
+    assert.equal(rates.item_rates.SECRET, 1);
+
+    await asUser(db, a, () => db.query("select public.equip_item('form', $1)", [r.results[0].id]));
+    const look = (await db.query("select looks from public.public_looks where nickname='A'")).rows[0].looks;
+    assert.equal(look.form.id, r.results[0].id);
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query("select public.equip_item('form', 'hat_cap')"), /slot_mismatch/);
+    });
+
+    await db.query("insert into public.player_shards (player_id, amount) values ($1, 5000) on conflict (player_id) do update set amount = 5000", [a]);
+    await asUser(db, a, async () => {
+      await assert.rejects(db.query("select public.exchange_item('form_dog')"), /item_not_found/);
+      await assert.rejects(db.query("select public.exchange_item('title_streak10')"), /item_not_found/);
+      const ok = (await db.query("select public.exchange_item('form_fox') as r")).rows[0].r;
+      assert.ok(ok);
+    });
+    const n = (await db.query("select count(*)::int n from public.items where active and source='gacha'")).rows[0].n;
+    assert.equal(n, 106);
+  } finally {
+    await db.close();
+  }
+});

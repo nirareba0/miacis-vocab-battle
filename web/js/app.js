@@ -604,7 +604,8 @@ async function renderHome() {
       neck: itemMap[state.myLooks.neck] || null,
       background: itemMap[state.myLooks.background] || null,
       aura: itemMap[state.myLooks.aura] || null,
-      title: itemMap[state.myLooks.title] || null
+      title: itemMap[state.myLooks.title] || null,
+      form: itemMap[state.myLooks.form] || null
     };
 
     const miacisAvatarHtml = renderMiacis(myLook, 160);
@@ -625,13 +626,13 @@ async function renderHome() {
       const bonus = dailyNutsRes.streak_bonus || 0;
       const days = dailyNutsRes.streak_days || 0;
       const streakLine = bonus > 0
-        ? `<div style="font-size:12px; font-weight:700; margin-top:2px;">${days}日連続 🌰 +${bonus}</div>`
+        ? `<div style="font-size:12px; font-weight:700; margin-top:2px;">${days}日連続 <span class="mi-coin" aria-hidden="true">Mi</span> +${bonus}</div>`
         : days >= 1 && days < 3
           ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">あと${3 - days}日連続で ボーナス↑</div>`
           : '';
       dailyToastHtml = `
         <div class="alert alert-success" style="margin-bottom:12px; font-weight:700; text-align:center;">
-          🌰 +${dailyNutsRes.earned} 今日のログイン${streakLine}
+          <span class="mi-coin" aria-hidden="true">Mi</span> +${dailyNutsRes.earned} 今日のログイン${streakLine}
         </div>
       `;
     }
@@ -647,7 +648,7 @@ async function renderHome() {
       <div class="record-strip" id="record-strip" hidden></div>
       <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>連続チャレンジ</strong><small>間違えたら終わり。何問続く？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
       <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦</strong><span>10問 vs だれかの記録</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問 ノンストップ</span></button></div>
-      <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
+      <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク 準備中'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
       <p class="week-history">${lastWeekDiff}</p>
@@ -774,7 +775,7 @@ function showSettingsModal() {
  */
 function renderChallenge(mode) {
   const itemMap = Object.fromEntries((state.allItems || []).map(it => [it.id, it]));
-  const look = Object.fromEntries(['hat', 'face', 'neck', 'background', 'aura', 'title'].map(k => [k, itemMap[state.myLooks?.[k]] || null]));
+  const look = Object.fromEntries(['hat', 'face', 'neck', 'background', 'aura', 'title', 'form'].map(k => [k, itemMap[state.myLooks?.[k]] || null]));
   renderChallengeView(appEl, mode, {
     nickname: state.player.nickname,
     look,
@@ -1083,13 +1084,13 @@ async function finishMatch() {
 
       const cappedNotice = (nutRes.capped || nutRes.remaining_cap === 0)
         ? '<div style="font-size:13px; color:#F2C200; font-weight:700; margin-top:4px;">今日の上限 到達</div>'
-        : `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">今日あと ${nutRes.remaining_cap} 🌰</div>`;
+        : `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">今日あと ${nutRes.remaining_cap} <span class="mi-coin" aria-hidden="true">Mi</span></div>`;
 
       nutGainHtml = `
         <div class="card" style="text-align: center; padding: 18px 16px; margin-top: 14px; border: 2px solid var(--primary); background: rgba(242, 194, 0, 0.1);">
-          <div style="font-size: 13px; color: var(--text-muted);">木の実</div>
-          <div style="font-size: 28px; font-weight: 900; color: var(--primary); margin: 4px 0;">🌰 +${nutRes.earned}</div>
-          <div style="font-size: 14px;">現在の残高: <strong>${nutRes.balance} 🌰</strong></div>
+          <div style="font-size: 13px; color: var(--text-muted);">Miコイン</div>
+          <div style="font-size: 28px; font-weight: 900; color: var(--primary); margin: 4px 0;"><span class="mi-coin" aria-hidden="true">Mi</span> +${nutRes.earned}</div>
+          <div style="font-size: 14px;">現在の残高: <strong>${nutRes.balance} <span class="mi-coin" aria-hidden="true">Mi</span></strong></div>
           ${cappedNotice}
           <div style="margin-top: 12px;">
             <button class="btn-primary" id="btn-match-to-gacha" style="min-height: 52px; font-size: 17px; width: 100%;">

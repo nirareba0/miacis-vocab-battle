@@ -707,9 +707,34 @@ async function rpc(name, params) {
   return escapeDeep(data);
 }
 
-/** @param {'streak'|'knock'} mode  @param {number} [band] 100本ノックのレベル（1=A1 … 5=最難関） */
-export function startRun(mode, band) {
-  return rpc('start_run', band ? { p_mode: mode, p_band: band } : { p_mode: mode });
+/**
+ * @param {'streak'|'knock'} mode
+ * @param {number} [band] 100本ノックのレベル（1=A1 … 5=最難関）
+ * @param {number} [startStage] 連続チャレンジのスタート地点（1・3・5・8・10）
+ */
+export function startRun(mode, band, startStage) {
+  const params = { p_mode: mode };
+  if (band) params.p_band = band;
+  if (startStage && startStage > 1) params.p_start_stage = startStage;
+  return rpc('start_run', params);
+}
+
+/** カードを選ぶ（STAGE が上がったとき） */
+export function pickCard(runId, card) {
+  return rpc('pick_card', { p_run_id: runId, p_card: card });
+}
+
+export function useFifty(runId) {
+  return rpc('use_fifty', { p_run_id: runId });
+}
+
+export function skipQuestion(runId) {
+  return rpc('skip_question', { p_run_id: runId });
+}
+
+/** 系統樹（累計正解・レベル・解放・たどり着いた最高到達） */
+export function getMyMeta() {
+  return rpc('my_meta');
 }
 
 /** choice が null なら時間切れ */
