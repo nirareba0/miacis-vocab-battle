@@ -6,6 +6,7 @@
  *   export SUPABASE_SERVICE_ROLE_KEY="ey..."
  *   node tools/admin.mjs reset-passphrase <nickname> <新しいあいことば>
  *   node tools/admin.mjs make-staff <nickname>
+ *   node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]
  *   node tools/admin.mjs set-picker <nickname> on|off
  *   node tools/admin.mjs rename <旧ニックネーム> <新ニックネーム>
  *   node tools/admin.mjs import-words
@@ -39,6 +40,11 @@ function printUsageAndExit(message = null) {
       プレイヤーのあいことばを再設定します。
   make-staff <nickname>
       指定したプレイヤーにスタッフ権限を付与します。
+  create-staff <nickname...> [--out <ファイル>]
+      スタッフのアカウントを新しく作ります（学年なし・スタッフ区分）。
+      あいことばはランダムに作り、画面には出さず --out のファイル（既定:
+      ドキュメント/miacis-staff-passphrases.txt）に追記します。Git の外に置くこと。
+      すでにあるニックネームは、あいことばを変えずにスタッフ権限だけ付けます。
   set-picker <nickname> on|off
       指定したプレイヤーのピッカー権限を設定します。
   rename <旧ニックネーム> <新ニックネーム>
@@ -89,6 +95,33 @@ class SupabaseAdminClient {
       throw new Error(`Auth 更新エラー: ${res.status} ${await res.text()}`);
     }
     return await res.json();
+  }
+
+  async createAuthUser(email, password) {
+    const res = await fetch(`${this.url}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({ email, password, email_confirm: true })
+    });
+    if (!res.ok) {
+      throw new Error(`Auth 作成エラー: ${res.status} ${await res.text()}`);
+    }
+    return await res.json();
+  }
+
+  async insertStaffPlayer(userId, nickname) {
+    const res = await fetch(`${this.url}/rest/v1/players`, {
+      method: 'POST',
+      headers: { ...this.headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({ id: userId, nickname, grade: null, account_type: 'staff', tier: 1 })
+    });
+    if (!res.ok) {
+      throw new Error(`プレイヤー作成エラー: ${res.status} ${await res.text()}`);
+    }
+  }
+
+  async deleteAuthUser(userId) {
+    await fetch(`${this.url}/auth/v1/admin/users/${userId}`, { method: 'DELETE', headers: this.headers });
   }
 
   async makeStaff(userId) {
@@ -208,6 +241,53 @@ async function main() {
       }
       await admin.makeStaff(player.id);
       console.log(`成功: ニックネーム "${nickname}" をスタッフに追加しました。`);
+      break;
+    }
+
+    case 'create-staff': {
+      const outIdx = args.indexOf('--out');
+      const outFile = outIdx >= 0 ? args[outIdx + 1] : path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Documents', 'miacis-staff-passphrases.txt');
+      const nicknames = args.filter((_, i) => outIdx < 0 || (i !== outIdx && i !== outIdx + 1)).map(n => n.trim()).filter(Boolean);
+      if (nicknames.length === 0) {
+        printUsageAndExit('使い方: node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]');
+      }
+      if (path.resolve(outFile).startsWith(rootDir)) {
+        console.error('エラー: --out はリポジトリの外にしてください（あいことばを Git に入れない）。');
+        process.exit(1);
+      }
+      // 打ち間違えにくい文字だけ（0/O、1/l/I を除く）
+      const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
+      const makePass = () => Array.from(crypto.getRandomValues(new Uint32Array(8)), x => alphabet[x % alphabet.length]).join('');
+      const lines = [];
+      for (const nickname of nicknames) {
+        if (nickname.length > 10 || /[\x00-\x1F\x7F]/.test(nickname)) {
+          console.log(`スキップ: "${nickname}" はニックネームに使えない（1〜10文字・制御文字なし）`);
+          continue;
+        }
+        const existing = await admin.getPlayerByNickname(nickname);
+        if (existing) {
+          await admin.makeStaff(existing.id);
+          console.log(`既存: "${nickname}" はもう登録済み。スタッフ権限だけ付けた（あいことばは変えていない）`);
+          continue;
+        }
+        const pass = makePass();
+        const user = await admin.createAuthUser(nicknameToEmail(nickname), pass);
+        try {
+          await admin.insertStaffPlayer(user.id, nickname);
+          await admin.makeStaff(user.id);
+        } catch (err) {
+          await admin.deleteAuthUser(user.id);
+          throw err;
+        }
+        lines.push(`${nickname}\t${pass}`);
+        console.log(`作成: "${nickname}" をスタッフとして作った`);
+      }
+      if (lines.length) {
+        fs.mkdirSync(path.dirname(outFile), { recursive: true });
+        const header = fs.existsSync(outFile) ? '' : '# ミアキス英単語サバイバル スタッフのあいことば（Git・Drive に置かない。本人に渡したら消す）\n';
+        fs.appendFileSync(outFile, header + `# ${new Date().toISOString()}\n` + lines.join('\n') + '\n', { encoding: 'utf8' });
+        console.log(`あいことばは ${outFile} に書いた（画面には出さない）`);
+      }
       break;
     }
 

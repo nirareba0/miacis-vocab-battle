@@ -91,6 +91,10 @@ node tools/admin.mjs reset-passphrase <nickname> <新しいあいことば>
 # 2. スタッフ権限の付与
 node tools/admin.mjs make-staff <nickname>
 
+# 2b. スタッフのアカウントを新しく作る（学年なし・スタッフ区分）。あいことばはランダムに作り、
+#     画面には出さず ドキュメント/miacis-staff-passphrases.txt に追記する（Git の外。渡したら消す）
+node tools/admin.mjs create-staff ひかり けんじ
+
 # 3. コンテンツ提案（ピッカー）権限の設定
 node tools/admin.mjs set-picker <nickname> on|off
 
