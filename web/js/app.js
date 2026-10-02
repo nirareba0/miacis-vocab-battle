@@ -213,7 +213,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">Miacis 英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
+    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -645,6 +645,7 @@ async function renderHome() {
  */
 function renderChallenge(mode) {
   renderChallengeView(appEl, mode, {
+    nickname: state.player.nickname,
     onGoHome: () => {
       window.location.hash = '#/home';
     },

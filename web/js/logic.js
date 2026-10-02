@@ -730,3 +730,34 @@ export function knockGrade(correct) {
   if (c >= 50) return { mark: 'B', label: '半分以上いける' };
   return { mark: 'C', label: '伸びしろたっぷり' };
 }
+
+/**
+ * プレイ中の「いまの順位」。いまやめたら何位か、を他の人の今週ベストと比べて出す
+ * @param {number} score - いまの記録（連続正解数／100本ノックの正解数）
+ * @param {Array<{nickname:string, score:number}>} others - 自分以外の今週ベスト
+ * @returns {{rank:number, next:{nickname:string, score:number, gap:number}|null, above:number}}
+ *   next = すぐ上の人（抜くまであと gap 問）。同点は相手が上（時間で負けている前提）
+ */
+export function liveRank(score, others) {
+  const s = Math.max(0, parseInt(score, 10) || 0);
+  const list = (others || [])
+    .map(o => ({ nickname: String(o.nickname || ''), score: Math.max(0, parseInt(o.score, 10) || 0) }))
+    .filter(o => o.nickname);
+  const above = list.filter(o => o.score >= s);
+  above.sort((a, b) => a.score - b.score);
+  const next = above[0] ? { ...above[0], gap: above[0].score + 1 - s } : null;
+  return { rank: above.length + 1, next, above: above.length };
+}
+
+/**
+ * 順位が上がったときに抜いた人たち（前の記録では上にいて、今の記録では下になった人）
+ */
+export function passedPlayers(prevScore, score, others) {
+  const p = Math.max(0, parseInt(prevScore, 10) || 0);
+  const n = Math.max(0, parseInt(score, 10) || 0);
+  if (n <= p) return [];
+  return (others || [])
+    .filter(o => { const sc = parseInt(o.score, 10) || 0; return sc >= p && sc < n; })
+    .sort((a, b) => (parseInt(b.score, 10) || 0) - (parseInt(a.score, 10) || 0))
+    .map(o => String(o.nickname || ''));
+}

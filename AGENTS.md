@@ -1,7 +1,7 @@
 # AGENTS.md — miacis-vocab-battle の実装規約
 
-韮崎市の中高生の居場所「青少年育成プラザ Miacis」に来る中高生向けの、対戦型英単語アプリ。
-仕様の正本は AIOS 側 `~/AIOS/core/projects/miacis/specs/vocab-battle-build-spec-20260925.md`（要件は同 `vocab-battle-requirements-20260925.md`）。
+韮崎市の中高生の居場所「青少年育成プラザ Miacis」に来る中高生向けの英単語アプリ「ミアキス英単語サバイバル」。
+仕様の正本は AIOS 側 `core/projects/miacis/`（STATE.md が現在地。新モードの仕様は `specs/streak-knock-spec-20261001.md`、文言と仕掛けは `specs/engagement-audit-20261001.md`。初期の要件・設計は同 `specs/vocab-battle-*.md`）。
 このファイルは実装の規約だけを持つ。
 
 ## 構成
@@ -29,4 +29,6 @@
 - 時刻の区切りは日本時間（`Asia/Tokyo`）。週は月曜 0:00 始まり
 - `supabase-js` は `https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm` から読む
 - テストは `npm test`（= `node --test 'tests/**/*.test.mjs' 'web/tests/**/*.test.mjs'`）で全部通ること。テストファイルは必ず `*.test.mjs` にする（中継の index.js は作らない）。DB のテストは `@electric-sql/pglite`（devDependency）を使う
-- **git commit / git push をしない。** 指示にないファイルを編集しない
+- **git commit / git push は AI がしてよい**（2026-10-02 本人）。main への push で GitHub Pages に公開される。
+  push の前に `node --test tests/db/*.test.mjs web/tests/*.test.mjs` が全部通ること（Windows では `npm test` の glob が効かず 0件になる）。
+  本番 DB への反映は `tools/apply-remote.sh`（先に `--dry-run` で何が入るかを本人に見せる）。指示にないファイルを編集しない

@@ -29,3 +29,17 @@ test('translateError: チャレンジのエラー', () => {
   assert.equal(translateError('revive_not_available'), '復活はもう使えません');
   assert.equal(translateError('run_not_active'), 'このチャレンジはもう終わっています');
 });
+
+test('liveRank / passedPlayers: いまの順位と、抜いた人', async () => {
+  const { liveRank, passedPlayers } = await import('../js/logic.js');
+  const others = [{ nickname: 'そうた', score: 23 }, { nickname: 'みく', score: 12 }, { nickname: 'れん', score: 9 }];
+  assert.deepEqual(liveRank(0, others), { rank: 4, next: { nickname: 'れん', score: 9, gap: 10 }, above: 3 });
+  assert.deepEqual(liveRank(9, others).next, { nickname: 'れん', score: 9, gap: 1 }); // 同点は相手が上
+  assert.equal(liveRank(10, others).rank, 3);
+  assert.equal(liveRank(24, others).rank, 1);
+  assert.equal(liveRank(24, others).next, null);
+  assert.deepEqual(passedPlayers(9, 10, others), ['れん']);
+  assert.deepEqual(passedPlayers(10, 11, others), []);
+  assert.deepEqual(passedPlayers(0, 13, others), ['みく', 'れん']);
+  assert.deepEqual(liveRank(3, []), { rank: 1, next: null, above: 0 });
+});

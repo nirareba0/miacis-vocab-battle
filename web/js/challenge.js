@@ -4,13 +4,15 @@
  * 対戦と違い、1問ずつサーバーに答えを送り、正誤と次の問題を受け取る。
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
-import { startRun, answerRun, reviveRun, endRun, getMyRunBests } from './api.js';
+import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock } from './api.js';
 import {
   escapeHtml,
   streakStage,
   streakPressureLabel,
   formatSeconds,
-  knockGrade
+  knockGrade,
+  liveRank,
+  passedPlayers
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -50,6 +52,9 @@ const run = {
   reviveUsed: false,
   best: null,
   weekBest: null,
+  board: [],          // 自分以外の今週ベスト（いまの順位の計算用）
+  nickname: '',
+  rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
   startedAt: 0,
   timers: [],
   busy: false,
@@ -83,12 +88,13 @@ function area() {
 /**
  * @param {HTMLElement} containerEl
  * @param {'streak'|'knock'} mode
- * @param {{onGoHome?: Function, onGoRanking?: Function, onNuts?: Function}} callbacks
+ * @param {{onGoHome?: Function, onGoRanking?: Function, onNuts?: Function, nickname?: string}} callbacks
  */
 export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   stopChallenge();
   run.mode = mode;
   run.callbacks = callbacks;
+  run.nickname = callbacks.nickname || '';
   const conf = MODES[mode];
 
   containerEl.innerHTML = `
@@ -156,19 +162,52 @@ async function begin(mode) {
     run.best = res.best ? res.best.correct : null;
     run.weekBest = res.week_best ? res.week_best.correct : null;
     run.startedAt = performance.now();
+    run.rankUp = null;
+    run.board = [];
     showQuestion(res.question);
+    // 他の人の今週ベスト（いまの順位の計算用）。遅れて届いても次の問題から効く
+    const fetchBoard = mode === 'streak' ? getRankingStreak('week') : getRankingKnock(res.band);
+    fetchBoard.then(rows => {
+      if (run.id !== res.run_id) return;
+      run.board = (rows || [])
+        .filter(r => r.nickname !== run.nickname)
+        .map(r => ({ nickname: r.nickname, score: mode === 'streak' ? r.best_streak : r.best_correct }));
+    }).catch(() => {});
   } catch (err) {
     showError(err);
   }
 }
 
+// いまやめたときの記録（今週ベストは残るので、それより下には落ちない）
+function effectiveScore() {
+  return Math.max(run.score, run.weekBest || 0);
+}
+
+function rankPillHtml() {
+  if (!run.board.length && !run.weekBest && run.score === 0) return '';
+  const lr = liveRank(effectiveScore(), run.board);
+  return `<span class="rank-pill" aria-label="いまやめたら今週 ${lr.rank} 位">いま <strong>${lr.rank}</strong>位</span>`;
+}
+
+function chaseLabel() {
+  // すぐ上の人まで3問以内なら、そちらを先に言う（自己ベストより人のほうが燃える）
+  const lr = liveRank(effectiveScore(), run.board);
+  if (lr.next && lr.next.gap <= 3) {
+    return lr.next.gap === 1
+      ? `あと1問で ${escapeHtml(lr.next.nickname)} を抜く！`
+      : `${escapeHtml(lr.next.nickname)} まで、あと ${lr.next.gap} 問`;
+  }
+  if (run.mode === 'streak') return streakPressureLabel(run.score, run.best);
+  return '';
+}
+
 function headerHtml(q) {
   if (run.mode === 'streak') {
     const st = streakStage(run.score);
-    const pressure = streakPressureLabel(run.score, run.best);
+    const pressure = chaseLabel();
     return `
       <div class="streak-hud">
-        <div class="streak-count"><span>連続</span><strong>${run.score}</strong></div>
+        <div class="streak-count"><span>連続</span><strong>${run.score}</strong>${rankPillHtml()}</div>
         <div class="streak-meta">
           <span class="stage-pill">STAGE ${q.stage}</span>
           <span class="stage-steps" aria-label="次のステージまであと${st.toNext}問">${Array.from({ length: 5 }, (_, i) => `<i class="${i < st.inStage ? 'done' : ''}"></i>`).join('')}</span>
@@ -181,8 +220,9 @@ function headerHtml(q) {
   return `
     <div class="battle-header">
       <span class="q-counter">${q.no} / ${KNOCK_TOTAL} 本</span>
-      <span class="knock-score">正解 <strong>${run.score}</strong></span>
+      <span class="knock-score">正解 <strong>${run.score}</strong> ${rankPillHtml()}</span>
     </div>
+    <div class="pressure-line" aria-live="polite">${chaseLabel()}</div>
     <div class="knock-progress" aria-hidden="true"><i style="width:${(run.answered / KNOCK_TOTAL) * 100}%"></i></div>
   `;
 }
@@ -204,6 +244,18 @@ function showQuestion(q) {
     </div>
     ${run.mode === 'knock' ? '<button class="btn-sub" id="btn-knock-quit" style="margin-top:14px;">ここでやめる（記録なし）</button>' : ''}
   `;
+
+  if (run.rankUp) {
+    const { rank, passed } = run.rankUp;
+    run.rankUp = null;
+    const toast = document.createElement('div');
+    toast.className = 'rank-up-toast';
+    toast.setAttribute('role', 'status');
+    const who = passed.length ? `${escapeHtml(passed[0])}${passed.length > 1 ? ` ほか${passed.length - 1}人` : ''} を抜いた` : '';
+    toast.innerHTML = `<strong>${rank}位に浮上！</strong><span>${who}</span>`;
+    a.prepend(toast);
+    later(() => toast.remove(), 1400);
+  }
 
   const started = performance.now();
   const limit = q.limit_ms;
@@ -259,9 +311,20 @@ async function submit(choice, ms, btn) {
     vibrate(res.timeout ? 'timeout' : 'wrong');
   }
 
+  const prevEff = effectiveScore();
   run.score = res.score;
   run.answered = res.answered;
   run.reviveUsed = res.revive_used;
+
+  // 順位が上がった？（今週ベストを越えて、誰かの記録を追い抜いたとき）
+  if (res.correct && run.board.length) {
+    const passed = passedPlayers(prevEff, effectiveScore(), run.board);
+    if (passed.length) {
+      run.rankUp = { rank: liveRank(effectiveScore(), run.board).rank, passed };
+      playSfx('nutGet');
+      vibrate('stageUp');
+    }
+  }
 
   if (res.state === 'finished') {
     later(() => showResult(res.result), res.correct ? 400 : 1100);
