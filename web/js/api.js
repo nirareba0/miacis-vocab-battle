@@ -707,9 +707,9 @@ async function rpc(name, params) {
   return escapeDeep(data);
 }
 
-/** @param {'streak'|'knock'} mode */
-export function startRun(mode) {
-  return rpc('start_run', { p_mode: mode });
+/** @param {'streak'|'knock'} mode  @param {number} [band] 100本ノックのレベル（1=A1 … 5=最難関） */
+export function startRun(mode, band) {
+  return rpc('start_run', band ? { p_mode: mode, p_band: band } : { p_mode: mode });
 }
 
 /** choice が null なら時間切れ */

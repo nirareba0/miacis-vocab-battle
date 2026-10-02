@@ -363,3 +363,60 @@ test('訳が同じ単語（start / begin）: 1回の挑戦で両方は出さな�
     await db.close();
   }
 });
+
+test('単語の区分（0015）: STAGE は stage_range の範囲から出る。STAGE 10 から最難関。使わない語（active=false）は出ない', async () => {
+  const db = await setup(); // 150語
+  try {
+    // 15語ずつ 1..10 の範囲を割り当て、範囲10を「最難関」にする。範囲1の最初の5語は使わない語にする
+    await db.exec(`
+      update public.words set stage_range = ((rank - 1) / 15) + 1, sort_key = rank, level = 'B1';
+      update public.words set level = 'AC' where stage_range = 10;
+      update public.words set active = false where rank <= 5;
+    `);
+    const inactive = (await db.query('select id from public.words where not active')).rows.map(r => r.id);
+    const a = await player(db, 'A');
+    const s = await start(db, a, 'streak');
+    let q = s.question;
+    const seen = [];
+    for (let i = 0; i < 47; i++) {
+      seen.push(q);
+      q = (await answerRight(db, a, s.run_id)).question;
+    }
+    // 47問正解 → STAGE 10。段差直後の2問（平地）を越えたので範囲10
+    assert.equal(q.stage, 10);
+    assert.equal(q.range, 10);
+    const sr = (await db.query('select stage_range, level from public.words where id=$1', [q.word_id])).rows[0];
+    assert.deepEqual(sr, { stage_range: 10, level: 'AC' });
+    // 最初の5問は範囲1から（使わない語を除く）
+    for (const x of seen.slice(0, 5)) {
+      const w = (await db.query('select stage_range from public.words where id=$1', [x.word_id])).rows[0];
+      assert.equal(w.stage_range, 1);
+      assert.ok(!inactive.includes(x.word_id));
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test('100本ノックはレベルを選んで始める。自己ベストはレベルごと', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const s4 = await call(db, a, 'select public.start_run($1, $2) as r', ['knock', 4]);
+    assert.equal(s4.band, 4);
+    const w = (await db.query('select band from public.words where id=$1', [s4.question.word_id])).rows[0];
+    assert.equal(w.band, 4);
+    for (let i = 0; i < 100; i++) await answerRight(db, a, s4.run_id);
+    // 別のレベルで始めると、その自己ベストはまだ無い
+    const s1 = await call(db, a, 'select public.start_run($1, $2) as r', ['knock', 1]);
+    assert.equal(s1.band, 1);
+    assert.equal(s1.best, null);
+    const s4b = await call(db, a, 'select public.start_run($1, $2) as r', ['knock', 4]);
+    assert.equal(s4b.best.correct, 100);
+    // 範囲外は丸める・省略すると自分の段
+    assert.equal((await call(db, a, 'select public.start_run($1, $2) as r', ['knock', 9])).band, 5);
+    assert.equal((await call(db, a, 'select public.start_run($1) as r', ['knock'])).band, 1);
+  } finally {
+    await db.close();
+  }
+});

@@ -792,6 +792,28 @@ export function passedPlayers(prevScore, score, others) {
 /**
  * ランキングに出すときの名前。スタッフには「（スタッフ）」を付ける（2026-10-02 本人）
  */
+export const KNOCK_LEVELS = [
+  { band: 1, label: 'A1', sub: '中学前半' },
+  { band: 2, label: 'A2', sub: '中学' },
+  { band: 3, label: 'B1', sub: '高校' },
+  { band: 4, label: 'B2', sub: '大学受験' },
+  { band: 5, label: '最難関', sub: '学術語' }
+];
+
+/** 100本ノックで選んだレベル（端末に保存）。無ければ 1 */
+export function savedKnockBand() {
+  try {
+    const v = parseInt(localStorage.getItem('miacis_knock_band'), 10);
+    return v >= 1 && v <= 5 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function saveKnockBand(band) {
+  try { localStorage.setItem('miacis_knock_band', String(band)); } catch {}
+}
+
 export function withStaffTag(nickname, isStaff) {
   const n = String(nickname ?? '');
   return isStaff ? `${n}（スタッフ）` : n;

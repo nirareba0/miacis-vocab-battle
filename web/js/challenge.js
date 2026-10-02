@@ -14,7 +14,10 @@ import {
   knockGrade,
   liveRank,
   passedPlayers,
-  withStaffTag
+  withStaffTag,
+  KNOCK_LEVELS,
+  savedKnockBand,
+  saveKnockBand
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -30,7 +33,7 @@ const MODES = {
   knock: {
     title: '100本ノック',
     lead: '100問 ノンストップ。',
-    rules: ['1問 6秒', '間違えても止まらない', '記録は 100本完走で', '同点は 速いほうが上']
+    rules: ['1問 6秒', '間違えても止まらない', '記録は 100本完走で', 'レベルごとに順位']
   }
 };
 
@@ -142,6 +145,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
     <div class="card challenge-intro">
       <span class="eyebrow">${conf.lead}</span>
       <div class="challenge-rules">${conf.rules.map(r => `<span>${r}</span>`).join('')}</div>
+      ${mode === 'knock' ? `<div class="tab-bar knock-levels" role="group" aria-label="レベル">${KNOCK_LEVELS.map(l => `<button class="tab-btn ${l.band === savedKnockBand() ? 'active' : ''}" data-band="${l.band}" aria-pressed="${l.band === savedKnockBand()}">${l.label}<small style="display:block; font-size:10px; font-weight:500;">${l.sub}</small></button>`).join('')}</div>` : ''}
       <div class="challenge-bests">
         <div><span>今週ベスト</span><strong>${bestText(weekBest)}</strong></div>
         <div><span>自己ベスト</span><strong>${bestText(best)}</strong></div>
@@ -150,6 +154,10 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
     </div>
   `;
   document.getElementById('btn-challenge-start').addEventListener('click', () => begin(mode));
+  a.querySelectorAll('.knock-levels [data-band]').forEach(btn => btn.addEventListener('click', () => {
+    saveKnockBand(parseInt(btn.dataset.band, 10));
+    a.querySelectorAll('.knock-levels [data-band]').forEach(b => { b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', String(b === btn)); });
+  }));
 
   if (/[?&]debug/.test(window.location.search)) {
     const panel = document.createElement('div');
@@ -174,7 +182,7 @@ async function begin(mode) {
   if (!a) return;
   a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">用意中…</div>';
   try {
-    const res = await startRun(mode);
+    const res = await startRun(mode, mode === 'knock' ? savedKnockBand() : undefined);
     if (run.mode !== mode || !area()) return;
     run.id = res.run_id;
     run.score = 0;

@@ -71,7 +71,10 @@ import {
   checkComboMilestone,
   getStageName,
   normalizeInviteCode,
-  withStaffTag
+  withStaffTag,
+  KNOCK_LEVELS,
+  savedKnockBand,
+  saveKnockBand
 } from './logic.js';
 
 import {
@@ -1295,11 +1298,11 @@ async function renderZukan() {
     </header>
 
     <div class="tab-bar">
-      <button class="tab-btn ${state.zukanTab === 1 ? 'active' : ''}" data-band="1">段1</button>
-      <button class="tab-btn ${state.zukanTab === 2 ? 'active' : ''}" data-band="2">段2</button>
-      <button class="tab-btn ${state.zukanTab === 3 ? 'active' : ''}" data-band="3">段3</button>
-      <button class="tab-btn ${state.zukanTab === 4 ? 'active' : ''}" data-band="4">段4</button>
-      <button class="tab-btn ${state.zukanTab === 5 ? 'active' : ''}" data-band="5">段5</button>
+      <button class="tab-btn ${state.zukanTab === 1 ? 'active' : ''}" data-band="1">A1</button>
+      <button class="tab-btn ${state.zukanTab === 2 ? 'active' : ''}" data-band="2">A2</button>
+      <button class="tab-btn ${state.zukanTab === 3 ? 'active' : ''}" data-band="3">B1</button>
+      <button class="tab-btn ${state.zukanTab === 4 ? 'active' : ''}" data-band="4">B2</button>
+      <button class="tab-btn ${state.zukanTab === 5 ? 'active' : ''}" data-band="5">最難関</button>
     </div>
 
     <div id="zukan-content">読み込み中...</div>
@@ -1350,7 +1353,7 @@ async function renderZukan() {
     contentEl.innerHTML = `
       <div class="zukan-progress-card">
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px;">
-          <span>段${state.zukanTab} 覚えた数</span>
+          <span>${['', 'A1（中学前半）', 'A2（中学）', 'B1（高校）', 'B2（大学受験）', '最難関（学術語）'][state.zukanTab]} 覚えた数</span>
           <span>${bandStat.collected} / ${bandStat.total} 語 (${percent}%)</span>
         </div>
         <div class="evolution-bar-bg">
@@ -1775,13 +1778,17 @@ async function loadRankingData() {
     streak: state.streakScope === 'all'
       ? 'これまでの最高記録。同じ記録なら、かかった時間が短い人が上'
       : '今週の自己ベスト。月曜にリセット。同じ記録なら、かかった時間が短い人が上',
-    knock: `${state.flags.rank_mode_enabled ? tierToLabel(state.player.tier) + 'の' : '同じレベルの単語での'}今週の自己ベスト（100問やり切った回）。同じ数なら速い人が上`
+    knock: `${KNOCK_LEVELS.map(l => `<button class="btn-inline" ${l.band === savedKnockBand() ? 'aria-pressed="true" style="background:#5d43b5;color:#fff"' : ''} data-knock-band="${l.band}">${l.label}</button>`).join('')} 今週の自己ベスト（100問完走）。同じ数なら速い人が上`
   };
   const notice = document.getElementById('ranking-notice');
   if (notice) {
     notice.innerHTML = tab === 'streak'
       ? `${notices.streak} <button class="btn-inline" id="btn-streak-scope">${state.streakScope === 'all' ? '今週を見る' : '歴代を見る'}</button>`
       : notices[tab];
+    notice.querySelectorAll('[data-knock-band]').forEach(b => b.addEventListener('click', () => {
+      saveKnockBand(parseInt(b.dataset.knockBand, 10));
+      loadRankingData();
+    }));
     document.getElementById('btn-streak-scope')?.addEventListener('click', () => {
       state.streakScope = state.streakScope === 'all' ? 'week' : 'all';
       loadRankingData();
@@ -1794,7 +1801,7 @@ async function loadRankingData() {
     learn: () => getRankingLearn(state.player.tier),
     commit: () => getRankingCommit(),
     streak: () => getRankingStreak(state.streakScope),
-    knock: () => getRankingKnock(state.player.tier)
+    knock: () => getRankingKnock(savedKnockBand())
   }[tab];
 
   try {
