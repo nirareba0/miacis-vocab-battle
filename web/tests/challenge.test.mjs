@@ -12,8 +12,8 @@ test('streakStage: 5問ごとにステージが上がる', () => {
 test('streakPressureLabel: 自己ベストが近いときだけ言う', () => {
   assert.equal(streakPressureLabel(3, null), '');
   assert.equal(streakPressureLabel(3, 10), '');
-  assert.equal(streakPressureLabel(8, 10), '自己ベスト更新まであと3問');
-  assert.equal(streakPressureLabel(10, 10), 'あと1問で自己ベスト更新！');
+  assert.equal(streakPressureLabel(8, 10), '自己ベストまで あと3問');
+  assert.equal(streakPressureLabel(10, 10), 'あと1問で 自己ベスト');
   assert.equal(streakPressureLabel(11, 10), '自己ベスト更新中！');
 });
 

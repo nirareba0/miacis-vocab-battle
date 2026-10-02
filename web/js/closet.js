@@ -68,7 +68,7 @@ export async function renderClosetView(containerEl, state, callbacks = {}) {
   } catch (err) {
     mainEl.innerHTML = `
       <div class="alert alert-error">${escapeHtml(err.message)}</div>
-      <button class="btn-secondary" id="btn-closet-err-back" style="margin-top:16px;">ホームへ戻る</button>
+      <button class="btn-secondary" id="btn-closet-err-back" style="margin-top:16px;">ホーム</button>
     `;
     document.getElementById('btn-closet-err-back')?.addEventListener('click', () => {
       window.location.hash = '#/home';
@@ -206,7 +206,7 @@ function renderClosetBody(mainEl, state, callbacks) {
 
     <div style="display:flex; gap:10px; margin-top:24px;">
       <button class="btn-sub" id="btn-to-gacha">木の実ガチャへ</button>
-      <button class="btn-sub" id="btn-closet-home">ホームへ戻る</button>
+      <button class="btn-sub" id="btn-closet-home">ホーム</button>
     </div>
   `;
 

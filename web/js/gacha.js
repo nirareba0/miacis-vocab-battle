@@ -63,7 +63,7 @@ export async function renderGachaView(containerEl, state, callbacks = {}) {
   } catch (err) {
     mainEl.innerHTML = `
       <div class="alert alert-error">${escapeHtml(err.message)}</div>
-      <button class="btn-secondary" id="btn-gacha-err-back" style="margin-top:16px;">ホームへ戻る</button>
+      <button class="btn-secondary" id="btn-gacha-err-back" style="margin-top:16px;">ホーム</button>
     `;
     document.getElementById('btn-gacha-err-back')?.addEventListener('click', () => {
       window.location.hash = '#/home';
@@ -107,7 +107,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       </li>
     `).join('');
   } else {
-    prizesHtml = '<li style="color:var(--text-muted);">現在、実物の景品は準備中・品切れです（着せ替え・称号のみ排出されます）</li>';
+    prizesHtml = '<li style="color:var(--text-muted);">景品は準備中。いまは着せ替えと称号</li>';
   }
 
   const ratesTableHtml = formattedRates.itemRates.map(r => `
@@ -119,24 +119,24 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
 
   mainEl.innerHTML = `
     ${staffNotice}
-    <section class="gacha-wardrobe"><span class="eyebrow">木の実でひらく、おくりもの</span><h2>次は、どんな相棒に？</h2><p>帽子もメガネも。自分だけの組み合わせ。</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div><p>着せ替えの一例です。各アイテムは個別に出ます。</p></section>
+    <section class="gacha-wardrobe"><span class="eyebrow">ガチャ</span><h2>次は、どんな相棒に？</h2><p>帽子・メガネ・称号。全45種</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div><p>着せ替えの一例です。各アイテムは個別に出ます。</p></section>
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span>🌰 ${state.nuts.balance}</span>
       </div>
       <div style="font-size:13px; color:var(--text-muted); margin-top:6px;">
-        今日の獲得: ${state.nuts.today_earned} / ${state.nuts.daily_cap} 🌰 (あと ${state.nuts.remaining_cap} 🌰)
+        今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 🌰
       </div>
       <div style="font-size:13px; color:var(--link); margin-top:4px;">
-        💎 かけら残高: <strong>${state.shards}</strong> 個
+        💎 かけら <strong>${state.shards}</strong>
       </div>
     </div>
 
     <section class="gacha-next-goal" aria-label="ガチャまでの進み具合">
-      <div><strong>${untilSingle ? `1回まで、あと${untilSingle}個` : '1回ガチャを引けます'}</strong><span>🌰 ${nutsDisp.balance}個</span></div>
+      <div><strong>${untilSingle ? `1回まで あと${untilSingle}` : '1回 引ける'}</strong><span>🌰 ${nutsDisp.balance}</span></div>
       <progress max="${price.multi}" value="${Math.min(price.multi, nutsDisp.balance)}" aria-label="${multiLabel}までの木の実"></progress>
-      <p>${untilTen ? `${multiLabel}まで、あと${untilTen}個。木の実は貯めておけます。` : `${multiLabel}分が貯まりました。好きなタイミングで引けます。`}</p>
-      <button class="btn-sub" id="btn-gacha-to-battle">対戦で木の実を集める</button>
+      <p>${untilTen ? `${multiLabel}まで あと${untilTen}` : `${multiLabel} 引ける`}</p>
+      <button class="btn-sub" id="btn-gacha-to-battle">木の実を集めに行く</button>
     </section>
 
     <div class="gacha-pull-actions">
@@ -147,9 +147,9 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
 
       <!-- 10連ガチャボタン -->
       <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
-        ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel}できる！</span>` : ''}
+        ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel} 引ける</span>` : ''}
         ${multiLabel}引く (${price.multi}🌰)
-        <div style="font-size:12px; font-weight:normal; margin-top:2px;">✨ ${price.multiCount - Math.round(price.multi / price.single) > 0 ? `${price.multiCount - Math.round(price.multi / price.single)}回おまけ・` : ''}SR以上が1つ確定！</div>
+        <div style="font-size:12px; font-weight:normal; margin-top:2px;">SR以上 1つ確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
       </button>
     </div>
 
@@ -158,19 +158,19 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     <!-- 確率・景品案内 -->
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
-        <span>確率・景品のご案内</span>
-        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品全体 ${stockPrizes.length ? formattedRates.prizeRatePercent : '0%（在庫なし）'}</span>
+        <span>確率と景品</span>
+        <span style="font-size:13px; color:var(--primary); font-weight:700;">景品 ${stockPrizes.length ? formattedRates.prizeRatePercent : '在庫なし'}</span>
       </div>
 
       <div style="margin-bottom:14px;">
-        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">館の実物景品（引換券）:</div>
+        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">館の景品（引換券）</div>
         <ul style="list-style:none; font-size:14px; padding-left:4px;">
           ${prizesHtml}
         </ul>
       </div>
 
       <div>
-        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">着せ替え・称号のレア度別確率:</div>
+        <div style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:6px;">レア度の確率</div>
         <div style="font-size:14px;">
           ${ratesTableHtml}
         </div>
@@ -178,8 +178,8 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     </div>
 
     <div style="display:flex; gap:10px;">
-      <button class="btn-sub" id="btn-to-closet">着せ替え・かけら交換へ</button>
-      <button class="btn-sub" id="btn-gacha-home">ホームへ戻る</button>
+      <button class="btn-sub" id="btn-to-closet">着せ替え</button>
+      <button class="btn-sub" id="btn-gacha-home">ホーム</button>
     </div>
   `;
 
@@ -212,14 +212,14 @@ async function executeGacha(mainEl, state, count, callbacks) {
   const price = state.gachaPrice || gachaPrice(null);
   const cost = count === 1 ? price.single : price.multi;
   if (state.nuts.balance < cost) {
-    alert('木の実が足りません！対戦をして木の実を貯めてね');
+    alert('木の実が足りない。集めてから');
     return;
   }
 
   mainEl.innerHTML = `
     <div style="text-align:center; padding:50px 16px;">
       <div style="font-size:48px; margin-bottom:16px; animation: pulse-gold 1s infinite;">🌰</div>
-      <div style="font-size:20px; font-weight:800;">ガチャを引いています...</div>
+      <div style="font-size:20px; font-weight:800;">開封中…</div>
     </div>
   `;
 
@@ -269,9 +269,9 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     mainEl.innerHTML = `
       <section class="gacha-opening" aria-labelledby="gacha-opening-title">
         <div class="gacha-opening-tools"><span>${items.length > 1 ? `${items.length}個のおくりもの` : 'ひとつのおくりもの'}</span><button class="btn-sub" data-gacha-sound></button></div>
-        <p class="gacha-opening-caption">ミアキスの木の実ガチャ</p>
+        <p class="gacha-opening-caption">木の実ガチャ</p>
         <h2 id="gacha-opening-title">おくりものが、届いた。</h2>
-        <p role="status" id="gacha-opening-status">パックをタップして開封</p>
+        <p role="status" id="gacha-opening-status">タップで開封</p>
         <button class="gacha-gift-pack" aria-label="パックを開封する">
           <img src="assets/miacis-logo.png" width="72" height="72" alt="">
           <span>木の実の<br>おくりもの</span><small>タップして開封</small>
@@ -485,7 +485,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
           もう一度引く (${count === 1 ? (state.gachaPrice || gachaPrice(null)).single : (state.gachaPrice || gachaPrice(null)).multi}🌰)
         </button>
         <button class="btn-secondary" id="btn-summary-closet">着せ替え画面へ</button>
-        <button class="btn-sub" id="btn-summary-home">ホームへ戻る</button>
+        <button class="btn-sub" id="btn-summary-home">ホーム</button>
       </div>
     `;
 

@@ -256,3 +256,9 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .streak-count { flex:0 0 auto; white-space:nowrap; }
 .streak-count span, .stage-pill, .rank-pill, .knock-score { white-space:nowrap; }
 .streak-meta { margin-left:auto; flex-wrap:wrap; justify-content:flex-end; }
+
+.challenge-rules { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:14px 0 18px; padding:0; }
+.challenge-rules span { padding:6px 12px; border-radius:999px; background:var(--card-bg-subtle); font-size:13px; font-weight:700; white-space:nowrap; }
+.result-en { font-size:44px; letter-spacing:.08em; font-weight:900; }
+.knock-grade.big { font-size:34px; padding:4px 22px; margin:0 0 8px; }
+#btn-knock-quit small { font-size:11px; color:var(--text-muted); margin-left:6px; font-weight:500; }

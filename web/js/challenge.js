@@ -22,23 +22,13 @@ const KNOCK_TOTAL = 100;
 const MODES = {
   streak: {
     title: '連続チャレンジ',
-    lead: '間違えたら終わり。どこまで続けられる？',
-    rules: [
-      '5問ごとに出題範囲がレベルアップ。制限時間も短くなる',
-      '1問でも間違えたら、そこで終わり',
-      '時間切れは1回だけ復活できる（5秒以内に決める）',
-      '今週のベストでランキング。月曜にリセット'
-    ]
+    lead: '間違えたら終わり。',
+    rules: ['1問 7秒', '5問ごと 難度↑ 時間↓', '❤️ 復活 1回', '今週ベストで順位']
   },
   knock: {
     title: '100本ノック',
-    lead: '100問、止まらずに打ち返せ。',
-    rules: [
-      '自分の段の単語から100問。1問6秒',
-      '間違えても止まらない。正解はその場で見せる',
-      '100問やり切った回が記録になる（途中でやめると記録なし）',
-      '同じ正解数なら、速い人が上'
-    ]
+    lead: '100問 ノンストップ。',
+    rules: ['1問 6秒', '間違えても止まらない', '記録は 100本完走で', '同点は 速いほうが上']
   }
 };
 
@@ -130,19 +120,19 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   const best = bests?.[mode];
   const weekBest = bests?.[`${mode}_week`];
   const bestText = (b) => {
-    if (!b) return 'まだなし';
-    return mode === 'streak' ? `${b.correct} 問連続` : `${b.correct} / ${KNOCK_TOTAL} 問`;
+    if (!b) return '—';
+    return mode === 'streak' ? `${b.correct}連続` : `${b.correct} / ${KNOCK_TOTAL}`;
   };
 
   a.innerHTML = `
     <div class="card challenge-intro">
       <span class="eyebrow">${conf.lead}</span>
-      <ul class="challenge-rules">${conf.rules.map(r => `<li>${r}</li>`).join('')}</ul>
+      <div class="challenge-rules">${conf.rules.map(r => `<span>${r}</span>`).join('')}</div>
       <div class="challenge-bests">
-        <div><span>今週のベスト</span><strong>${bestText(weekBest)}</strong></div>
+        <div><span>今週ベスト</span><strong>${bestText(weekBest)}</strong></div>
         <div><span>自己ベスト</span><strong>${bestText(best)}</strong></div>
       </div>
-      <button class="btn-primary" id="btn-challenge-start" style="font-size: 20px;">スタート！</button>
+      <button class="btn-primary" id="btn-challenge-start" style="font-size: 20px;">スタート</button>
     </div>
   `;
   document.getElementById('btn-challenge-start').addEventListener('click', () => begin(mode));
@@ -151,7 +141,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
 async function begin(mode) {
   const a = area();
   if (!a) return;
-  a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">問題を用意しています…</div>';
+  a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">用意中…</div>';
   try {
     const res = await startRun(mode);
     if (run.mode !== mode || !area()) return;
@@ -194,8 +184,8 @@ function chaseLabel() {
   const lr = liveRank(effectiveScore(), run.board);
   if (lr.next && lr.next.gap <= 3) {
     return lr.next.gap === 1
-      ? `あと1問で ${escapeHtml(lr.next.nickname)} を抜く！`
-      : `${escapeHtml(lr.next.nickname)} まで、あと ${lr.next.gap} 問`;
+      ? `あと1問で ${escapeHtml(lr.next.nickname)} を抜く`
+      : `${escapeHtml(lr.next.nickname)} まで あと${lr.next.gap}問`;
   }
   if (run.mode === 'streak') return streakPressureLabel(run.score, run.best);
   return '';
@@ -219,7 +209,7 @@ function headerHtml(q) {
   }
   return `
     <div class="battle-header">
-      <span class="q-counter">${q.no} / ${KNOCK_TOTAL} 本</span>
+      <span class="q-counter">${q.no} / ${KNOCK_TOTAL}</span>
       <span class="knock-score">正解 <strong>${run.score}</strong> ${rankPillHtml()}</span>
     </div>
     <div class="pressure-line" aria-live="polite">${chaseLabel()}</div>
@@ -242,7 +232,7 @@ function showQuestion(q) {
     <div class="choices-list">
       ${q.choices.map((c, i) => `<button class="btn-choice" data-choice="${i}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c)}</span></button>`).join('')}
     </div>
-    ${run.mode === 'knock' ? '<button class="btn-sub" id="btn-knock-quit" style="margin-top:14px;">ここでやめる（記録なし）</button>' : ''}
+    ${run.mode === 'knock' ? '<button class="btn-sub" id="btn-knock-quit" style="margin-top:14px;">やめる <small>記録は残らない</small></button>' : ''}
   `;
 
   if (run.rankUp) {
@@ -344,9 +334,9 @@ function showStageUp(q) {
   if (!a) return;
   a.innerHTML = `
     <div class="stage-up" role="status">
-      <span class="eyebrow">${run.score} 問連続クリア</span>
+      <span class="eyebrow">${run.score}連続</span>
       <strong>STAGE ${q.stage}</strong>
-      <p>${q.range >= 10 ? '最難関の範囲' : '出題範囲がレベルアップ'}・制限時間 ${(q.limit_ms / 1000).toFixed(1)} 秒</p>
+      <p>${q.range >= 10 ? '最難関' : '難度↑'} ・ ${(q.limit_ms / 1000).toFixed(1)}秒</p>
     </div>
   `;
   later(() => showQuestion(q), 1300);
@@ -358,13 +348,13 @@ function showRevive() {
   if (!a) return;
   a.innerHTML = `
     <div class="card revive-card" role="alertdialog" aria-labelledby="revive-title">
-      <span class="eyebrow">時間切れ！ いまの記録 ${run.score} 問連続</span>
+      <span class="eyebrow">時間切れ ・ ${run.score}連続</span>
       <h2 id="revive-title">復活する？</h2>
-      <p>復活は1回だけ。次の問題から続けられる。</p>
+      <p>次の問題から再開。復活はこれが最後</p>
       <div class="revive-count" aria-live="assertive"><strong id="revive-sec">${REVIVE_SECONDS}</strong></div>
       <div class="timer-bar-bg"><div id="revive-bar" class="timer-bar-fill danger"></div></div>
-      <button class="btn-primary" id="btn-revive">❤️ 復活する</button>
-      <button class="btn-sub" id="btn-revive-no">ここでやめる</button>
+      <button class="btn-primary" id="btn-revive">❤️ 復活</button>
+      <button class="btn-sub" id="btn-revive-no">やめる</button>
     </div>
   `;
   const started = performance.now();
@@ -419,7 +409,7 @@ function missedHtml(missed) {
         <div class="review-item wrong">
           <div>
             <div style="font-weight: 700;">${escapeHtml(m.prompt)}</div>
-            <div style="font-size: 13px; color: var(--text-muted);">正解: ${escapeHtml(m.correct_text)}（${m.timeout ? '時間切れ' : `あなた: ${escapeHtml(m.your_text ?? '')}`}）</div>
+            <div style="font-size: 13px; color: var(--text-muted);">正解 ${escapeHtml(m.correct_text)}${m.timeout ? ' ・ 時間切れ' : ` ・ あなた ${escapeHtml(m.your_text ?? '')}`}</div>
           </div>
           <div class="review-mark wrong" aria-label="不正解">×</div>
         </div>
@@ -450,15 +440,15 @@ function showResult(result) {
   let headline;
   let sub;
   if (mode === 'streak') {
-    headline = `<div class="result-big">${result.correct}<small> 問連続</small></div>`;
-    sub = result.end_reason === 'timeout' ? '時間切れで終了' : result.end_reason === 'wrong' ? '不正解で終了' : 'ここで終了';
+    headline = `<div class="result-big">${result.correct}<small>連続</small></div>`;
+    sub = result.end_reason === 'timeout' ? '時間切れ。記録は残る' : result.end_reason === 'wrong' ? 'ここまで。記録は残る' : 'ここまで';
   } else if (complete) {
     const g = knockGrade(result.correct);
-    headline = `<div class="result-big">${result.correct}<small> / ${KNOCK_TOTAL} 問</small></div><div class="knock-grade">${g.mark}</div>`;
-    sub = `${g.label}・正解した問題の時間 ${formatSeconds(result.total_ms)}`;
+    headline = `<div class="knock-grade big">${g.mark}</div><div class="result-big">${result.correct}<small> / ${KNOCK_TOTAL}</small></div>`;
+    sub = `${g.label} ・ ${formatSeconds(result.total_ms)}`;
   } else {
-    headline = `<div class="result-big">${result.correct}<small> 問正解</small></div>`;
-    sub = `${result.answered} 本でストップ（記録はやり切った回だけ）`;
+    headline = `<div class="result-big">${result.answered}<small>本</small></div>`;
+    sub = `正解 ${result.correct}。記録は100本完走で`;
   }
 
   // 今週の順位と、すぐ上の相手（次にやる理由）
@@ -467,20 +457,20 @@ function showResult(result) {
     const rival = result.rival;
     let chase = '';
     if (result.week_rank === 1) {
-      chase = '今週の1位。守りきれる？';
+      chase = '今週1位。守りきれるか';
     } else if (rival) {
       const gap = rival.correct + 1 - (result.week_best?.correct ?? result.correct);
       chase = mode === 'streak'
-        ? `${rival.nickname} さん（${rival.correct}連続）まで、あと ${gap} 問`
-        : `${rival.nickname} さん（${rival.correct}問）まで、あと ${gap} 問`;
+        ? `${rival.nickname}（${rival.correct}連続）まで あと${gap}問`
+        : `${rival.nickname}（${rival.correct}問）まで あと${gap}問`;
     }
-    rankHtml = `<div class="rank-card"><div><span>今週の順位</span><strong>${result.week_rank}<small>位</small></strong></div><p>${chase}</p></div>`;
+    rankHtml = `<div class="rank-card"><div><span>今週</span><strong>${result.week_rank}<small>位</small></strong></div><p>${chase}</p></div>`;
   }
 
   const recordBadge = isNewBest
     ? '<div class="record-badge">自己ベスト更新！</div>'
-    : isWeekBest ? '<div class="record-badge">今週のベスト更新！</div>' : '';
-  const bestLine = (label, b) => b ? `<div><span>${label}</span><strong>${b.correct}${mode === 'streak' ? ' 問連続' : ` / ${KNOCK_TOTAL}`}</strong></div>` : `<div><span>${label}</span><strong>まだなし</strong></div>`;
+    : isWeekBest ? '<div class="record-badge">今週ベスト更新！</div>' : '';
+  const bestLine = (label, b) => b ? `<div><span>${label}</span><strong>${b.correct}${mode === 'streak' ? '連続' : ` / ${KNOCK_TOTAL}`}</strong></div>` : `<div><span>${label}</span><strong>—</strong></div>`;
 
   a.innerHTML = `
     <div class="result-banner ${isNewBest || isWeekBest ? 'win' : 'lose'}">
@@ -489,16 +479,16 @@ function showResult(result) {
       <div class="result-sub">${sub}</div>
     </div>
     ${rankHtml}
-    <div class="challenge-bests">${bestLine('今週のベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
+    <div class="challenge-bests">${bestLine('今週ベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
     <div class="points-grid">
       <div class="point-box"><div class="point-label">学習ポイント</div><div class="point-val">+${result.learn_points}</div></div>
       <div class="point-box"><div class="point-label">木の実</div><div class="point-val">🌰 +${result.nuts}</div></div>
     </div>
-    ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の木の実は上限まで集めた！</div>' : ''}
+    ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の上限 到達</div>' : ''}
     ${missedHtml(result.missed)}
     <button class="btn-primary" id="btn-challenge-again" style="margin-top: 16px;">もう一度</button>
-    <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 10px;">ランキングを見る</button>
-    <button class="btn-sub" id="btn-challenge-home" style="margin-top: 10px;">ホームへ戻る</button>
+    <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 10px;">ランキング</button>
+    <button class="btn-sub" id="btn-challenge-home" style="margin-top: 10px;">ホーム</button>
   `;
 
   document.getElementById('btn-challenge-again').addEventListener('click', () => begin(mode));
@@ -512,8 +502,8 @@ function showError(err) {
   const a = area();
   if (!a) return;
   a.innerHTML = `
-    <div class="alert alert-error">${escapeHtml(err?.message || 'エラーが発生しました')}</div>
-    <button class="btn-secondary" id="btn-challenge-err-home">ホームへ戻る</button>
+    <div class="alert alert-error">${escapeHtml(err?.message || 'うまくいかなかった。もう一度')}</div>
+    <button class="btn-secondary" id="btn-challenge-err-home">ホーム</button>
   `;
   document.getElementById('btn-challenge-err-home').addEventListener('click', () => run.callbacks.onGoHome?.());
 }

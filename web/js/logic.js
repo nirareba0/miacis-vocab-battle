@@ -233,7 +233,7 @@ export function tierToLabel(tier) {
  * @returns {string}
  */
 export function translateError(error) {
-  if (!error) return 'エラーが発生しました';
+  if (!error) return 'うまくいかなかった。もう一度';
   const msg = typeof error === 'string' ? error : error.message || '';
 
   if (msg.includes('nickname_taken')) {
@@ -351,7 +351,7 @@ export function translateError(error) {
     return 'かけらが足りません';
   }
   if (msg.includes('invalid_pull_count')) {
-    return 'ガチャは1回か11連で引いてください';
+    return 'ガチャは 1回 か 11連';
   }
   if (msg.includes('already_claimed')) {
     return 'すでに獲得済みです';
@@ -372,7 +372,7 @@ export function translateError(error) {
     return '引換券が見つかりません';
   }
 
-  return 'エラーが発生しました。もう一度試してみてね';
+  return 'うまくいかなかった。もう一度';
 }
 
 
@@ -705,8 +705,8 @@ export function streakPressureLabel(score, best) {
   if (b <= 0) return '';
   if (s > b) return '自己ベスト更新中！';
   const remaining = b + 1 - s;
-  if (remaining === 1) return 'あと1問で自己ベスト更新！';
-  if (remaining <= 3) return `自己ベスト更新まであと${remaining}問`;
+  if (remaining === 1) return 'あと1問で 自己ベスト';
+  if (remaining <= 3) return `自己ベストまで あと${remaining}問`;
   return '';
 }
 
@@ -725,10 +725,10 @@ export function formatSeconds(ms) {
 export function knockGrade(correct) {
   const c = parseInt(correct, 10) || 0;
   if (c >= 100) return { mark: 'PERFECT', label: '全問正解！' };
-  if (c >= 90) return { mark: 'S', label: 'ほぼ完璧' };
-  if (c >= 75) return { mark: 'A', label: 'しっかり身についてる' };
-  if (c >= 50) return { mark: 'B', label: '半分以上いける' };
-  return { mark: 'C', label: '伸びしろたっぷり' };
+  if (c >= 90) return { mark: 'S', label: 'キレてる' };
+  if (c >= 75) return { mark: 'A', label: 'いい調子' };
+  if (c >= 50) return { mark: 'B', label: '半分こえた' };
+  return { mark: 'C', label: 'のびしろ' };
 }
 
 /**

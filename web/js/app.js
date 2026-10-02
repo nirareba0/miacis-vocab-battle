@@ -213,7 +213,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>英単語の連続正解で、館のみんなと勝負。1問6秒、間違えたら終わり。</p></div>
+    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問6秒。間違えたら終わり。</p></div>
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -532,9 +532,9 @@ async function renderHome() {
     const stageProg = calcStageProgress(progress.total_points);
     let evolutionLabel = '';
     if (progress.stage < 7) {
-      evolutionLabel = `<span>次の進化まで: あと <strong>${progress.points_to_next}点</strong></span><span>累計 ${progress.total_points} / ${progress.next_threshold}点</span>`;
+      evolutionLabel = `<span>次の進化まで <strong>あと ${progress.points_to_next}</strong></span><span>${progress.total_points} / ${progress.next_threshold}</span>`;
     } else {
-      evolutionLabel = `<span>最高段階！ 草原と森の主</span><span>累計 ${progress.total_points}点</span>`;
+      evolutionLabel = `<span>最高段階</span><span>${progress.total_points}</span>`;
     }
 
 
@@ -544,33 +544,33 @@ async function renderHome() {
       const bonus = dailyNutsRes.streak_bonus || 0;
       const days = dailyNutsRes.streak_days || 0;
       const streakLine = bonus > 0
-        ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">🔥 ${days}日連続ログインで +${bonus} 上乗せ</div>`
+        ? `<div style="font-size:12px; font-weight:700; margin-top:2px;">${days}日連続 🌰 +${bonus}</div>`
         : days >= 1 && days < 3
-          ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">あと ${3 - days} 日連続で来ると、ボーナスが増える</div>`
+          ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">あと${3 - days}日連続で ボーナス↑</div>`
           : '';
       dailyToastHtml = `
         <div class="alert alert-success" style="margin-bottom:12px; font-weight:700; text-align:center;">
-          🎉 今日のログインボーナス: 🌰 +${dailyNutsRes.earned} 獲得！${streakLine}
+          🌰 +${dailyNutsRes.earned} 今日のログイン${streakLine}
         </div>
       `;
     }
 
     homeContent.innerHTML = `
-      <div class="home-greeting"><div><p class="eyebrow">今日も、ひとつ強くなる。</p><h2>${escapeHtml(state.player.nickname)} のベース</h2></div><span class="level-pill${state.flags.rank_mode_enabled || state.player.account_type === 'staff' ? '' : ' locked'}">${state.player.account_type === 'staff' ? 'スタッフ' : state.flags.rank_mode_enabled ? tierToLabel(summary.tier) : '🔒 ランク 準備中'}</span></div>
+      <div class="home-greeting"><div><p class="eyebrow">ベース</p><h2>${escapeHtml(state.player.nickname)}</h2></div><span class="level-pill${state.flags.rank_mode_enabled || state.player.account_type === 'staff' ? '' : ' locked'}">${state.player.account_type === 'staff' ? 'スタッフ' : state.flags.rank_mode_enabled ? tierToLabel(summary.tier) : '🔒 ランク 準備中'}</span></div>
       ${dailyToastHtml}
       <section class="companion-card" aria-label="相棒と進化">
-        <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3><p>${progress.route === 'grass' ? '草原ルートを冒険中' : progress.route === 'tree' ? '木の上ルートを冒険中' : '英単語を集めて、進化しよう。'}</p>${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
+        <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
         <div class="companion-art">${miacisAvatarHtml}</div>
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
       <div class="record-strip" id="record-strip" hidden></div>
       <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>連続チャレンジ</strong><small>間違えたら終わり。何問続く？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
-      <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦する</strong><span>10問で誰かの記録と勝負</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問を一気に打ち返す</span></button></div>
+      <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦</strong><span>10問 vs だれかの記録</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問 ノンストップ</span></button></div>
       <div class="home-wallet"><div><span class="eyebrow">集めた木の実</span><strong>🌰 ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日集めた木の実 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個</p></div>
-      <div class="section-heading"><h2>今週のチャレンジ</h2><span>月曜にリセット</span></div>
-      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク解禁で順位が出る'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
+      <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
+      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク 準備中'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
       <p class="week-history">${lastWeekDiff}</p>
-      <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画やクイズに挑戦</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>みんなの頑張りを見る</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた言葉を集めよう</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>成長の足あと・引換券</span></button></div>
+      <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
       ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}
 
       <footer class="app-footer">
@@ -597,13 +597,13 @@ async function renderHome() {
       const myRow = rows.find(r => isMyRow(r, state.player.nickname));
       let msg;
       if (top && isMyRow(top, state.player.nickname)) {
-        msg = rows[1] ? `今週の1位はあなた。2位の ${escapeHtml(rows[1].nickname)} さんは ${rows[1].best_streak} 連続` : '今週の1位はあなた。挑戦者を待とう';
+        msg = rows[1] ? `1位。2位 ${escapeHtml(rows[1].nickname)} は ${rows[1].best_streak}連続` : '1位。挑戦者を待て';
       } else if (top && mine !== null) {
-        msg = `1位 ${escapeHtml(top.nickname)} さん ${top.best_streak} 連続まで、あと ${top.best_streak + 1 - mine} 問`;
+        msg = `1位 ${escapeHtml(top.nickname)} まで あと${top.best_streak + 1 - mine}問`;
       } else if (top) {
-        msg = `今週の1位は ${escapeHtml(top.nickname)} さんの ${top.best_streak} 連続。挑戦してみる？`;
+        msg = `1位 ${escapeHtml(top.nickname)} ${top.best_streak}連続。抜けるか？`;
       } else {
-        msg = 'まだ誰も記録を出していない。1位を取るチャンス';
+        msg = 'まだ誰も出していない。1位をとれる';
       }
       strip.innerHTML = `<span class="eyebrow">今週の連続記録</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
       strip.hidden = false;
@@ -734,13 +734,13 @@ async function renderBattle() {
     const area = document.getElementById('battle-area');
     if (!area || state.currentHash !== '#/battle') return;
     area.innerHTML = `
-      <div class="card battle-ready" style="text-align: center; padding: 28px 16px;"><span class="eyebrow">準備はいい？</span>
+      <div class="card battle-ready" style="text-align: center; padding: 28px 16px;"><span class="eyebrow">対戦</span>
         <div style="font-size: 22px; font-weight: 800; margin-bottom: 12px;">${escapeHtml(oppName)}</div>
         <div style="margin: 0 auto 16px auto; display:flex; justify-content:center;">
           ${oppMiacisHtml}
         </div>
-        <div style="font-size: 15px; color: var(--text-muted); margin-bottom: 24px;">10問・各問6秒</div>
-        <button class="btn-primary" id="btn-start-countdown" style="font-size: 20px;">スタート！</button>
+        <div style="font-size: 15px; color: var(--text-muted); margin-bottom: 24px;">10問 ・ 1問6秒</div>
+        <button class="btn-primary" id="btn-start-countdown" style="font-size: 20px;">スタート</button>
       </div>
     `;
 
@@ -752,7 +752,7 @@ async function renderBattle() {
     if (area) {
       area.innerHTML = `
         <div class="alert alert-error">${escapeHtml(err.message)}</div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
     }
   }
@@ -950,18 +950,18 @@ async function finishMatch() {
       state.nuts.balance = nutRes.balance;
 
       const cappedNotice = (nutRes.capped || nutRes.remaining_cap === 0)
-        ? '<div style="font-size:13px; color:#F2C200; font-weight:700; margin-top:4px;">今日の木の実は上限まで集めた！</div>'
-        : `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">今日の残り獲得枠: あと ${nutRes.remaining_cap} 🌰</div>`;
+        ? '<div style="font-size:13px; color:#F2C200; font-weight:700; margin-top:4px;">今日の上限 到達</div>'
+        : `<div style="font-size:12px; color:var(--text-muted); margin-top:4px;">今日あと ${nutRes.remaining_cap} 🌰</div>`;
 
       nutGainHtml = `
         <div class="card" style="text-align: center; padding: 18px 16px; margin-top: 14px; border: 2px solid var(--primary); background: rgba(242, 194, 0, 0.1);">
-          <div style="font-size: 13px; color: var(--text-muted);">木の実を獲得！</div>
+          <div style="font-size: 13px; color: var(--text-muted);">木の実</div>
           <div style="font-size: 28px; font-weight: 900; color: var(--primary); margin: 4px 0;">🌰 +${nutRes.earned}</div>
           <div style="font-size: 14px;">現在の残高: <strong>${nutRes.balance} 🌰</strong></div>
           ${cappedNotice}
           <div style="margin-top: 12px;">
             <button class="btn-primary" id="btn-match-to-gacha" style="min-height: 52px; font-size: 17px; width: 100%;">
-              ガチャへ 🌰✨
+              ガチャへ
             </button>
           </div>
         </div>
@@ -974,30 +974,30 @@ async function finishMatch() {
 
     area.innerHTML = `
       <div class="result-banner ${isWin ? 'win' : 'lose'}">
-        <div class="result-symbol" aria-hidden="true">${isWin ? '✦' : '✓'}</div><div class="result-text">${isWin ? '勝利！' : 'ナイスチャレンジ！'}</div>
-        <div class="result-sub">あなた: ${result.correct}問正解 (${mySec}秒)</div>
-        <div class="result-sub">${escapeHtml(result.opponent.nickname)}: ${result.opponent.correct}問正解 (${oppSec}秒)</div>
+        <div class="result-symbol" aria-hidden="true">${isWin ? '✦' : '✓'}</div><div class="result-text result-en">${isWin ? 'WIN' : 'LOSE'}</div>
+        <div class="result-sub">あなた ${result.correct}問 ${mySec}秒</div>
+        <div class="result-sub">${escapeHtml(result.opponent.nickname)} ${result.opponent.correct}問 ${oppSec}秒</div>
       </div>
 
       <div class="points-grid">
         <div class="point-box">
-          <div class="point-label">獲得学習ポイント</div>
+          <div class="point-label">学習ポイント</div>
           <div class="point-val">+${result.learn_points}</div>
         </div>
         <div class="point-box">
-          <div class="point-label">獲得コミットポイント</div>
+          <div class="point-label">コミットポイント</div>
           <div class="point-val">+${result.commit_points}</div>
         </div>
       </div>
 
       ${nutGainHtml}
 
-      <div class="card-title" style="margin-top: 20px;">問題の振り返り</div>
+      <div class="card-title" style="margin-top: 20px;">振り返り</div>
       <div class="review-list">
         ${questionsReview}
       </div>
 
-      <button class="btn-secondary" id="btn-match-finish-home" style="margin-top: 14px;">ホームへ戻る</button>
+      <button class="btn-secondary" id="btn-match-finish-home" style="margin-top: 14px;">ホーム</button>
     `;
 
     document.getElementById('btn-match-finish-home').addEventListener('click', async () => {
@@ -1013,7 +1013,7 @@ async function finishMatch() {
     if (area) {
       area.innerHTML = `
         <div class="alert alert-error">${escapeHtml(err.message)}</div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
     }
   }
@@ -1298,7 +1298,7 @@ async function renderContent() {
       area.innerHTML = `
         <div class="card" style="text-align: center; padding: 32px 16px;">
           <p style="margin-bottom: 20px;">今週の英語はまだありません。お楽しみに！</p>
-          <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+          <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
         </div>
       `;
       return;
@@ -1459,7 +1459,7 @@ async function renderContent() {
       ${pickerHtml}
 
       <div style="margin-top: 20px;">
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       </div>
     `;
 
@@ -1570,7 +1570,7 @@ async function renderContent() {
     if (area) {
       area.innerHTML = `
         <div class="alert alert-error">${escapeHtml(err.message)}</div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
     }
   }
@@ -1604,7 +1604,7 @@ async function renderRanking() {
     <div id="ranking-container">読み込み中...</div>
 
     <div style="margin-top: 16px;">
-      <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
     </div>
   `;
 
@@ -1854,7 +1854,7 @@ async function renderMe() {
         ${writingsHtml}
       </div>
 
-      <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+      <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
     `;
   } catch (err) {
     const container = document.getElementById('me-container');
@@ -1872,7 +1872,7 @@ async function renderStaff() {
     appEl.innerHTML = `
       <div class="card" style="text-align: center; padding: 32px 16px;">
         <div class="alert alert-error">スタッフ専用の画面です</div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       </div>
     `;
     return;
@@ -1998,7 +1998,7 @@ async function renderStaff() {
           </details>
         ` : ''}
 
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
 
       container.querySelectorAll('.btn-redeem-ticket').forEach(btn => {
@@ -2068,7 +2068,7 @@ async function renderStaff() {
           ${prizesHtml}
         </div>
 
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
 
       document.getElementById('prize-upsert-form').addEventListener('submit', async (e) => {
@@ -2113,7 +2113,7 @@ async function renderStaff() {
         <div style="margin-bottom: 24px;">
           ${unapprovedHtml}
         </div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
 
       container.querySelectorAll('.btn-approve').forEach(btn => {
@@ -2160,7 +2160,7 @@ async function renderStaff() {
         <div style="margin-bottom: 24px;">
           ${writingsHtml}
         </div>
-        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホームへ戻る</button>
+        <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
       `;
 
       container.querySelectorAll('.stamp-btn').forEach(btn => {
