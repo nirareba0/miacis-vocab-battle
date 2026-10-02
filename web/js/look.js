@@ -2,7 +2,7 @@
  * look.js - ミアキスの着せ替え・描画と CSS サニタイズ
  */
 import { escapeHtml } from './logic.js';
-import { renderAccessory } from './miacis-accessories.js';
+import { renderAccessory, renderBackdrop, renderAuraArt } from './miacis-accessories.js';
 
 /**
  * 許可された CSS（linear-gradient または 単色カラー）のみを通す
@@ -73,7 +73,8 @@ export const MIACIS_OFFSETS = {
 
 /**
  * ミアキスの着せ替え姿を安全な HTML として描画する
- * 順序: 背景（台座グラデーション）→ オーラ（光）→ ミアキスくん → 帽子 → 顔 → 首まわり
+ * 順序: 背景（台座。既知の id は風景 SVG、未知の id はグラデーション）→ オーラ（既知の id は光の SVG ＋輪郭の光）
+ *       → ミアキスくん → 帽子 → 顔 → 首まわり
  *
  * @param {object} look - 装備品情報 ({ hat, face, neck, background, aura, title })
  * @param {number} [size=120] - 描画サイズ (px)
@@ -100,6 +101,9 @@ export function renderMiacis(look, size = 120) {
       auraStyle = `filter: drop-shadow(0 0 ${glow * (safeSize / 120)}px ${color});`;
     }
   }
+
+  const backdropSvg = renderBackdrop(l.background);
+  const auraArt = renderAuraArt(l.aura);
 
   // 3. 帽子 (hat)
   let hatHtml = '';
@@ -144,11 +148,11 @@ export function renderMiacis(look, size = 120) {
     <div class="miacis-avatar-box" style="position:relative; width:${safeSize}px; height:${safeSize}px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
       <!-- 背景台座 -->
       <div class="miacis-pedestal"
-           style="position:absolute; inset:0; border-radius:50%; background:${bgCss}; z-index:1; overflow:hidden;">
-      </div>
+           style="position:absolute; inset:0; border-radius:50%; background:${bgCss}; z-index:1; overflow:hidden;">${backdropSvg}</div>
+      ${auraArt}
       <!-- オーラ & ミアキスくん画像 -->
       <div class="${auraClass}"
-           style="position:absolute; inset:6%; display:flex; align-items:center; justify-content:center; z-index:2; ${auraStyle}">
+           style="position:absolute; inset:6%; display:flex; align-items:center; justify-content:center; z-index:3; ${auraStyle}">
         <img src="assets/miacis-avatar.png"
              alt="ミアキス"
              style="width:90%; height:90%; object-fit:contain; z-index:3; pointer-events:none;">
