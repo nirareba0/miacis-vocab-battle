@@ -228,7 +228,7 @@ function renderPreparation() {
  */
 function renderAuth(mode = 'register') {
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問6秒。間違えたら終わり。</p></div>
+    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問7秒。間違えたら終わり。</p></div>
 
     <div class="card tryout" id="tryout-card">
       <span class="eyebrow">登録の前に</span>
