@@ -247,13 +247,13 @@ function renderAuth(mode = 'register') {
     <form id="auth-form">
       <div class="form-group">
         <label class="form-label" for="auth-nick">ニックネーム</label>
-        <input class="form-input" id="auth-nick" type="text" maxlength="10" placeholder="1〜10文字" required autocomplete="username">
+        <input class="form-input" id="auth-nick" type="text" maxlength="10" placeholder="1〜10文字" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
       </div>
 
       <div class="form-group">
         <label class="form-label" for="auth-pass">あいことば</label>
         <div class="password-wrapper">
-          <input class="form-input" id="auth-pass" type="password" placeholder="6文字以上" required autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}">
+          <input class="form-input" id="auth-pass" type="password" placeholder="6文字以上" required autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}" autocapitalize="none" autocorrect="off" spellcheck="false">
           <button type="button" class="password-toggle" id="pass-toggle">表示</button>
         </div>
       </div>
@@ -276,7 +276,7 @@ function renderAuth(mode = 'register') {
 
         <div class="form-group" id="invite-group" hidden>
           <label class="form-label" for="auth-invite">ミアキスの合言葉（館内に貼ってあるよ）</label>
-          <input class="form-input" id="auth-invite" type="text" placeholder="館内ポスターを見てね" autocomplete="off">
+          <input class="form-input" id="auth-invite" type="text" placeholder="館内ポスターを見てね" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
         </div>
 
         <div class="notice-line" style="text-align: left; margin-bottom: 20px;">
