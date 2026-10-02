@@ -45,6 +45,7 @@ const run = {
   board: [],          // 自分以外の今週ベスト（いまの順位の計算用）
   nickname: '',
   rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
+  milestone: null,    // 100本ノックの 10本ごとの区切り
   startedAt: 0,
   timers: [],
   busy: false,
@@ -73,6 +74,14 @@ export function stopChallenge() {
 
 function area() {
   return document.getElementById('challenge-area');
+}
+
+// 不正解・時間切れの一撃（桜井: 画面振動・ヒットストップ）。reduced-motion では揺らさない
+function shake(el) {
+  if (!el || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
 }
 
 /**
@@ -235,6 +244,17 @@ function showQuestion(q) {
     ${run.mode === 'knock' ? '<button class="btn-sub" id="btn-knock-quit" style="margin-top:14px;">やめる <small>記録は残らない</small></button>' : ''}
   `;
 
+  if (run.milestone) {
+    const n = run.milestone;
+    run.milestone = null;
+    const toast = document.createElement('div');
+    toast.className = 'rank-up-toast milestone';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = `<strong><em>${n}</em>本！</strong><span>正解 ${run.score}</span>`;
+    a.prepend(toast);
+    later(() => toast.remove(), 1100);
+  }
+
   if (run.rankUp) {
     const { rank, passed } = run.rankUp;
     run.rankUp = null;
@@ -242,7 +262,7 @@ function showQuestion(q) {
     toast.className = 'rank-up-toast';
     toast.setAttribute('role', 'status');
     const who = passed.length ? `${escapeHtml(passed[0])}${passed.length > 1 ? ` ほか${passed.length - 1}人` : ''} を抜いた` : '';
-    toast.innerHTML = `<strong>${rank}位に浮上！</strong><span>${who}</span>`;
+    toast.innerHTML = `<strong><em>${rank}</em>位に浮上！</strong><span>${who}</span>`;
     a.prepend(toast);
     later(() => toast.remove(), 1400);
   }
@@ -264,6 +284,8 @@ function showQuestion(q) {
   later(() => submit(null, limit, null), limit);
 
   a.querySelectorAll('.btn-choice').forEach(btn => {
+    // 判定（通信）より先に「押した」を返す（桜井: かまえは瞬時に極端に）
+    btn.addEventListener('pointerdown', () => btn.classList.add('pressed'), { passive: true });
     btn.addEventListener('click', () => {
       const ms = Math.min(limit, Math.round(performance.now() - started));
       submit(parseInt(btn.dataset.choice, 10), ms, btn);
@@ -299,12 +321,19 @@ async function submit(choice, ms, btn) {
     buttons[res.answer_index]?.classList.add('correct');
     playSfx('wrong');
     vibrate(res.timeout ? 'timeout' : 'wrong');
+    shake(a);
   }
 
   const prevEff = effectiveScore();
   run.score = res.score;
   run.answered = res.answered;
   run.reviveUsed = res.revive_used;
+
+  // 100本ノック: 10本ごとの小さな区切り（桜井: 喜びのスパンは短く）
+  if (run.mode === 'knock' && res.state === 'next' && run.answered % 10 === 0) {
+    run.milestone = run.answered;
+    playSfx('combo');
+  }
 
   // 順位が上がった？（今週ベストを越えて、誰かの記録を追い抜いたとき）
   if (res.correct && run.board.length) {
@@ -441,14 +470,14 @@ function showResult(result) {
   let sub;
   if (mode === 'streak') {
     headline = `<div class="result-big">${result.correct}<small>連続</small></div>`;
-    sub = result.end_reason === 'timeout' ? '時間切れ！ 次は速く' : result.end_reason === 'wrong' ? `おしい！ 次は ${result.correct + 1} を越えろ` : 'おつかれ';
+    sub = result.end_reason === 'timeout' ? '時間切れ！ 次は速く' : result.end_reason === 'wrong' ? `おしい！ 次は <em class="num">${result.correct + 1}</em> を越えろ` : 'おつかれ';
   } else if (complete) {
     const g = knockGrade(result.correct);
     headline = `<div class="knock-grade big">${g.mark}</div><div class="result-big">${result.correct}<small> / ${KNOCK_TOTAL}</small></div>`;
     sub = `${g.label} ・ ${formatSeconds(result.total_ms)}`;
   } else {
     headline = `<div class="result-big">${result.answered}<small>本</small></div>`;
-    sub = `正解 ${result.correct}。次は100本 走りきれ`;
+    sub = `正解 <em class="num">${result.correct}</em>。次は100本 走りきれ`;
   }
 
   // 今週の順位と、すぐ上の相手（次にやる理由）

@@ -262,3 +262,20 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .result-en { font-size:44px; letter-spacing:.08em; font-weight:900; }
 .knock-grade.big { font-size:34px; padding:4px 22px; margin:0 0 8px; }
 #btn-knock-quit small { font-size:11px; color:var(--text-muted); margin-left:6px; font-weight:500; }
+
+/* 桜井「ゲーム作るには」から: 押した瞬間の反応・一撃の揺れ・数字の強調・オーバーシュート・モードの色 */
+.btn-choice { transition: transform .05s ease-out, background-color .05s, border-color .05s; }
+.btn-choice.pressed { transform: scale(.97); border-color: #8062bb; background: #f3effb; }
+.btn-choice:active { transform: scale(.97); }
+#challenge-area.shake { animation: hit-shake .15s linear; }
+@keyframes hit-shake { 0% { transform: translateX(0); } 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-2px); } 100% { transform: translateX(0); } }
+.rank-up-toast strong em { font-style: normal; font-size: 30px; line-height: 1; margin-right: 2px; }
+.rank-up-toast.milestone { background: #247956; color: #fff; }
+.result-sub .num { font-style: normal; font-weight: 900; font-size: 1.5em; color: #c2413a; padding: 0 2px; }
+.stage-up strong { animation: overshoot .5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes overshoot { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+.challenge-streak .result-banner.lose { background: #fff1ef; border-color: #e9c9c6; }
+.challenge-streak .result-banner.lose .result-big { color: #c2413a; }
+.challenge-knock .result-banner.lose { background: #eef7f2; border-color: #bfe0cf; }
+.challenge-knock .result-banner.lose .result-big { color: #247956; }
+@media (prefers-reduced-motion: reduce) { #challenge-area.shake, .stage-up strong { animation: none; } }
