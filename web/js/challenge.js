@@ -24,7 +24,7 @@ const MODES = {
   streak: {
     title: '連続チャレンジ',
     lead: '間違えたら終わり。',
-    rules: ['1問 7秒', '5問ごと 難度↑ 時間↓', '❤️ 復活 1回', '今週ベストで順位']
+    rules: ['1問 7秒', '5問ごと 難度↑', '❤️ 復活 1回', '今週ベストで順位']
   },
   knock: {
     title: '100本ノック',
@@ -389,7 +389,7 @@ function showStageUp(q) {
     <div class="stage-up" role="status">
       <span class="eyebrow">${run.score}連続</span>
       <strong>STAGE ${q.stage}</strong>
-      <p>${q.range >= 10 ? '最難関' : '難度↑'} ・ ${(q.limit_ms / 1000).toFixed(1)}秒</p>
+      <p>${q.range >= 10 ? '最難関の単語' : '単語の難度↑'}</p>
     </div>
   `;
   later(() => showQuestion(q), 1300);

@@ -38,7 +38,7 @@ async function answerWrong(db, id, runId) {
   return answer(db, id, runId, ((await answerIndex(db, runId)) + 1) % 4);
 }
 
-test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲が上がり、制限時間が短くなる', async () => {
+test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲が上がる。制限時間は7秒のまま', async () => {
   const db = await setup();
   try {
     const a = await player(db, 'A');
@@ -56,10 +56,10 @@ test('連続チャレンジ: 正解は端末に来ない。5問ごとに範囲�
       assert.equal(r.state, 'next');
       q = r.question;
     }
-    // STAGE 2 に上がった直後の 2 問は「平地」: 時間は短くなるが、範囲は 1 のまま
+    // STAGE 2 に上がった直後の 2 問は「平地」: 範囲は 1 のまま。時間は 7 秒固定（0012）
     assert.equal(q.stage, 2);
     assert.equal(q.range, 1);
-    assert.equal(q.limit_ms, 6600);
+    assert.equal(q.limit_ms, 7000);
     for (let i = 0; i < 2; i++) q = (await answerRight(db, a, s.run_id)).question;
     assert.equal(q.range, 2);
     // 範囲2の単語は頻度順で 16〜30 番目
