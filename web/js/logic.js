@@ -825,13 +825,18 @@ export function passedPlayers(prevScore, score, others) {
 /**
  * ランキングに出すときの名前。スタッフには「（スタッフ）」を付ける（2026-10-02 本人）
  */
-export const KNOCK_LEVELS = [
-  { band: 1, label: 'A1', sub: '中学前半' },
-  { band: 2, label: 'A2', sub: '中学' },
-  { band: 3, label: 'B1', sub: '高校' },
-  { band: 4, label: 'B2', sub: '大学受験' },
-  { band: 5, label: '最難関', sub: '学術語' }
-];
+/**
+ * レベルの名前（band 1〜5）。「A1」などの CEFR の記号は中高生に通じないので学年で言う（2026-10-03 本人）。
+ * 中身は CEFR-J A1〜B2 と NAWL のまま（出典は credits.html）
+ */
+export const LEVEL_NAMES = ['', '中1レベル', '中学レベル', '高校レベル', '受験レベル', '最難関'];
+/** タブなど狭いところ用 */
+export const LEVEL_SHORT = ['', '中1', '中学', '高校', '受験', '最難関'];
+/** 添え書き（どんな単語か） */
+export const LEVEL_SUBS = ['', '中1で習う', '中2・中3で習う', '高校で習う', '大学入試に出る', '大学の学術語'];
+
+// タブ（5つ並ぶ）では短い名前
+export const KNOCK_LEVELS = [1, 2, 3, 4, 5].map(band => ({ band, label: LEVEL_SHORT[band], sub: band === 5 ? '学術語' : 'レベル' }));
 
 /** 100本ノックで選んだレベル（端末に保存）。無ければ 1 */
 export function savedKnockBand() {
@@ -870,11 +875,11 @@ export const CARDS = {
 };
 
 export const START_STAGES = [
-  { stage: 1, label: 'A1', sub: '中学前半' },
-  { stage: 3, label: 'A2', sub: '中学' },
-  { stage: 5, label: 'B1', sub: '高校' },
-  { stage: 8, label: 'B2', sub: '大学受験' },
-  { stage: 10, label: '最難関', sub: '学術語' }
+  { stage: 1, label: LEVEL_NAMES[1], sub: LEVEL_SUBS[1] },
+  { stage: 3, label: LEVEL_NAMES[2], sub: LEVEL_SUBS[2] },
+  { stage: 5, label: LEVEL_NAMES[3], sub: LEVEL_SUBS[3] },
+  { stage: 8, label: LEVEL_NAMES[4], sub: LEVEL_SUBS[4] },
+  { stage: 10, label: LEVEL_NAMES[5], sub: LEVEL_SUBS[5] }
 ];
 
 /** スタート地点が開いているか（その段階にたどり着いたことがある = 到達 >= (stage-1)*5） */

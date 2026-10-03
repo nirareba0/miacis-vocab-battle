@@ -80,6 +80,9 @@ import {
   getStageName,
   normalizeInviteCode,
   withStaffTag,
+  LEVEL_NAMES,
+  LEVEL_SHORT,
+  LEVEL_SUBS,
   staffTagLabel,
   KNOCK_LEVELS,
   savedKnockBand,
@@ -706,7 +709,7 @@ async function renderHome() {
     // 今日やること（0023）: 3つ。達成済みの Miコインはここでも受け取る（別の端末で遊んだ分など）
     Promise.all([claimDailyQuests(), claimZukanMilestones().catch(() => null)]).then(([qs, zk]) => {
       renderTodayCard(qs, zk);
-      const got = [...(qs.claimed_now || []).map(q => ({ name: q.label, coin: q.coin })), ...((zk?.claimed_now) || []).map(m => ({ name: `図鑑 ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][m.band]} ${m.at}語`, coin: m.coin }))];
+      const got = [...(qs.claimed_now || []).map(q => ({ name: q.label, coin: q.coin })), ...((zk?.claimed_now) || []).map(m => ({ name: `図鑑 ${LEVEL_NAMES[m.band]} ${m.at}語`, coin: m.coin }))];
       if (got.length) {
         const coin = got.reduce((n, g) => n + g.coin, 0);
         const toast = document.createElement('div');
@@ -764,7 +767,7 @@ async function renderHome() {
       } else {
         msg = 'まだ誰も出していない。1位をとれる';
       }
-      strip.innerHTML = `<span class="eyebrow">今週のサバイバル ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][savedStreakBand()]}</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
+      strip.innerHTML = `<span class="eyebrow">今週のサバイバル ${LEVEL_NAMES[savedStreakBand()]}</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
       strip.hidden = false;
     });
 
@@ -839,7 +842,7 @@ function renderTodayCard(qs, zk) {
   if (g && g.total) {
     const li = document.createElement('li');
     li.className = 'today-zukan';
-    li.innerHTML = `<span class="today-check" aria-hidden="true">📖</span><span class="today-label">図鑑 ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][band]} ${g.collected}/${g.total}</span><span class="today-next">${escapeHtml(zukanNextLine(g))}</span>`;
+    li.innerHTML = `<span class="today-check" aria-hidden="true">📖</span><span class="today-label">図鑑 ${LEVEL_NAMES[band]} ${g.collected}/${g.total}</span><span class="today-next">${escapeHtml(zukanNextLine(g))}</span>`;
     li.addEventListener('click', () => { state.zukanTab = band; window.location.hash = '#/zukan'; });
     document.getElementById('today-list').append(li);
   }
@@ -1437,10 +1440,10 @@ async function renderZukan() {
     </header>
 
     <div class="tab-bar">
-      <button class="tab-btn ${state.zukanTab === 1 ? 'active' : ''}" data-band="1">A1</button>
-      <button class="tab-btn ${state.zukanTab === 2 ? 'active' : ''}" data-band="2">A2</button>
-      <button class="tab-btn ${state.zukanTab === 3 ? 'active' : ''}" data-band="3">B1</button>
-      <button class="tab-btn ${state.zukanTab === 4 ? 'active' : ''}" data-band="4">B2</button>
+      <button class="tab-btn ${state.zukanTab === 1 ? 'active' : ''}" data-band="1">${LEVEL_SHORT[1]}</button>
+      <button class="tab-btn ${state.zukanTab === 2 ? 'active' : ''}" data-band="2">${LEVEL_SHORT[2]}</button>
+      <button class="tab-btn ${state.zukanTab === 3 ? 'active' : ''}" data-band="3">${LEVEL_SHORT[3]}</button>
+      <button class="tab-btn ${state.zukanTab === 4 ? 'active' : ''}" data-band="4">${LEVEL_SHORT[4]}</button>
       <button class="tab-btn ${state.zukanTab === 5 ? 'active' : ''}" data-band="5">最難関</button>
     </div>
 
@@ -1511,7 +1514,7 @@ async function renderZukan() {
       ${mileToast}
       <div class="zukan-progress-card">
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px;">
-          <span>${['', 'A1 中学前半', 'A2 中学', 'B1 高校', 'B2 大学受験', '最難関 学術語'][state.zukanTab]}</span>
+          <span>${LEVEL_NAMES[state.zukanTab]} ${LEVEL_SUBS[state.zukanTab]}</span>
           <span style="white-space:nowrap;">${bandStat.collected} / ${bandStat.total}語</span>
         </div>
         <div class="evolution-bar-bg">

@@ -96,7 +96,7 @@ test('週間1位の称号（0022）: 週の締めで、ステージごとのサ�
     assert.equal((await db.query("select count from public.player_items where player_id=$1 and item_id='title_wk_sv1'", [a])).rows[0].count, 1);
 
     const mine = await call(db, a, 'select public.my_week_titles() as r');
-    assert.ok(mine.some(t => t.item_id === 'title_wk_sv1' && t.name === 'サバイバル王 A1' && t.count === 1));
+    assert.ok(mine.some(t => t.item_id === 'title_wk_sv1' && t.name === 'サバイバル王 中1レベル' && t.count === 1));
     assert.equal((await call(db, staff, 'select public.my_week_titles() as r')).length, 0);
 
     // 次の週もAが1位 → 称号は1つのまま、回数が 2

@@ -35,3 +35,26 @@ test('大学生スタッフ（0026）: 表示は「大学生スタッフ」、�
     await db.close();
   }
 });
+
+test('学年で開くレベル（0027）: 自分の学年のレベルまでは最初から。最難関は全員 20 連続で', async () => {
+  const db = await createTestDb();
+  try {
+    await seedTestWords(db, 30);
+    await setTestTime(db, '2026-10-03T12:00:00+09:00');
+    const opened = async (name, grade) => {
+      const id = randomUUID();
+      await createUser(db, id);
+      await asUser(db, id, () => db.query('select public.register_player($1,$2,null)', [name, grade]));
+      const st = await asUser(db, id, async () => (await db.query('select public.my_stages() as r')).rows[0].r);
+      return st.map(s => s.unlocked);
+    };
+    assert.deepEqual(await opened('中1', 1), [true, false, false, false, false]);
+    assert.deepEqual(await opened('中3', 3), [true, true, false, false, false]);
+    assert.deepEqual(await opened('高1', 4), [true, true, true, false, false]);
+    assert.deepEqual(await opened('高3', 6), [true, true, true, true, false]);
+    const title = (await db.query("select name from public.items where id='title_wk_sv1'")).rows[0].name;
+    assert.equal(title, 'サバイバル王 中1レベル');
+  } finally {
+    await db.close();
+  }
+});

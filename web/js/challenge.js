@@ -25,6 +25,8 @@ import {
   savedStreakBand,
   saveStreakBand,
   nextStageGuide,
+  LEVEL_NAMES,
+  LEVEL_SUBS,
   tierLabel,
   questSummary,
   questLine,
@@ -586,8 +588,8 @@ function metaHtml(meta) {
 const META_AT = { 1: 0, 2: 50, 3: 150, 4: 300, 5: 600 };
 const META_UNLOCK = { 2: 'スキップのカード', 3: 'Mi×2 のカード', 4: '最初の1問の前にカード', 5: 'カードの候補が4枚に' };
 
-const STAGE_NAMES = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: '最難関' };
-const STAGE_SUBS = { 1: '中学前半', 2: '中学', 3: '高校', 4: '大学受験', 5: '学術語' };
+const STAGE_NAMES = LEVEL_NAMES;
+const STAGE_SUBS = LEVEL_SUBS;
 
 function stageGatesHtml(stages) {
   let saved = savedStreakBand();
@@ -865,7 +867,7 @@ async function fillResultNext(result) {
   const g = zk ? zukanGain(before, zk.bands, band) : null;
   if (g) {
     const mile = (zk.claimed_now || []).filter(m => Number(m.band) === Number(band));
-    const name = ['', 'A1', 'A2', 'B1', 'B2', '最難関'][band] || '';
+    const name = LEVEL_NAMES[band] || '';
     rows.push(`<div class="next-row zukan ${mile.length ? 'hit' : ''}"><span class="next-label">図鑑 ${name}</span><strong>${before ? `+${g.gained}<small>語</small>` : `${g.collected}<small>語</small>`}</strong><p>${g.collected} / ${g.total} ・ ${escapeHtml(zukanNextLine(g))}</p>${mile.length ? `<em class="next-reward">${mile[mile.length - 1].at}語 達成！ <span class="mi-coin" aria-hidden="true">Mi</span> +${mile.reduce((n, m) => n + m.coin, 0)}</em>` : ''}</div>`);
   }
 
