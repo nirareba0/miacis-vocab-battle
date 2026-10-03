@@ -392,7 +392,7 @@ test('ステージのコース（0018）: そのステージの単語を出し�
   }
 });
 
-test('ステージのコース（0018）: 入口は前のステージで30連続で開く。ランキングと自己ベストはステージごと。スタッフは全部開いている', async () => {
+test('ステージのコース（0018・0025）: 入口は前のステージで20連続で開く。ランキングと自己ベストはステージごと。スタッフは全部開いている', async () => {
   const db = await setup();
   try {
     const a = await player(db, 'A');
@@ -403,6 +403,14 @@ test('ステージのコース（0018）: 入口は前のステージで30連続
     let st = await call(db, a, 'select public.my_stages() as r');
     assert.deepEqual(st.map(x => x.unlocked), [true, false, false, false, false]);
     assert.equal(st[0].words, 30);
+
+    // 19連続では A2 は開かない（0025: 30 → 20）
+    const s0 = await start(db, a, 'streak');
+    for (let i = 0; i < 19; i++) await answerRight(db, a, s0.run_id);
+    await answerWrong(db, a, s0.run_id);
+    st = await call(db, a, 'select public.my_stages() as r');
+    assert.equal(st[1].unlocked, false);
+    assert.equal(st[1].need, 20);
 
     // A1 を出し切る（30連続）→ A2 が開く
     const s1 = await start(db, a, 'streak');

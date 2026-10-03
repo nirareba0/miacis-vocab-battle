@@ -311,9 +311,10 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       pack.classList.add('is-opening');
       mainEl.querySelector('#gacha-opening-status').textContent = 'パックがひらく…';
       sound('packShake');
-      // まとめ引きは袋を開けたら一覧へ（1枚ずつめくるのは11回のタップになるのでやめた。2026-10-03）
-      if (reducedMotion) showSummary();
-      else openingTimer = setTimeout(() => { stopOpening(); showSummary(); }, 1200);
+      // まとめ引きも袋を開けたら1枚ずつめくる（一覧にまとめるのはやめて戻した。2026-10-03 本人「一枚ずつめくる方式に戻して」）。
+      // 途中で「まとめて見る」を押せば一覧へ飛べる
+      if (reducedMotion) showCard(0);
+      else openingTimer = setTimeout(() => { stopOpening(); showCard(0); }, 1200);
     };
     mainEl.querySelector('#btn-opening-skip').onclick = () => { stopOpening(); showSummary(); };
     window.addEventListener('hashchange', stopOpening, { once: true });

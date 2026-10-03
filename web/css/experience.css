@@ -539,7 +539,6 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 
 .tier-tag.revenge { background:#c2413a; color:#fff; }
 .tier-tag.revenge small { font-size:10px; font-weight:700; margin-left:4px; opacity:.9; }
-.rank-up-toast.revenge { background:#c2413a; color:#fff; }
 .revenge-note { display:inline-block; margin-left:8px; font-size:11px; font-weight:800; color:#c2413a; }
 
 .result-next { display:grid; gap:8px; margin:12px 0 4px; }

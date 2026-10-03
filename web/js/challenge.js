@@ -63,8 +63,7 @@ const run = {
   weekBest: null,
   board: [],          // 自分以外の今週ベスト（いまの順位の計算用）
   boardReady: false,  // 順位表が届いたか（届く前に「いま1位」と出さない。2026-10-03）
-  revenge: { asked: 0, won: 0 },  // リベンジ（前の回のつまずき）の出題数と正解数（0023）
-  revengeToast: false,
+  revenge: { asked: 0, won: 0 },  // リベンジ（前の回のつまずき）の出題数と正解数（0023）。成功の通知はプレイ中に出さない（2026-10-03 本人「邪魔」）。結果で数だけ出す
   zukanBefore: null,  // 始める前の図鑑（結果で「+◯語」を出す）
   nickname: '',
   rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
@@ -233,7 +232,6 @@ async function begin(mode) {
     run.board = [];
     run.boardReady = false;
     run.revenge = { asked: 0, won: 0 };
-    run.revengeToast = false;
     if (res.offer) {
       run.pendingStage = run.startStage;
       showCards(res.offer, true);
@@ -336,16 +334,6 @@ function showQuestion(q) {
     later(() => toast.remove(), 1300);
   }
 
-  if (run.revengeToast) {
-    run.revengeToast = false;
-    const toast = document.createElement('div');
-    toast.className = 'rank-up-toast milestone revenge';
-    toast.setAttribute('role', 'status');
-    toast.innerHTML = '<strong>リベンジ成功！</strong><span>図鑑に入った</span>';
-    a.prepend(toast);
-    later(() => toast.remove(), 1300);
-  }
-
   if (run.milestone) {
     const n = run.milestone;
     run.milestone = null;
@@ -442,7 +430,7 @@ async function submit(choice, ms, btn) {
   if (res.correct) {
     btn?.classList.add('choice-correct');
     playSfx('correct');
-    if (wasRevenge) { run.revenge.won++; run.revengeToast = true; }
+    if (wasRevenge) run.revenge.won++;
   } else {
     btn?.classList.add('choice-wrong');
     buttons[res.answer_index]?.classList.add('correct');
