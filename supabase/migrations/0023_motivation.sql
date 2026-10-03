@@ -401,4 +401,7 @@ revoke all on function public.claim_daily_quests(), public.my_zukan_progress(), 
 grant execute on function public.claim_daily_quests(), public.my_zukan_progress(), public.claim_zukan_milestones(),
   public.staff_settings() to authenticated;
 
+-- 6. Miコインの素点を 25 → 10 に（2026-10-03 本人「コインは10にしよう」。10連続で 3〜5個）
+update public.app_settings set value = '10' where key = 'nut_score_per_nut';
+
 commit;

@@ -59,7 +59,7 @@ test('連続チャレンジ: 間違えたら即終了。ポイント・木の実
     assert.equal(r.result.correct, 6);
     assert.equal(r.result.end_reason, 'wrong');
     assert.equal(r.result.learn_points, 6);
-    assert.equal(r.result.nuts, 1); // 素点 6×10=60 → 2 個 × 1/3 → 四捨五入で 1
+    assert.equal(r.result.nuts, 2); // 素点 6×10=60 → 6 個（素点10で1個・0023）× 1/3 → 2
     assert.equal(r.result.new_best, true);
     assert.equal(r.result.missed.length, 1);
 
@@ -172,7 +172,7 @@ test('100本ノック: 間違えても続く。100問で終わり、やり切っ
     assert.equal(last.state, 'finished');
     assert.equal(last.result.correct, 90);
     assert.equal(last.result.end_reason, 'complete');
-    assert.equal(last.result.nuts, 15); // 素点 90×10=900 → 36 個、完走 +5、90問以上 +3 → 44 × 1/3
+    assert.equal(last.result.nuts, 33); // 素点 90×10=900 → 90 個（素点10で1個・0023）、完走 +5、90問以上 +3 → 98 × 1/3 → 33
     assert.equal(last.result.missed.length, 10);
 
     // 途中でやめた回は記録に出ない
