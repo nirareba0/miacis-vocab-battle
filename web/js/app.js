@@ -98,7 +98,8 @@ import {
   parseWeekdays,
   DOW_JA,
   jstToday,
-  commitTodayLine
+  commitTodayLine,
+  shareInfo
 } from './logic.js';
 
 import {
@@ -279,7 +280,7 @@ function renderAuth(mode = 'register') {
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="auth-pass">あいことば</label>
+        <label class="form-label" for="auth-pass">パスワード</label>
         <div class="password-wrapper">
           <input class="form-input" id="auth-pass" type="password" placeholder="6文字以上" required autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}" autocapitalize="none" autocorrect="off" spellcheck="false">
           <button type="button" class="password-toggle" id="pass-toggle">表示</button>
@@ -308,7 +309,7 @@ function renderAuth(mode = 'register') {
         </div>
 
         <div class="notice-line" style="text-align: left; margin-bottom: 20px;">
-          本名・学校名は入れないでね。あいことばを忘れたらミアキスのスタッフに言ってね
+          本名・学校名は入れないでね。パスワードを忘れたらミアキスのスタッフに言ってね
         </div>
       `
           : ''
@@ -379,7 +380,7 @@ function renderAuth(mode = 'register') {
       return;
     }
     if (!pass || pass.length < 6) {
-      alertEl.innerHTML = '<div class="alert alert-error">あいことばは 6文字以上</div>';
+      alertEl.innerHTML = '<div class="alert alert-error">パスワードは 6文字以上</div>';
       return;
     }
 
@@ -492,7 +493,7 @@ function showScreenshotModal(nick, pass, gradeVal) {
       <img src="assets/miacis-logo.png" alt="Miacis Logo" style="width: 64px; height: 64px; object-fit: contain; margin-bottom: 8px;">
       <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">登録完了！</h2>
       <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
-        📸 この画面をスクショしてね。<br>あいことばを忘れるとログインできなくなるよ
+        📸 この画面をスクショしてね。<br>パスワードを忘れるとログインできなくなるよ
       </div>
       <div class="screenshot-info-box">
         <div class="screenshot-row">
@@ -500,7 +501,7 @@ function showScreenshotModal(nick, pass, gradeVal) {
           <div class="screenshot-val">${escapeHtml(nick)}</div>
         </div>
         <div class="screenshot-row">
-          <div class="screenshot-label">あいことば</div>
+          <div class="screenshot-label">パスワード</div>
           <div class="screenshot-val" style="color: var(--miacis-yellow);">${escapeHtml(pass)}</div>
         </div>
         <div class="screenshot-row">
@@ -682,6 +683,7 @@ async function renderHome() {
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
       ${lastWeekDiff ? `<p class="week-history">${lastWeekDiff}</p>` : ''}
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
+      <button class="home-share" id="go-share"><strong>📨 ともだちに教える</strong><span id="share-note">URL を送る</span></button>
       ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}
 
       <footer class="app-footer">
@@ -780,6 +782,22 @@ async function renderHome() {
     });
     document.getElementById('go-me').addEventListener('click', () => {
       window.location.hash = '#/me';
+    });
+    // ともだちに教える: 送れる端末は共有シート（LINE など）、送れない端末は URL をコピー
+    document.getElementById('go-share').addEventListener('click', async () => {
+      const s = shareInfo(window.location.href);
+      const note = document.getElementById('share-note');
+      try {
+        if (navigator.share) {
+          await navigator.share(s);
+          return;
+        }
+        await navigator.clipboard.writeText(`${s.text}\n${s.url}`);
+        note.textContent = 'URL をコピーした。LINE などに貼ってね';
+      } catch (err) {
+        if (err?.name === 'AbortError') return; // 共有シートを閉じただけ
+        note.textContent = s.url;
+      }
     });
     if (state.isStaff) {
       document.getElementById('go-staff').addEventListener('click', () => {

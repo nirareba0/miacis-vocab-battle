@@ -16,3 +16,10 @@ test('commitTodayLine: 今日の数と上限。上限で止める', () => {
   assert.equal(commitTodayLine(12), '今日 10 / 10 上限');
   assert.equal(commitTodayLine(null), '今日 0 / 10');
 });
+
+test('shareInfo: 送る URL は入口だけ（ハッシュや ?debug を落とす）', async () => {
+  const { shareInfo } = await import('../js/logic.js');
+  const s = shareInfo('https://nirareba0.github.io/miacis-vocab-battle/?debug=1#/home');
+  assert.equal(s.url, 'https://nirareba0.github.io/miacis-vocab-battle/');
+  assert.match(s.text, /ミアキス英単語サバイバル/);
+});

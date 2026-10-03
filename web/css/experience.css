@@ -267,8 +267,6 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .btn-choice { transition: transform .05s ease-out, background-color .05s, border-color .05s; }
 .btn-choice.pressed { transform: scale(.97); border-color: #8062bb; background: #f3effb; }
 .btn-choice:active { transform: scale(.97); }
-#challenge-area.shake { animation: hit-shake .15s linear; }
-@keyframes hit-shake { 0% { transform: translateX(0); } 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-2px); } 100% { transform: translateX(0); } }
 .rank-up-toast strong em { font-style: normal; font-size: 30px; line-height: 1; margin-right: 2px; }
 .rank-up-toast.milestone { background: #247956; color: #fff; }
 .result-sub .num { font-style: normal; font-weight: 900; font-size: 1.5em; color: #c2413a; padding: 0 2px; }
@@ -278,7 +276,7 @@ body[data-screen="auth"] #app-container { background:radial-gradient(ellipse at 
 .challenge-streak .result-banner.lose .result-big { color: #c2413a; }
 .challenge-knock .result-banner.lose { background: #eef7f2; border-color: #bfe0cf; }
 .challenge-knock .result-banner.lose .result-big { color: #247956; }
-@media (prefers-reduced-motion: reduce) { #challenge-area.shake, .stage-up strong { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .stage-up strong { animation: none; } }
 
 /* 抽選券・称号・相棒の表情・設定・登録前の1問 */
 html[data-textsize="large"] { font-size: 112%; }
@@ -608,3 +606,16 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .cal-upcoming li small { font-size:10px; color:var(--text-muted); }
 .cal-upcoming li.closed { background:#fde8ec; color:var(--danger); }
 .cal-upcoming li.closed small { color:var(--danger); }
+
+/* サバイバル・トレーニング中は画面を動かさない（2026-10-03 本人）。
+   通知は問題の上に重ね（流れに差し込まない）、リベンジ・難度のタグは無いときも同じ高さを取る */
+#challenge-area .rank-up-toast { position:fixed; top:12px; left:0; right:0; margin:0 auto; z-index:30; pointer-events:none; }
+.rank-up-toast.stage { background:#2a2140; color:#fff; }
+.rank-up-toast.stage em { color:#f5ce65; }
+.tag-row { height:24px; margin:8px 0 -4px; }
+.tag-row .tier-tag { margin:0; line-height:18px; }
+.challenge-streak .streak-hud { min-height:57px; } /* 「いま◯位」が出ても帯の高さを変えない */
+.tag-row .tier-tag, .tag-row .tier-tag small { white-space:nowrap; }
+.home-share { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; margin:-10px 0 22px; padding:15px 17px; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:20px; text-align:left; }
+.home-share strong { font-size:14px; white-space:nowrap; }
+.home-share span { font-size:11px; color:var(--text-muted); font-weight:500; text-align:right; overflow-wrap:anywhere; }

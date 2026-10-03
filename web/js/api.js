@@ -49,7 +49,7 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
     throw new Error('ニックネームは1〜10文字で入力してください');
   }
   if (!passphrase || passphrase.length < 6) {
-    throw new Error('あいことばは6文字以上で入力してください');
+    throw new Error('パスワードは6文字以上で入力してください');
   }
   if (!grade || grade < 1 || grade > 6) {
     throw new Error('学年を選択してください');
@@ -109,14 +109,14 @@ export async function signInPlayer(nickname, passphrase) {
     throw new Error('ニックネームを入力してください');
   }
   if (!passphrase) {
-    throw new Error('あいことばを入力してください');
+    throw new Error('パスワードを入力してください');
   }
   const email = nicknameToEmail(trimmedNick);
   let { data, error } = await supabase.auth.signInWithPassword({
     email,
     password: passphrase
   });
-  // コピペで前後に空白・タブ・改行が付いたあいことばを救う（そのままで失敗したときだけ試す）
+  // コピペで前後に空白・タブ・改行が付いたパスワードを救う（そのままで失敗したときだけ試す）
   const trimmedPass = passphrase.trim();
   if (error && trimmedPass !== passphrase && trimmedPass.length > 0) {
     ({ data, error } = await supabase.auth.signInWithPassword({ email, password: trimmedPass }));

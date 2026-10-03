@@ -105,13 +105,7 @@ function area() {
   return document.getElementById('challenge-area');
 }
 
-// 不正解・時間切れの一撃（桜井: 画面振動・ヒットストップ）。reduced-motion では揺らさない
-function shake(el) {
-  if (!el || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  el.classList.remove('shake');
-  void el.offsetWidth;
-  el.classList.add('shake');
-}
+// 不正解・時間切れで画面は揺らさない（2026-10-03 本人「サバイバル中に画面は動かさない」）。手ごたえは色・音・振動で返す
 
 /**
  * @param {HTMLElement} containerEl
@@ -192,7 +186,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   if (/[?&]debug/.test(window.location.search)) {
     const panel = document.createElement('div');
     panel.className = 'debug-panel';
-    panel.innerHTML = '<button data-d="rankup">浮上</button><button data-d="stage">STAGE</button><button data-d="shake">揺れ</button><button data-d="title">称号</button>';
+    panel.innerHTML = '<button data-d="rankup">浮上</button><button data-d="stage">ペース</button><button data-d="title">称号</button>';
     a.append(panel);
     panel.addEventListener('click', e => {
       const d = e.target.dataset.d;
@@ -200,8 +194,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
       const q = { no: 6, stage: 2, range: 2, limit_ms: 6600, prompt: 'debug', choices: ['a', 'b', 'c', 'd'] };
       run.score = 7; run.board = [{ nickname: 'テスト', score: 6 }]; run.boardReady = true;
       if (d === 'rankup') { run.rankUp = { rank: 2, passed: ['テスト'] }; playSfx('rankUp'); showQuestion(q); }
-      if (d === 'stage') showStageUp(q);
-      if (d === 'shake') { showQuestion(q); shake(area()); vibrate('wrong'); }
+      if (d === 'stage') { run.stageToast = q; showQuestion(q); }
       if (d === 'title') { run.id = null; showResult({ mode, correct: 10, answered: 11, end_reason: 'wrong', learn_points: 10, nuts: 4, nuts_raw: 4, missed: [], best: { correct: 10 }, week_best: { correct: 10 }, new_best: true, week_rank: 1, new_titles: [{ id: 'title_streak10', name: '10連続サバイバー' }] }); }
     });
   }
@@ -316,13 +309,25 @@ function showQuestion(q) {
     ${headerHtml(q)}
     <div class="timer-bar-bg"><div id="timer-bar" class="timer-bar-fill"></div></div>
     <div class="timer-label"><span id="timer-sec">${(q.limit_ms / 1000).toFixed(1)}</span> 秒</div>
-    ${q.revenge ? '<div class="tier-tag revenge">リベンジ <small>前回つまずいた単語</small></div>' : q.tier ? `<div class="tier-tag tier-${q.tier}">${tierLabel(q.tier)}</div>` : ''}
+    <div class="tag-row">${q.revenge ? '<div class="tier-tag revenge">リベンジ <small>前回つまずいた単語</small></div>' : q.tier ? `<div class="tier-tag tier-${q.tier}">${tierLabel(q.tier)}</div>` : ''}</div>
     <div class="word-prompt">${escapeHtml(q.prompt)}</div>
     <div class="choices-list">
       ${q.choices.map((c, i) => `<button class="btn-choice" data-choice="${i}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c)}</span></button>`).join('')}
     </div>
     ${run.mode === 'knock' ? '<button class="btn-sub" id="btn-knock-quit" style="margin-top:14px;">やめる <small>記録は残らない</small></button>' : ''}
   `;
+
+  // 通知は問題の上に重ねる（CSS で position:fixed）。流れに差し込むと問題と選択肢が下にずれて押し間違える（2026-10-03 本人「画面は動かさない」）
+  if (run.stageToast) {
+    const s = run.stageToast;
+    run.stageToast = null;
+    const toast = document.createElement('div');
+    toast.className = 'rank-up-toast stage';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = `<strong>ペース <em>${s.stage}</em></strong><span>1問 ${(s.limit_ms / 1000).toFixed(1)}秒${s.tier ? ` ・ ${tierLabel(s.tier)}` : ''}</span>`;
+    a.prepend(toast);
+    later(() => toast.remove(), 1300);
+  }
 
   if (run.shieldToast) {
     run.shieldToast = false;
@@ -436,7 +441,6 @@ async function submit(choice, ms, btn) {
     buttons[res.answer_index]?.classList.add('correct');
     playSfx('wrong');
     vibrate(res.timeout ? 'timeout' : 'wrong');
-    shake(a);
   }
 
   const prevEff = effectiveScore();
@@ -480,7 +484,9 @@ async function submit(choice, ms, btn) {
     run.mood = 'wow';
     playSfx('combo');
     vibrate('stageUp');
-    later(() => showStageUp(res.question), 400);
+    // ペースが上がっても画面は切り替えない。次の問題の上に通知を重ねる（2026-10-03）
+    run.stageToast = res.question;
+    later(() => showQuestion(res.question), 350);
   } else {
     later(() => showQuestion(res.question), res.correct ? 350 : 900);
   }
@@ -572,19 +578,6 @@ function stageGatesHtml(stages) {
       </button>`;
     }).join('')}
   </div>`;
-}
-
-function showStageUp(q) {
-  const a = area();
-  if (!a) return;
-  a.innerHTML = `
-    <div class="stage-up" role="status">
-      <span class="eyebrow">${run.score}連続</span>
-      <strong>ペース ${q.stage}</strong>
-      <p>1問 ${(q.limit_ms / 1000).toFixed(1)}秒${q.tier ? ` ・ ${tierLabel(q.tier)}` : ''}</p>
-    </div>
-  `;
-  later(() => showQuestion(q), 1300);
 }
 
 function showRevive() {

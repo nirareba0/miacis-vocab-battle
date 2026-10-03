@@ -264,13 +264,13 @@ export function translateError(error) {
     return 'ログインしてください';
   }
   if (msg.includes('Invalid login credentials')) {
-    return 'ニックネームまたはあいことばが違います';
+    return 'ニックネームまたはパスワードが違います';
   }
   if (msg.includes('User already registered')) {
     return 'その名前はもう登録済み。上の「ログイン」タブから入って';
   }
   if (msg.includes('Password should be at least 6 characters')) {
-    return 'あいことばは6文字以上で入力してください';
+    return 'パスワードは6文字以上で入力してください';
   }
   if (msg.includes('too_fast')) {
     return '回答時間が短すぎます';
@@ -1061,4 +1061,21 @@ export function jstToday(now = new Date()) {
 export function commitTodayLine(today, cap = COMMIT_DAILY_CAP) {
   const n = Math.min(Math.max(0, Math.floor(Number(today) || 0)), cap);
   return n >= cap ? `今日 ${n} / ${cap} 上限` : `今日 ${n} / ${cap}`;
+}
+
+// ==========================================
+// ともだちに教える（ホーム）
+// ==========================================
+
+/**
+ * 送る中身。URL は入口だけ（#/home や ?debug を付けたまま送らない）。2026-10-03 本人「ともだちにおしえるボタン、URLを送れるように」
+ * @returns {{title: string, text: string, url: string}}
+ */
+export function shareInfo(href) {
+  const u = new URL(href);
+  return {
+    title: 'ミアキス英単語サバイバル',
+    text: 'ミアキス英単語サバイバル。君は何問いける？',
+    url: `${u.origin}${u.pathname}`
+  };
 }

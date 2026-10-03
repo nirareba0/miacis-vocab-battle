@@ -192,7 +192,7 @@ test('translateError: エラーメッセージの日本語変換', () => {
   assert.equal(translateError('invalid_grade'), '学年を正しく選択してください');
   assert.equal(translateError('too_fast'), '回答時間が短すぎます');
   assert.equal(translateError('writing_invalid: length must be 1..300 characters'), '一言は1〜300文字で入力してください');
-  assert.equal(translateError(new Error('Password should be at least 6 characters')), 'あいことばは6文字以上で入力してください');
+  assert.equal(translateError(new Error('Password should be at least 6 characters')), 'パスワードは6文字以上で入力してください');
   assert.equal(translateError('unknown_error_xyz'), 'うまくいかなかった。もう一度');
   assert.equal(translateError(null), 'うまくいかなかった。もう一度');
 });

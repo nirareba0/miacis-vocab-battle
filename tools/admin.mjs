@@ -4,7 +4,7 @@
  *
  * 使用例:
  *   export SUPABASE_SERVICE_ROLE_KEY="ey..."
- *   node tools/admin.mjs reset-passphrase <nickname> <新しいあいことば>
+ *   node tools/admin.mjs reset-passphrase <nickname> <新しいパスワード>
  *   node tools/admin.mjs make-staff <nickname>
  *   node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]
  *   node tools/admin.mjs merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]
@@ -38,19 +38,19 @@ function printUsageAndExit(message = null) {
   SUPABASE_URL               省略可能（既定: https://aljlbxvucscmpbcuccin.supabase.co）
 
 サブコマンド:
-  reset-passphrase <nickname> <新しいあいことば>
-      プレイヤーのあいことばを再設定します。
+  reset-passphrase <nickname> <新しいパスワード>
+      プレイヤーのパスワードを再設定します。
   make-staff <nickname>
       指定したプレイヤーにスタッフ権限を付与します。
   create-staff <nickname...> [--out <ファイル>]
       スタッフのアカウントを新しく作ります（学年なし・スタッフ区分）。
-      あいことばはランダムに作り、画面には出さず --out のファイル（既定:
+      パスワードはランダムに作り、画面には出さず --out のファイル（既定:
       ドキュメント/miacis-staff-passphrases.txt）に追記します。Git の外に置くこと。
-      すでにあるニックネームは、あいことばを変えずにスタッフ権限だけ付けます。
+      すでにあるニックネームは、パスワードを変えずにスタッフ権限だけ付けます。
   merge-into <残すアカウント> <消す空アカウント> [--pass-file <ファイル>]
       空のアカウント（遊んだ記録が無いもの）を消し、残すアカウントをその名前に変えます。
       記録は残すアカウントのものが引き継がれます。消す側がスタッフなら、残す側もスタッフにします。
-      --pass-file に消す側の名前の行があれば、残す側のあいことばをそれに揃えます（画面には出さない）。
+      --pass-file に消す側の名前の行があれば、残す側のパスワードをそれに揃えます（画面には出さない）。
   delete-player <nickname> [--yes]
       アカウントと、その人の記録（対戦・連続チャレンジ・ポイント・木の実・着せ替え・抽選券など）を全部消します。
       --yes なしだと、消える件数を表示するだけで何もしません。元に戻せません。
@@ -237,10 +237,10 @@ async function main() {
     case 'reset-passphrase': {
       const [nickname, newPass] = args;
       if (!nickname || !newPass) {
-        printUsageAndExit('使い方: node tools/admin.mjs reset-passphrase <nickname> <新しいあいことば>');
+        printUsageAndExit('使い方: node tools/admin.mjs reset-passphrase <nickname> <新しいパスワード>');
       }
       if (newPass.length < 6) {
-        console.error('エラー: あいことばは6文字以上である必要があります。');
+        console.error('エラー: パスワードは6文字以上である必要があります。');
         process.exit(1);
       }
       const player = await admin.getPlayerByNickname(nickname);
@@ -249,7 +249,7 @@ async function main() {
         process.exit(1);
       }
       await admin.updateUserAuth(player.id, { password: newPass });
-      console.log(`成功: ニックネーム "${nickname}" のあいことばを再設定しました。`);
+      console.log(`成功: ニックネーム "${nickname}" のパスワードを再設定しました。`);
       break;
     }
 
@@ -276,7 +276,7 @@ async function main() {
         printUsageAndExit('使い方: node tools/admin.mjs create-staff <nickname...> [--out <ファイル>]');
       }
       if (path.resolve(outFile).startsWith(rootDir)) {
-        console.error('エラー: --out はリポジトリの外にしてください（あいことばを Git に入れない）。');
+        console.error('エラー: --out はリポジトリの外にしてください（パスワードを Git に入れない）。');
         process.exit(1);
       }
       // 打ち間違えにくい文字だけ（0/O、1/l/I を除く）
@@ -291,7 +291,7 @@ async function main() {
         const existing = await admin.getPlayerByNickname(nickname);
         if (existing) {
           await admin.makeStaff(existing.id);
-          console.log(`既存: "${nickname}" はもう登録済み。スタッフ権限だけ付けた（あいことばは変えていない）`);
+          console.log(`既存: "${nickname}" はもう登録済み。スタッフ権限だけ付けた（パスワードは変えていない）`);
           continue;
         }
         const pass = makePass();
@@ -308,9 +308,9 @@ async function main() {
       }
       if (lines.length) {
         fs.mkdirSync(path.dirname(outFile), { recursive: true });
-        const header = fs.existsSync(outFile) ? '' : '# ミアキス英単語サバイバル スタッフのあいことば（Git・Drive に置かない。本人に渡したら消す）\n';
+        const header = fs.existsSync(outFile) ? '' : '# ミアキス英単語サバイバル スタッフのパスワード（Git・Drive に置かない。本人に渡したら消す）\n';
         fs.appendFileSync(outFile, header + `# ${new Date().toISOString()}\n` + lines.join('\n') + '\n', { encoding: 'utf8' });
-        console.log(`あいことばは ${outFile} に書いた（画面には出さない）`);
+        console.log(`パスワードは ${outFile} に書いた（画面には出さない）`);
       }
       break;
     }
@@ -351,7 +351,7 @@ async function main() {
       if (dropWasStaff) await admin.makeStaff(keep.id);
       console.log(`統合: "${keepNick}" の記録を残したまま、名前を "${dropNick}" にした（空の "${dropNick}" は削除）`);
       console.log(dropWasStaff ? 'スタッフ権限: 付けた' : 'スタッフ権限: 変えていない');
-      console.log(newPass ? `あいことば: ${passFile} の "${dropNick}" の行に揃えた` : `あいことば: 変えていない（元の "${keepNick}" のまま）`);
+      console.log(newPass ? `パスワード: ${passFile} の "${dropNick}" の行に揃えた` : `パスワード: 変えていない（元の "${keepNick}" のまま）`);
       break;
     }
 
