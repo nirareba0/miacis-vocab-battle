@@ -446,3 +446,33 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .closet-tab-btn { padding:8px 4px; font-size:13px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* タブが3つのときは1行に（2つ＋1つに割れない） */
 .tab-bar:has(> .tab-btn:nth-child(3):last-child) .tab-btn { flex-basis:30%; }
+
+/* 抽選券の番号（2026-10-03・0021）: 番号は券の形で見せる。当たりは大きく、スタッフに見せる画面に */
+.raffle-ticket { display:inline-flex; align-items:center; padding:3px 10px 3px 12px; border-radius:6px; background:#fff; border:1.5px dashed #e08b84; color:#c2413a; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.raffle-ticket-row { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:8px 0; }
+.raffle-more { font-size:12px; color:var(--text-muted); align-self:center; }
+.raffle-ticket.big, .raffle-ticket.big * { box-sizing:border-box; }
+.raffle-ticket.big { flex-direction:column; gap:2px; padding:14px 26px; border-width:2.5px; border-radius:12px; background:#fff6f5; }
+.raffle-ticket.big span { font-size:12px; color:#9a4a44; font-weight:700; }
+.raffle-ticket.big strong { font-size:34px; line-height:1.1; }
+.raffle-win-card { display:flex; flex-direction:column; align-items:center; gap:4px; margin:4px 0 12px; padding:18px 12px; border-radius:18px; background:linear-gradient(135deg,#ffe9a8,#ffd1cc); border:2px solid #e2a23a; text-align:center; animation:raffle-win-pulse 1.6s ease-in-out infinite; }
+.raffle-win-card span { font-size:13px; font-weight:800; color:#8a4b0f; }
+.raffle-win-card strong { font-size:40px; font-weight:900; color:#c2413a; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+.raffle-win-card em { font-style:normal; font-size:16px; font-weight:800; }
+.raffle-win-card small { font-size:13px; color:#6b4a2c; }
+@keyframes raffle-win-pulse { 50% { box-shadow:0 0 0 6px #ffd46e66; } }
+@media (prefers-reduced-motion: reduce) { .raffle-win-card { animation:none; } }
+.raffle-win-toast { display:flex; flex-direction:column; align-items:center; width:100%; gap:2px; margin-bottom:12px; padding:12px; border-radius:16px; border:2px solid #e2a23a; background:linear-gradient(135deg,#ffe9a8,#ffd1cc); color:#5a3410; }
+.raffle-win-toast span { font-size:12px; font-weight:800; }
+.raffle-win-toast strong { font-size:24px; font-weight:900; color:#c2413a; }
+.raffle-win-toast small { font-size:12px; }
+.raffle-results div { grid-template-columns:auto auto 1fr auto; }
+.raffle-results strong { color:#c2413a; font-variant-numeric:tabular-nums; }
+
+/* ガチャのピックアップ（2026-10-03）: 新しい UR を1つずつ並べる */
+.gacha-wardrobe.pickup { background:radial-gradient(ellipse at 50% 20%,#fff1c2,transparent 70%),linear-gradient(160deg,#f3e9ff,#ffe3ec); border-color:#e8c46a; }
+.gacha-wardrobe.pickup .eyebrow { color:#b07a12; letter-spacing:.14em; font-weight:900; }
+.pickup-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:14px; }
+.pickup-card { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px 6px; border-radius:14px; background:#ffffffcc; border:1.5px solid #e8c46a; }
+.pickup-card span { font-size:10.5px; font-weight:700; line-height:1.2; text-align:center; min-height:2.4em; display:flex; align-items:center; }
+.pickup-card em { position:absolute; top:4px; right:5px; font-style:normal; font-size:9px; font-weight:900; color:#fff; background:#d9467a; border-radius:6px; padding:0 4px; }

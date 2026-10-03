@@ -76,7 +76,9 @@ import {
   savedKnockBand,
   saveKnockBand,
   savedStreakBand,
-  saveStreakBand
+  saveStreakBand,
+  raffleNo,
+  monthLabel
 } from './logic.js';
 
 import {
@@ -674,13 +676,15 @@ async function renderHome() {
     getMyRaffle().then(r => {
       const el = document.getElementById('home-raffle');
       if (!el) return;
-      el.textContent = `🎟️ 今月の抽選券 ${r.my_entries}枚`;
+      const last = (r.last_results || [])[0];
+      el.textContent = `🎟️ 今月の抽選券 ${r.my_entries}枚${last?.no ? ` ・ ${monthLabel(last.month)}の当たり ${raffleNo(last.no)}` : ''}`;
       const win = (r.last_results || []).find(x => x.is_me);
       if (win) {
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-success';
-        toast.style.cssText = 'margin-bottom:12px; font-weight:700; text-align:center;';
-        toast.innerHTML = `🎁 ${escapeHtml(win.month)} の抽選で「${escapeHtml(win.prize)}」が当たった！ 引換券は「自分の記録」へ`;
+        const toast = document.createElement('button');
+        toast.type = 'button';
+        toast.className = 'raffle-win-toast';
+        toast.innerHTML = `<span>当たり！</span><strong>${escapeHtml(monthLabel(win.month))} ${escapeHtml(raffleNo(win.no))}</strong><small>「${escapeHtml(win.prize)}」。この画面をスタッフに見せよう</small>`;
+        toast.addEventListener('click', () => { window.location.hash = '#/me'; });
         document.getElementById('home-content')?.prepend(toast);
       }
     }).catch(() => {});
@@ -1986,10 +1990,18 @@ async function renderMe() {
     const raffleHtml = raffle ? `
       <div class="card raffle-card">
         <div class="card-title" style="margin-top:0;">🎟️ 月末抽選</div>
-        <div class="raffle-count"><div><span>${escapeHtml(raffle.month)} の自分の券</span><strong>${raffle.my_entries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${raffle.total_entries}<small>枚</small></strong></div></div>
-        <p class="notice-line">券はガチャで出る。多いほど当たりやすい。月初に抽選</p>
+        ${(raffle.last_results || []).filter(r => r.is_me).map(r => `
+          <div class="raffle-win-card">
+            <span>当たり！ スタッフに この画面を見せる</span>
+            <strong>${escapeHtml(monthLabel(r.month))} ${escapeHtml(raffleNo(r.no))}</strong>
+            <em>${escapeHtml(r.prize)}</em>
+            <small>${escapeHtml(r.nickname || state.player.nickname)}</small>
+          </div>`).join('')}
+        ${(raffle.last_results || []).some(r => !r.is_me) ? `<div class="raffle-results">${raffle.last_results.filter(r => !r.is_me).map(r => `<div><span>${escapeHtml(monthLabel(r.month))}の当たり</span><strong>${escapeHtml(raffleNo(r.no) || '—')}</strong><span>${escapeHtml(r.prize)}</span></div>`).join('')}</div>` : ''}
+        <div class="raffle-count"><div><span>${escapeHtml(monthLabel(raffle.month))}の自分の券</span><strong>${raffle.my_entries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${raffle.total_entries}<small>枚</small></strong></div></div>
+        ${(raffle.my_numbers || []).length ? `<div class="raffle-ticket-row">${raffle.my_numbers.slice(-60).map(n => `<span class="raffle-ticket">${raffleNo(n)}</span>`).join('')}${raffle.my_numbers.length > 60 ? `<span class="raffle-more">ほか ${raffle.my_numbers.length - 60}枚</span>` : ''}</div>` : ''}
+        <p class="notice-line">券はガチャで出る。月初に 当たり番号を発表。券が多いほど当たりやすい</p>
         ${(raffle.prizes || []).length ? `<p>景品: ${raffle.prizes.map(p => `${escapeHtml(p.name)}（${p.stock}名）`).join('、')}</p>` : ''}
-        ${(raffle.last_results || []).length ? `<div class="raffle-results">${raffle.last_results.map(r => `<div class="${r.is_me ? 'is-me' : ''}"><span>${escapeHtml(r.month)}</span><strong>${escapeHtml(r.prize)}</strong><span>${r.is_me ? 'あなた！' : escapeHtml(r.nickname || '—')}</span><small>${r.winner_entries}/${r.total_entries}枚</small></div>`).join('')}</div>` : ''}
       </div>` : '';
 
     container.innerHTML = `
@@ -2271,7 +2283,7 @@ async function renderStaff() {
         <div class="card">
           <div class="card-title">前月（${prevKey}）の抽選</div>
           ${(raffle.last_results || []).length
-            ? `<div class="raffle-results">${raffle.last_results.map(r => `<div><span>${escapeHtml(r.month)}</span><strong>${escapeHtml(r.prize)}</strong><span>${escapeHtml(r.nickname || '—')}</span><small>${r.winner_entries}/${r.total_entries}枚</small></div>`).join('')}</div>`
+            ? `<div class="raffle-results">${raffle.last_results.map(r => `<div><span>${escapeHtml(r.month)}</span><strong>${escapeHtml(raffleNo(r.no) || '—')}</strong><span>${escapeHtml(r.prize)} ・ ${escapeHtml(r.nickname || '—')}</span><small>${r.winner_entries}/${r.total_entries}枚</small></div>`).join('')}</div><p class="notice-line">当たった人の画面に、同じ番号と名前が出る。見せてもらって照合する</p>`
             : '<p>まだ抽選していない（毎月1日 0:05 に自動。手で回すなら下のボタン）</p>'}
           <button class="btn-secondary" id="btn-draw-raffle">前月分をいま抽選する</button>
         </div>`;

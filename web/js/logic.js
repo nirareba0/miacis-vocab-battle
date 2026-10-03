@@ -706,6 +706,18 @@ export function checkGuaranteedSr(pullCount, results) {
  * @param {number} rarity
  * @returns {number}
  */
+/** 抽選券の番号の見せ方。No.0042 */
+export function raffleNo(n) {
+  const v = parseInt(n, 10);
+  return Number.isFinite(v) && v > 0 ? `No.${String(v).padStart(4, '0')}` : '';
+}
+
+/** '2026-09' → '9月' */
+export function monthLabel(ym) {
+  const m = /^\d{4}-(\d{2})$/.exec(String(ym || ''));
+  return m ? `${parseInt(m[1], 10)}月` : String(ym || '');
+}
+
 /** かけらで交換できるのはガチャの品のスーパーレア（SR）まで。UR・SECRET・すがた・条件達成の称号は交換できない（2026-10-03 本人） */
 export const EXCHANGE_MAX_RARITY = 3;
 export function canExchange(item) {

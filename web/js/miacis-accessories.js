@@ -173,6 +173,68 @@ function cape({ cloth, shade, trim, lining, clasp }) {
     + hl('M35 52.4Q33.2 55.4 32.4 58.4', 1.1);
 }
 
+// ---- Miacis の遊び・活動の部品（卓球・ヘアアイロン・取材・ダーツ・麻雀・体を動かすゲーム・パーソナルカラー） ----
+
+/** 円の中心 (cx, cy) から見た角度 a（ラジアン）・半径 r の点 */
+const polar = (cx, cy, r, a) => `${n(cx + r * Math.cos(a))} ${n(cy + r * Math.sin(a))}`;
+
+/** 輪の一部（r0〜r1、角度 a0〜a1 ラジアン）。r0 = 0 なら扇形 */
+function ringSeg(cx, cy, r0, r1, a0, a1) {
+  return `M${polar(cx, cy, r0, a0)}L${polar(cx, cy, r1, a0)}A${n(r1)} ${n(r1)} 0 0 1 ${polar(cx, cy, r1, a1)}L${polar(cx, cy, r0, a1)}`
+    + (r0 > 0 ? `A${n(r0)} ${n(r0)} 0 0 0 ${polar(cx, cy, r0, a0)}` : '') + 'z';
+}
+
+/** ダーツの的（白黒の扇・赤緑のダブルとトリプル・ブル）。ふち取りは呼ぶ側で付ける */
+function dartboard(cx, cy, r) {
+  const N = 12;
+  const step = (Math.PI * 2) / N;
+  let dark = '';
+  let red = '';
+  let green = '';
+  for (let i = 0; i < N; i++) {
+    const a0 = -Math.PI / 2 - step / 2 + i * step;
+    const a1 = a0 + step;
+    if (i % 2) dark += ringSeg(cx, cy, 0, r * 0.8, a0, a1);
+    const ring = ringSeg(cx, cy, r * 0.8, r, a0, a1) + ringSeg(cx, cy, r * 0.4, r * 0.56, a0, a1);
+    if (i % 2) green += ring; else red += ring;
+  }
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#f7eed6" stroke="none"/>`
+    + `<path d="${dark}" fill="#2a2350" stroke="none"/>`
+    + `<path d="${red}" fill="#e8424c" stroke="none"/>`
+    + `<path d="${green}" fill="#2fa36a" stroke="none"/>`
+    + `<circle cx="${cx}" cy="${cy}" r="${n(r * 0.24)}" fill="#2fa36a" stroke="none"/>`
+    + `<circle cx="${cx}" cy="${cy}" r="${n(r * 0.12)}" fill="#e8424c" stroke="none"/>`;
+}
+
+/** 麻雀牌1枚（上の辺の中央 (x, y) からぶら下げ、rot 度回す）。牌の面に face(x, 面の中心 y) の絵を描く */
+function mjTile(x, y, rot, w, h, face) {
+  const top = y + 0.3;
+  const cy = top + h / 2;
+  return `<g transform="rotate(${n(rot)} ${n(x)} ${n(y)})">`
+    + `<rect x="${n(x - w / 2)}" y="${n(top)}" width="${w}" height="${n(h + 1.1)}" rx="1" fill="#36a47a" stroke-width="1.3"/>`
+    + `<rect x="${n(x - w / 2)}" y="${n(top)}" width="${w}" height="${h}" rx="1" fill="#fbf6e4" stroke-width="1.3"/>`
+    + face(x, cy, w, h)
+    + `<path d="M${n(x - w / 2 + 0.8)} ${n(top + 1.1)}v${n(h * 0.4)}" fill="none" stroke="#fff" stroke-width=".7"/>`
+    + '</g>';
+}
+const mjChun = (x, y, w, h) => `<path d="M${n(x - w * 0.27)} ${n(y - h * 0.12)}h${n(w * 0.54)}v${n(h * 0.26)}h${n(-w * 0.54)}zM${x} ${n(y - h * 0.34)}V${n(y + h * 0.34)}" fill="none" stroke="#d8323c" stroke-width=".85" stroke-linecap="round"/>`;
+const mjPin1 = (x, y, w) => `<circle cx="${x}" cy="${y}" r="${n(w * 0.3)}" fill="#e8424c" stroke="#2f6fc0" stroke-width=".8"/><circle cx="${x}" cy="${y}" r="${n(w * 0.1)}" fill="#fff" stroke="none"/>`;
+const mjPin2 = (x, y, w, h) => `<g stroke="none"><circle cx="${x}" cy="${n(y - h * 0.22)}" r="${n(w * 0.22)}" fill="#2f6fc0"/><circle cx="${x}" cy="${n(y + h * 0.22)}" r="${n(w * 0.22)}" fill="#36a47a"/></g>`;
+const mjSou = (x, y, w, h) => `<path d="M${n(x - w * 0.16)} ${n(y - h * 0.3)}V${n(y + h * 0.3)}M${n(x + w * 0.16)} ${n(y - h * 0.3)}V${n(y + h * 0.3)}" fill="none" stroke="#2f9a5e" stroke-width=".9" stroke-linecap="round"/>`;
+
+/** 体を動かすゲームの白いリモコン（汎用。上の端 (x, y) を留め、rot 度振る）。十字キー・丸ボタン・小さなボタン2つ */
+function wand(x, y, rot) {
+  const t = y + 0.6;
+  return `<g transform="rotate(${n(rot)} ${n(x)} ${n(y)})">`
+    + `<rect x="${n(x - 2.4)}" y="${n(t)}" width="4.8" height="11.6" rx="2.1" fill="#fbfcff" stroke-width="1.7"/>`
+    + `<path d="M${n(x + 1.3)} ${n(t + 1.4)}V${n(t + 10.4)}" fill="none" stroke="#dde2f2" stroke-width="1.3"/>`
+    + `<path d="M${n(x - 0.55)} ${n(t + 1.5)}h1.1v1.1h1.1v1.1h-1.1v1.1h-1.1v-1.1h-1.1v-1.1h1.1z" fill="#5a5f86" stroke="none"/>`
+    + `<circle cx="${x}" cy="${n(t + 6.1)}" r="1.15" fill="#4fb8ef" stroke-width=".8"/>`
+    + `<circle cx="${n(x - 0.35)}" cy="${n(t + 5.75)}" r=".35" fill="#fff" stroke="none"/>`
+    + `<g fill="#aeb6d4" stroke="none"><circle cx="${x}" cy="${n(t + 8.5)}" r=".5"/><circle cx="${x}" cy="${n(t + 9.9)}" r=".5"/></g>`
+    + '</g>';
+}
+
 const parts = {
   // ===== 帽子（頭のてっぺん y≈20、つばは耳の高さ y≈24） =====
   hat_cap: hat(
@@ -349,6 +411,57 @@ const parts = {
     + takedaBishi(51, 19.4, 1.05, '#c8323c')
     + sparkle(29.4, 8.4, 2.8) + sparkle(72.4, 6.4, 2.3) + sparkle(51, 6.4, 1.7)
   ),
+  // 卓球: 赤×白のスポーツ用ヘアバンド、横にピンポン球のワッペン
+  hat_pingpong_band: hat(
+    '<path d="M38.4 23.2Q51 26.8 63.8 22.8L64 29Q51 33 38.4 29.4z" fill="#e8424c"/>'
+    + '<path d="M38.45 24.9Q51 28.6 63.85 24.5M38.45 27.7Q51 31.4 63.95 27.3" fill="none" stroke="#fff" stroke-width="1"/>'
+    + '<circle cx="57.6" cy="27.4" r="3.6" fill="#fff7e8" stroke-width="1.6"/>'
+    + '<circle cx="57.6" cy="27.4" r="2.7" fill="none" stroke="#e8424c" stroke-width=".6" stroke-dasharray=".9 .7"/>'
+    + '<path d="M56.6 28.6l-1.6 1.6" fill="none" stroke="#b5845a" stroke-width="1.1"/>'
+    + '<circle cx="57.3" cy="27.7" r="1.5" fill="#e8424c" stroke-width=".8"/>'
+    + '<circle cx="59.2" cy="26" r=".95" fill="#ff9f40" stroke-width=".6"/>'
+    + hl('M40.6 25.4Q43.4 26.6 46 27', 1)
+  ),
+  // ヘアアイロン（UR）: ゆるふわ巻き髪のウィッグ。天使の輪のつや、ヘアアイロンのピン留め、きらめき
+  hat_curls: hat(
+    '<path d="M35.6 27.6Q32.4 23.4 35 19.6Q34.6 14 39.6 11.4Q42.6 6.2 48 6.6Q51 4.4 54 6.6Q59.4 6.2 62.4 11.4Q67.4 14 67 19.6Q69.6 23.4 66.4 27.6Q70.8 30.4 68.8 34.2Q71.6 37.8 68.8 41.4Q70 45.8 65.8 46.6Q62 46.6 62.2 43Q60.6 40.2 62.6 37.4Q60.8 34.4 62.4 31.2Q60.4 30.8 59.4 28.6Q57 31 54.6 28.8Q51.8 31.2 49 28.8Q46.2 31 43.6 28.6Q41.8 30.6 40.2 29.6Q41.6 32.8 39.8 35.4Q41.6 38.6 39.6 41.6Q40 45.8 36.2 46.6Q32.4 46.4 32.4 42.8Q30.6 39.6 33 36.4Q30.8 33 33.4 30.2Q33.6 28.4 35.6 27.6z" fill="#e0985e"/>'
+    // 右側（頭の後ろ）の影
+    + '<path d="M58.6 9.4Q60.8 9.9 62.4 11.4Q67.4 14 67 19.6Q69.6 23.4 66.4 27.6Q70.8 30.4 68.8 34.2Q71.6 37.8 68.8 41.4Q70 45.8 65.8 46.6Q67.6 43.4 66 40.8Q68 37.4 66 34.4Q67.4 30.6 63.8 28.6Q65 17 58.6 9.4z" fill="#c47943" stroke="none"/>'
+    // 巻きの筋
+    + '<path d="M45.4 8.8Q40.8 13.6 42.6 18.8Q44.2 23.4 42.2 27.6M51.4 7.4Q48.4 12.4 50.2 17.4Q51.8 22 49.6 27.6M57.4 9Q55.4 14 57.4 19Q59.2 23.6 57.4 27.4M36.4 31.2Q34.6 33.8 36.2 36.4Q37.8 39 36 41.8M65.6 31.2Q63.8 33.8 65.4 36.4Q67 39 65.2 41.8" fill="none" stroke="#b5683a" stroke-width=".9"/>'
+    // 毛先のくるん
+    + '<path d="M35 44.4a1.5 1.5 0 1 1 2.3 1M64.8 44.4a1.5 1.5 0 1 0 -2.3 1" fill="none" stroke="#b5683a" stroke-width=".9"/>'
+    // 天使の輪
+    + hl('M38.8 19.4Q40.4 15.6 43.8 13.8M46.6 12.6Q50.6 11.4 54.6 12.4', 1.7)
+    + hl('M33.8 34.4q.2-1.4 1.2-2.2M34 40q.1-1.2 1-2', 1)
+    // ヘアアイロンのピン留め（ピンクの持ち手・銀のプレート）
+    + '<g transform="rotate(-38 61.4 16.8)">'
+    + '<rect x="55.6" y="15.4" width="11.6" height="2.9" rx="1.45" fill="#ff8fbf" stroke-width="1.4"/>'
+    + '<path d="M55.7 16.85H61" fill="none" stroke="#d95c97" stroke-width=".6"/>'
+    + '<rect x="61" y="15.1" width="6.6" height="3.5" rx="1.2" fill="#e6eaf6" stroke-width="1.3"/>'
+    + '<path d="M61.8 16.85h5" fill="none" stroke="#aeb6d4" stroke-width=".6"/>'
+    + '<circle cx="57.4" cy="16.85" r=".55" fill="#ff4f6e" stroke="none"/>'
+    + '</g>'
+    + '<g fill="#fff" stroke="none"><circle cx="44.6" cy="22.4" r=".6"/><circle cx="54.4" cy="20.8" r=".5"/><circle cx="38" cy="25.6" r=".45"/></g>'
+    + sparkle(28.8, 16.4, 3.2) + sparkle(73.6, 23.4, 2.7) + sparkle(46, 2.2, 2.1) + sparkle(30.8, 46.4, 1.7)
+  ),
+  // インタビュー: 片耳ヘッドセット＋口元へ伸びる細いマイク
+  hat_headset: hat(
+    '<path d="M37.4 26.4C36.4 9 65.6 9 64.6 26" fill="none" stroke-width="4"/>'
+    + '<path d="M37.4 26.4C36.4 9 65.6 9 64.6 26" fill="none" stroke="#c3c9ee" stroke-width="2"/>'
+    + '<rect x="62.2" y="23.2" width="4.2" height="6.6" rx="1.8" fill="#ffa23a" stroke-width="1.7"/>'
+    // マイクのアーム（耳あてから口元へ）
+    + '<path d="M36.4 31.4Q36.6 38.6 43.4 39.6" fill="none" stroke-width="3"/>'
+    + '<path d="M36.4 31.4Q36.6 38.6 43.4 39.6" fill="none" stroke="#c3c9ee" stroke-width="1.2"/>'
+    + '<ellipse cx="44.4" cy="39.6" rx="2.2" ry="1.7" fill="#2a2350" stroke-width="1.2"/>'
+    + '<circle cx="43.7" cy="39" r=".45" fill="#8f98bf" stroke="none"/>'
+    // 耳あて
+    + '<rect x="32.8" y="22.6" width="7.4" height="10" rx="3.2" fill="#5a5f8e"/>'
+    + '<circle cx="36.5" cy="27.6" r="2.5" fill="#ffa23a" stroke-width="1.2"/>'
+    + '<circle cx="38.6" cy="24.4" r=".7" fill="#ff4f5e" stroke="none"/>'
+    + hl('M41 15.8Q44.6 12 50.6 11.6', 0.9)
+    + hl('M35.4 27q.2-.9 1.1-1.1', 0.8)
+  ),
 
   // ===== 顔（両目 (43.4, 37.0)・(49.9, 37.3) に重ねる） =====
   face_glasses: face(
@@ -482,6 +595,51 @@ const parts = {
     + '<circle cx="41.2" cy="37" r=".4" fill="#fff" stroke="none"/>'
     + sparkle(59.6, 30.4, 1.8, '#fff')
   ),
+  // ヘアアイロン: 前髪を留めるパッチンクリップ2つ（ピンクとミント）
+  face_hairclip: face(
+    '<g transform="translate(50.6 31.4) scale(1.32) translate(-50.1 -32.4)">'
+    + [[48.4, 31.2, '#ff8fbf', '#d95c97'], [51.8, 33.6, '#7fdcc4', '#3fae8e']].map(([x, y, c, d]) => `<g transform="rotate(-24 ${x} ${y})">`
+      + `<path d="M${n(x - 4)} ${y}Q${n(x - 4)} ${n(y - 1.5)} ${n(x - 2.4)} ${n(y - 1.5)}L${n(x + 3.4)} ${n(y - 0.7)}Q${n(x + 4.2)} ${y} ${n(x + 3.4)} ${n(y + 0.7)}L${n(x - 2.4)} ${n(y + 1.5)}Q${n(x - 4)} ${n(y + 1.5)} ${n(x - 4)} ${y}z" fill="${c}" stroke-width="1.3"/>`
+      + `<path d="M${n(x - 2.4)} ${y}L${n(x + 2.4)} ${y}" fill="none" stroke="${d}" stroke-width=".8"/>`
+      + `<circle cx="${n(x - 2.6)}" cy="${n(y - 0.5)}" r=".5" fill="#fff" stroke="none"/>`
+      + '</g>').join('')
+    + '</g>'
+  ),
+  // ダーツ（UR）: レンズがダーツの的になった金ぶちのゴーグル。右のレンズにダーツが刺さる
+  face_bullseye: face(
+    '<path d="M35.4 37.4L57.8 36.8" fill="none" stroke-width="3.6"/>'
+    + '<path d="M35.4 37.4L57.8 36.8" fill="none" stroke="#5a5f86" stroke-width="1.8"/>'
+    + '<path d="M45.4 36.4Q46.6 35.4 47.8 36.4" fill="none" stroke-width="3"/>'
+    + '<path d="M45.4 36.4Q46.6 35.4 47.8 36.4" fill="none" stroke="#ffd040" stroke-width="1.2"/>'
+    + [[41.6, 37.2], [51.6, 37.2]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.6" fill="none" stroke-width="3.4"/>${dartboard(x, y, 4.2)}<circle cx="${x}" cy="${y}" r="4.6" fill="none" stroke="#ffd040" stroke-width="1.3"/>`).join('')
+    + hl('M38.8 36.4q.5-1.8 2-2.4', 0.9)
+    // 右のレンズに刺さったダーツ（先・胴・羽根）
+    + '<g transform="rotate(-40 52.2 37)">'
+    + '<path d="M52.2 37L55 36.4V37.6z" fill="#e6eaf6" stroke-width="1"/>'
+    + '<rect x="54.8" y="35.8" width="4.4" height="2.4" rx="1" fill="#c9cfe8" stroke-width="1.2"/>'
+    + '<path d="M56.2 36v2M57.6 36v2" fill="none" stroke="#7d86ad" stroke-width=".55"/>'
+    + '<rect x="59" y="36.4" width="2.2" height="1.2" fill="#4fb8ef" stroke-width=".9"/>'
+    + '<path d="M60.6 37L64 33.2L65.8 33.6L64.2 37L65.8 40.4L64 40.8z" fill="#ff5c9a" stroke-width="1.2"/>'
+    + '<path d="M61.6 37H64.6" fill="none" stroke="#fff" stroke-width=".6"/>'
+    + '</g>'
+    + sparkle(36.4, 31.6, 2.6) + sparkle(62.6, 39.6, 2.1) + sparkle(47, 31.6, 1.4, '#fff')
+  ),
+  // インタビュー（SR）: 口元へ差し出されたハンドマイク（銀の網・金の輪・無地の角形フラッグ。文字は入れない）
+  face_mic: face(
+    '<g transform="translate(43.2 45) rotate(42) scale(1.2) translate(-43.4 -45.4)">'
+    + '<path d="M41.8 48.6L42.6 60.4Q43.4 61.4 44.2 60.4L45 48.6z" fill="#3b3560" stroke-width="1.8"/>'
+    + '<path d="M44.2 50L43.8 59.6" fill="none" stroke="#6f69a6" stroke-width=".7"/>'
+    + '<rect x="40.2" y="50.4" width="6.4" height="4.8" rx=".7" fill="#e8424c" stroke-width="1.3"/>'
+    + '<path d="M41 51.5H45.8" fill="none" stroke="#ff9a9e" stroke-width=".8"/>'
+    + '<path d="M45.6 51.6V54.4" fill="none" stroke="#b52d3f" stroke-width=".8"/>'
+    + '<rect x="41.2" y="47.4" width="4.4" height="1.8" rx=".6" fill="#ffd040" stroke-width="1.2"/>'
+    + '<circle cx="43.4" cy="45.4" r="3" fill="#dfe4f2" stroke-width="1.5"/>'
+    + '<path d="M41.1 44.4Q43.4 43.6 45.7 44.4M41.1 46.4Q43.4 47.2 45.7 46.4M42.3 43.1Q42 45.4 42.3 47.7M44.5 43.1Q44.8 45.4 44.5 47.7" fill="none" stroke="#8f98bf" stroke-width=".55"/>'
+    + '<path d="M45.6 47.6A3 3 0 0 1 41 47.6A2.6 2.6 0 0 0 45.6 47.6z" fill="#aeb6d4" stroke="none"/>'
+    + hl('M41.2 44.4q.4-1.4 1.8-1.8', 0.9)
+    + '</g>'
+    + sparkle(39.2, 41.4, 1.6, '#fff') + sparkle(32.4, 45.8, 1.8)
+  ),
 
   // ===== 首まわり（あご y≈43.5 の下、首元の中心 x≈50。neck() で 1.22 倍） =====
   neck_muffler: neck(
@@ -561,7 +719,68 @@ const parts = {
       // 風・林・火・山の4文字を、金の小さな紋様として左右の布に2つずつ
       + [[35.2, 55.6], [33.6, 60.6], [65.8, 55.6], [67.4, 60.6]].map(([x, y]) => `<g fill="none" stroke="#ffd040" stroke-width=".7"><rect x="${n(x - 1.3)}" y="${n(y - 1.4)}" width="2.6" height="2.8" rx=".3"/><path d="M${n(x - 1.3)} ${y}H${n(x + 1.3)}M${x} ${n(y - 1.4)}V${n(y + 1.4)}"/></g>`).join('')
       + sparkle(26, 56, 2.2) + sparkle(75.4, 52, 1.9) + sparkle(55.6, 45.6, 1.4)
-  }))
+  })),
+  // 麻雀: 赤いひもに牌を5つ（二筒・索子・中・一筒・索子）
+  neck_mahjong: neck((() => {
+    const P = [[41.4, 43.6], [50.5, 53.4], [59.6, 43]];
+    let s = '<path d="M41.4 43.6Q50.5 53.4 59.6 43" fill="none" stroke-width="2"/>'
+      + '<path d="M41.4 43.6Q50.5 53.4 59.6 43" fill="none" stroke="#e8424c" stroke-width=".9"/>';
+    const tiles = [[0.15, 3.4, 4.4, mjPin2], [0.32, 3.4, 4.4, mjSou], [0.5, 4.4, 5.6, mjChun], [0.68, 3.4, 4.4, mjPin1], [0.85, 3.4, 4.4, mjSou]];
+    for (const [t, w, h, f] of tiles) {
+      const [x, y] = qpt(...P, t);
+      const dx = 2 * (1 - t) * (P[1][0] - P[0][0]) + 2 * t * (P[2][0] - P[1][0]);
+      const dy = 2 * (1 - t) * (P[1][1] - P[0][1]) + 2 * t * (P[2][1] - P[1][1]);
+      s += mjTile(x, y, (Math.atan2(dy, dx) * 180) / Math.PI, w, h, f);
+    }
+    return s;
+  })()),
+  // ダーツ: 細い銀のチェーンにダーツの矢のチャーム（先が下）
+  neck_dart: neck(
+    '<path d="M41.6 43.6Q50.4 54 59.4 43" fill="none" stroke-width="1.8"/>'
+    + '<path d="M41.6 43.6Q50.4 54 59.4 43" fill="none" stroke="#e6eaf6" stroke-width=".8" stroke-dasharray="1.1 .6"/>'
+    + '<g transform="translate(50.4 48.8) rotate(10) scale(1.2) translate(-50.4 -48.8)">'
+    + '<circle cx="50.4" cy="48.8" r="1.1" fill="none" stroke-width=".9"/>'
+    + '<path d="M50.4 50L53.2 51.6L52.8 54.8L50.4 53.8L48 54.8L47.6 51.6z" fill="#ff5c7a" stroke-width="1.2"/>'
+    + '<path d="M50.4 50.4V53.6" fill="none" stroke="#ffd2dc" stroke-width=".7"/>'
+    + '<rect x="49.95" y="53.8" width=".9" height="2.2" fill="#4fb8ef" stroke-width=".7"/>'
+    + '<rect x="49.3" y="55.8" width="2.2" height="4" rx=".9" fill="#c9cfe8" stroke-width="1.1"/>'
+    + '<path d="M49.5 57.2h1.8M49.5 58.5h1.8" fill="none" stroke="#7d86ad" stroke-width=".5"/>'
+    + '<path d="M49.9 59.8H50.9L50.4 62.8z" fill="#e6eaf6" stroke-width=".9"/>'
+    + '</g>'
+  ),
+  // 体を動かすゲーム（UR）: 白いリモコンを首から下げ、振った軌跡（汎用の白いリモコン。商標・ロゴ・固有の意匠は入れない）
+  neck_remote: neck(
+    '<path d="M42 44Q46 48.6 50.4 50.4Q55 48.4 59 43.4" fill="none" stroke-width="2.4"/>'
+    + '<path d="M42 44Q46 48.6 50.4 50.4Q55 48.4 59 43.4" fill="none" stroke="#4fb8ef" stroke-width="1.1"/>'
+    // 軌跡
+    + '<path d="M60.4 56.6Q58.6 61.2 55.2 63M63 54.4Q61.2 61.6 55.6 65.4M57.6 58Q56.6 60.6 54.6 61.6" fill="none" stroke="#fff" stroke-width="2.6" opacity=".9"/>'
+    + '<path d="M60.4 56.6Q58.6 61.2 55.2 63M63 54.4Q61.2 61.6 55.6 65.4M57.6 58Q56.6 60.6 54.6 61.6" fill="none" stroke="#8fd8f0" stroke-width="1.2"/>'
+    + '<rect x="48" y="51" width="4.8" height="11.6" rx="2.1" transform="rotate(-28 50.4 50.4)" fill="#fff" fill-opacity=".45" stroke="#8fd8f0" stroke-width="1" stroke-dasharray="1.6 1"/>'
+    + wand(50.4, 50.4, 18)
+    + '<circle cx="50.4" cy="50.4" r="1.1" fill="#4fb8ef" stroke-width=".9"/>'
+    + sparkle(62.6, 63.4, 2.4) + sparkle(38.4, 54.4, 2) + sparkle(65.4, 49, 1.5)
+  ),
+  // パーソナルカラー診断（SR）: 首元にかける診断ドレープ。春・夏・秋・冬の4色が扇形に重なる
+  neck_drape: neck((() => {
+    const cx = 50.5;
+    const cy = 45;
+    const R = 13.4;
+    const blades = [[150, '#ff9e7d', '#ffc7b0'], [116, '#a9b8f2', '#d6defb'], [82, '#c8873a', '#e6b072'], [48, '#d6337f', '#f27bb0']];
+    let s = '';
+    for (const [deg, c, lite] of blades) {
+      const a = (deg * Math.PI) / 180;
+      const h = (21 * Math.PI) / 180;
+      s += `<path d="M${polar(cx, cy, 2, a - h)}L${polar(cx, cy, R, a - h)}Q${polar(cx, cy, R + 1.6, a)} ${polar(cx, cy, R, a + h)}L${polar(cx, cy, 2, a + h)}z" fill="${c}" stroke-width="1.5"/>`
+        + `<path d="M${polar(cx, cy, 5, a + h * 0.45)}L${polar(cx, cy, R - 1.4, a + h * 0.55)}" fill="none" stroke="${lite}" stroke-width="1"/>`;
+    }
+    return s
+      + '<path d="M41.4 43.4Q50.6 49.4 59.6 42.8L60.2 46Q50.6 52.6 40.8 46.6z" fill="#fbfcff" stroke-width="1.7"/>'
+      + '<path d="M42 45.2Q50.6 50.8 59.8 44.6" fill="none" stroke="#c9cde6" stroke-width=".7"/>'
+      + '<rect x="48.6" y="47" width="4.2" height="3.4" rx="1" fill="#dfe4f2" stroke-width="1.3"/>'
+      + '<path d="M49.4 48.7h2.6" fill="none" stroke="#8f98bf" stroke-width=".6"/>'
+      + '<circle cx="49.6" cy="47.9" r=".45" fill="#fff" stroke="none"/>'
+      + sparkle(54.8, 46.2, 1.6, '#fff') + sparkle(64.4, 57.8, 1.9);
+  })())
 };
 
 export function renderAccessory(item, slot) {
@@ -573,6 +792,100 @@ export function renderAccessory(item, slot) {
 // 平塗り中心。相棒（黄色と紺）が前に出るよう、真ん中は明るめにし、黄色の面は避ける。
 const cloud = (x, y, s, fill = '#fff') => `<path d="M${n(x - 9 * s)} ${n(y)}a${n(4 * s)} ${n(4 * s)} 0 0 1 ${n(4 * s)} ${n(-4 * s)}a${n(5 * s)} ${n(5 * s)} 0 0 1 ${n(9 * s)} ${n(-2 * s)}a${n(4 * s)} ${n(4 * s)} 0 0 1 ${n(5 * s)} ${n(6 * s)}z" fill="${fill}"/>`;
 const dots = (list, fill, r = 0.8) => list.map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr || r}" fill="${fill}"/>`).join('');
+
+// ---- 背景: Miacis の遊び（麻雀・ダーツ・ゲーム大会・インタビュー）の部品（帽子の mjTile・dartboard とは別物） ----
+/** 中心 (cx, cy) から放射状に伸びる光（背景用。オーラの rays と同じ形） */
+function bgBurst(cx, cy, count, inner, outer, width, fill, opacity) {
+  const p = (r, t) => `${n(cx + r * Math.cos(t))} ${n(cy + r * Math.sin(t))}`;
+  let d = '';
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2;
+    d += `M${p(inner, a)}L${p(outer, a - width / 2)}L${p(outer, a + width / 2)}z`;
+  }
+  return `<path d="${d}" fill="${fill}" opacity="${opacity}"/>`;
+}
+
+const BG_MJ_BACK = '#3f7fe0';
+/** 表向きの麻雀牌（左上 (x, y)、幅 6.2・高さ 8.2。下に背の色の厚み）。kind: chun 中 / hatsu 發 / haku 白 / pin 一筒 */
+function bgTile(x, y, kind) {
+  const cx = x + 3.1;
+  const cy = y + 4.1;
+  const P = (dx, dy) => `${n(cx + dx)} ${n(cy + dy)}`;
+  const mark = {
+    chun: `<path d="M${P(-1.8, -1.4)}h3.6v2.5h-3.6zM${P(0, -3)}V${n(cy + 3)}" fill="none" stroke="#e23a44" stroke-width="1"/>`,
+    hatsu: `<path d="M${P(-2, -2.2)}h4M${P(-1.1, -3.1)}l-.9 1.6M${P(1.1, -3.1)}l.9 1.6M${P(-2, -0.5)}h1.6v3h-1.6M${P(0.4, -0.5)}l1.6 3.1M${P(2, -0.5)}l-1.6 3.1" fill="none" stroke="#17944c" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round"/>`,
+    haku: `<rect x="${n(cx - 2)}" y="${n(cy - 2.8)}" width="4" height="5.6" rx=".5" fill="none" stroke="${BG_MJ_BACK}" stroke-width=".7"/>`,
+    pin: `<circle cx="${n(cx)}" cy="${n(cy)}" r="2.3" fill="#fff" stroke="#2f6fd0" stroke-width=".7"/><circle cx="${n(cx)}" cy="${n(cy)}" r="1.3" fill="#e23a44"/><circle cx="${n(cx)}" cy="${n(cy)}" r=".45" fill="#fff"/>`
+  }[kind];
+  return `<rect x="${n(x)}" y="${n(y + 1.6)}" width="6.2" height="8.2" rx="1.1" fill="${BG_MJ_BACK}" stroke="${INK}" stroke-width=".7"/>`
+    + `<rect x="${n(x)}" y="${n(y)}" width="6.2" height="8.2" rx="1.1" fill="#fffaf0" stroke="${INK}" stroke-width=".7"/>${mark}`;
+}
+
+/** 伏せた牌の山（左上 (x, y) から count 枚を横に並べる。手前に牌の白い腹） */
+function bgWall(x, y, count) {
+  const w = count * 4.4;
+  let d = '';
+  for (let i = 1; i < count; i++) d += `M${n(x + i * 4.4)} ${n(y + 0.6)}v4.2`;
+  return `<rect x="${n(x)}" y="${n(y + 1.4)}" width="${n(w)}" height="5.4" rx="1" fill="#f6ead0" stroke="${INK}" stroke-width=".7"/>`
+    + `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="5.4" rx="1" fill="${BG_MJ_BACK}" stroke="${INK}" stroke-width=".7"/>`
+    + `<path d="${d}" fill="none" stroke="#2a5cb8" stroke-width=".6"/>`
+    + `<path d="M${n(x + 1.2)} ${n(y + 1.3)}H${n(x + w - 1.2)}" fill="none" stroke="#a8ccff" stroke-width=".6" stroke-linecap="round"/>`;
+}
+
+/** さいころ（中心 (x, y)、rot 度。pips は [dx, dy, 色] の目） */
+const bgDie = (x, y, rot, pips) => `<g transform="rotate(${rot} ${x} ${y})"><rect x="${n(x - 2.4)}" y="${n(y - 2.4)}" width="4.8" height="4.8" rx="1.1" fill="#fff" stroke="${INK}" stroke-width=".7"/>`
+  + pips.map(([dx, dy, c]) => `<circle cx="${n(x + dx)}" cy="${n(y + dy)}" r="${c ? 0.9 : 0.5}" fill="${c || INK}"/>`).join('') + '</g>';
+
+/** 壁のダーツボード（中心 (x, y)、半径 r） */
+function bgDartboard(x, y, r) {
+  const p = (rr, a) => `${n(x + rr * Math.cos(a))} ${n(y + rr * Math.sin(a))}`;
+  const seg = (r0, r1, a0, a1) => `M${p(r0, a0)}L${p(r1, a0)}A${n(r1)} ${n(r1)} 0 0 1 ${p(r1, a1)}L${p(r0, a1)}${r0 > 0 ? `A${n(r0)} ${n(r0)} 0 0 0 ${p(r0, a0)}` : ''}z`;
+  const paint = { dark: '', light: '', red: '', green: '' };
+  for (let i = 0; i < 20; i++) {
+    const a0 = ((i - 0.5) / 20) * Math.PI * 2 - Math.PI / 2;
+    const a1 = a0 + Math.PI / 10;
+    paint[i % 2 ? 'light' : 'dark'] += seg(0, r * 0.8, a0, a1);
+    paint[i % 2 ? 'green' : 'red'] += seg(r * 0.8, r * 0.92, a0, a1) + seg(r * 0.47, r * 0.58, a0, a1);
+  }
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="#1c1840" stroke="${INK}" stroke-width=".9"/>`
+    + `<path d="${paint.dark}" fill="#2e2a52"/><path d="${paint.light}" fill="#f6e8c8"/><path d="${paint.red}" fill="#ec4452"/><path d="${paint.green}" fill="#2fb06c"/>`
+    + `<circle cx="${x}" cy="${y}" r="${n(r * 0.15)}" fill="#2fb06c"/><circle cx="${x}" cy="${y}" r="${n(r * 0.07)}" fill="#ec4452"/>`
+    + `<path d="M${p(r * 0.96, -2.6)}A${n(r * 0.96)} ${n(r * 0.96)} 0 0 1 ${p(r * 0.96, -1.9)}" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".7"/>`;
+}
+
+/** 刺さった矢（先 (x, y) から ang 度の向きに手前へ伸びる。flight は羽の色） */
+function bgDart(x, y, ang, len, flight) {
+  const t = (ang * Math.PI) / 180;
+  const ux = Math.cos(t);
+  const uy = Math.sin(t);
+  const P = (d, s = 0) => `${n(x + ux * d - uy * s)} ${n(y + uy * d + ux * s)}`;
+  return `<path d="M${P(0.3)}L${P(len * 0.66)}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+    + `<path d="M${P(0.5)}L${P(len * 0.3)}" fill="none" stroke="#e4e9f4" stroke-width="1" stroke-linecap="round"/>`
+    + `<path d="M${P(len * 0.3)}L${P(len * 0.64)}" fill="none" stroke="#9aa6c8" stroke-width="1.4"/>`
+    + `<path d="M${P(len * 0.6)}L${P(len, -2.4)}L${P(len * 0.9)}L${P(len, 2.4)}z" fill="${flight}" stroke="${INK}" stroke-width=".7" stroke-linejoin="round"/>`;
+}
+
+/** ネオン管（にじんだ光の太線＋色の芯＋白い芯） */
+const bgNeon = (d, c) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="4" opacity=".28" stroke-linecap="round" stroke-linejoin="round"/>`
+  + `<path d="${d}" fill="none" stroke="${c}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+  + `<path d="${d}" fill="none" stroke="#fff" stroke-width=".5" opacity=".85" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+/** ボウリングのピン（下の中心 (x, y)、高さ h） */
+function bgPin(x, y, h) {
+  const s = h / 10;
+  const P = (dx, dy) => `${n(x + dx * s)} ${n(y + dy * s)}`;
+  return `<path d="M${P(-1.1, 0)}C${P(-2.3, -2.4)} ${P(-2.1, -4.6)} ${P(-0.9, -6.2)}C${P(-0.6, -6.8)} ${P(-1.4, -7.8)} ${P(-1.1, -8.8)}A${n(1.15 * s)} ${n(1.15 * s)} 0 0 1 ${P(1.1, -8.8)}C${P(1.4, -7.8)} ${P(0.6, -6.8)} ${P(0.9, -6.2)}C${P(2.1, -4.6)} ${P(2.3, -2.4)} ${P(1.1, 0)}z" fill="#fff" stroke="${INK}" stroke-width="${n(Math.max(0.5, 0.11 * h))}" stroke-linejoin="round"/>`
+    + `<path d="M${P(-0.8, -6.5)}L${P(0.8, -6.5)}M${P(-0.95, -7.3)}L${P(0.95, -7.3)}" fill="none" stroke="#e23a44" stroke-width="${n(0.45 * s)}"/>`;
+}
+
+/** 風船（中心 (x, y)、半径 r。ひもは (tx, ty) まで） */
+const bgBalloon = (x, y, r, fill, tx, ty) => `<path d="M${x} ${n(y + r * 1.15)}Q${n(x - 2)} ${n((y + ty) / 2 + 2)} ${tx} ${ty}" fill="none" stroke="#b9a0c8" stroke-width=".8"/>`
+  + `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${n(r * 1.15)}" fill="${fill}"/>`
+  + `<path d="M${n(x - 1)} ${n(y + r * 1.25)}h2l-1-1.2z" fill="${fill}"/>`
+  + `<ellipse cx="${n(x - r * 0.4)}" cy="${n(y - r * 0.45)}" rx="${n(r * 0.22)}" ry="${n(r * 0.34)}" transform="rotate(25 ${n(x - r * 0.4)} ${n(y - r * 0.45)})" fill="#fff" opacity=".75"/>`;
+
+/** 紙吹雪（[x, y, 回転, 色] の小さな紙） */
+const bgConfetti = (list) => list.map(([x, y, rot, c]) => `<rect x="${n(x - 1.3)}" y="${n(y - 0.7)}" width="2.6" height="1.4" rx=".3" transform="rotate(${rot} ${x} ${y})" fill="${c}"/>`).join('');
 
 const backgrounds = {
   bg_green: '<rect width="100" height="100" fill="#d4f0fb"/>'
@@ -798,7 +1111,106 @@ const backgrounds = {
     // 流れ星と星
     + '<path d="M62 6L44 16" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".75"/>'
     + dots([[8, 18, 1], [22, 8], [40, 30, 0.6], [12, 50, 0.7], [90, 44, 1], [84, 58, 0.6], [92, 86, 0.8], [56, 92, 0.7], [36, 88, 0.6], [6, 92, 0.6], [62, 30, 0.5], [32, 58, 0.5], [70, 50, 0.5]], '#fff', 0.8)
-    + sparkle(36, 14, 2.4, '#fff') + sparkle(90, 72, 2.2, '#fff') + sparkle(12, 36, 1.8, '#fff') + sparkle(66, 88, 1.6, '#fff')
+    + sparkle(36, 14, 2.4, '#fff') + sparkle(90, 72, 2.2, '#fff') + sparkle(12, 36, 1.8, '#fff') + sparkle(66, 88, 1.6, '#fff'),
+
+  // --- Miacis の遊び ---
+  // 上から見た雀卓。役満（大三元）が決まった瞬間、真ん中から金の光があふれる
+  bg_mahjong: '<rect width="100" height="100" fill="#9a6440"/>'
+    + '<rect x="5" y="5" width="90" height="90" rx="11" fill="#c98f5e"/>'
+    + '<rect x="8" y="8" width="84" height="84" rx="8.6" fill="#1f7f55"/>'
+    + '<circle cx="50" cy="52" r="40" fill="#28925f"/><circle cx="50" cy="52" r="31" fill="#33a36c"/>'
+    + bgBurst(50, 52, 18, 8, 41, 0.15, '#ffe27a', 0.5)
+    + '<circle cx="50" cy="52" r="26" fill="#fff0a0" opacity=".32"/><circle cx="50" cy="52" r="17" fill="#fff8d6" opacity=".5"/>'
+    // 伏せた牌の山（上・左・右。白い腹を卓の内側へ）
+    + bgWall(28, 8.6, 10)
+    + `<g transform="rotate(-90 12 50)">${bgWall(-10, 47.3, 10)}</g>`
+    + `<g transform="rotate(90 88 50)">${bgWall(66, 47.3, 10)}</g>`
+    // さいころとリーチ棒
+    + bgDie(25, 21, -14, [[0, 0, '#e23a44']]) + bgDie(30.6, 24.6, 10, [[-1.3, -1.3], [0, 0], [1.3, 1.3]])
+    + '<g transform="rotate(24 74 22)"><rect x="68" y="21.1" width="12" height="1.8" rx=".9" fill="#fff" stroke="' + INK + '" stroke-width=".6"/><circle cx="74" cy="22" r=".6" fill="#e23a44"/></g>'
+    // 倒した手牌: 中中中・發發發。後ろに金の光だまり
+    + '<ellipse cx="24" cy="77" rx="15" ry="8" fill="#ffe27a" opacity=".55"/><ellipse cx="76" cy="77" rx="15" ry="8" fill="#ffe27a" opacity=".55"/>'
+    + `<g transform="rotate(16 24 76)">${bgTile(14, 71, 'chun') + bgTile(20.6, 71, 'chun') + bgTile(27.2, 71, 'chun')}</g>`
+    + `<g transform="rotate(-16 76 76)">${bgTile(66.6, 71, 'hatsu') + bgTile(73.2, 71, 'hatsu') + bgTile(79.8, 71, 'hatsu')}</g>`
+    + dots([[18, 62, 0.9], [34, 66, 0.7], [66, 64, 0.8], [84, 62, 0.9], [40, 88, 0.7], [60, 90, 0.8], [16, 40, 0.6], [84, 36, 0.6]], '#fff6c0')
+    + sparkle(13, 67, 2.6, '#fff8d0') + sparkle(87, 66, 2.4, '#fff8d0') + sparkle(32, 88, 1.8, '#fff8d0') + sparkle(70, 89, 1.6, '#fff8d0') + sparkle(80, 30, 1.6, '#fff8d0'),
+
+  // ダーツバーの壁。ネオンの光と、ボードに刺さった矢
+  bg_dartsbar: '<rect width="100" height="100" fill="#272361"/>'
+    + '<circle cx="50" cy="46" r="40" fill="#302c78"/>'
+    + '<path d="M14 0V80M30 0V80M70 0V80M86 0V80" fill="none" stroke="#211d56" stroke-width="1.2"/>'
+    // ボードのまわりのネオンの輪とボード
+    + '<circle cx="82" cy="38" r="15" fill="#4ff0ff" opacity=".1"/>'
+    + bgNeon('M67 38a15 15 0 1 0 30 0a15 15 0 1 0-30 0', '#4fe6ff')
+    + bgDartboard(82, 38, 11.6)
+    + bgDart(82, 38, 200, 8.6, '#ff5fb0') + bgDart(85.4, 33, 230, 8, '#ffe066') + bgDart(84, 43.4, 150, 8, '#4fe6ff')
+    // ネオンの矢（左）・ジグザグ（上）・星（左下）
+    + bgNeon('M9 54L28 33M22.6 33.4L28 33L27.4 38.4M12.8 49.8l-3.6.5M12.8 49.8l-.2 3.6M15.2 47.2l-3.6.5M15.2 47.2l-.2 3.6', '#ff5fb0')
+    + bgNeon('M28 9l3.6 3.6 3.6-3.6 3.6 3.6 3.6-3.6', '#ff5fb0')
+    + bgNeon(star(19, 68, 5, 2.3), '#ffe066')
+    + dots([[40, 6, 0.6], [6, 34, 0.7], [56, 66, 0.5], [34, 70, 0.6], [94, 62, 0.6]], '#fff', 0.6)
+    // カウンター（ネオンが映る）
+    + '<path d="M-4 80H104V100H-4z" fill="#5f3a3a"/>'
+    + '<rect x="-4" y="78" width="108" height="4" fill="#a2624c"/><path d="M-4 79.2H104" fill="none" stroke="#d68e6c" stroke-width=".9"/>'
+    + '<path d="M70 86h12M74 90h6M14 86h10M18 90h4" fill="none" stroke-width="1.2" stroke-linecap="round" opacity=".55" stroke="#4fe6ff"/>'
+    + '<path d="M34 87h6M60 88h4" fill="none" stroke-width="1.2" stroke-linecap="round" opacity=".5" stroke="#ff5fb0"/>',
+
+  // リビングでゲーム大会。テレビの中でストライク、床にクッション、紙吹雪
+  bg_gameparty: '<rect width="100" height="100" fill="#ffe2cf"/>'
+    + '<circle cx="50" cy="46" r="38" fill="#fff0e4"/>'
+    // ガーランド
+    + '<path d="M-4 12Q50 30 104 12" fill="none" stroke="#c99a8a" stroke-width=".8"/>'
+    + [0.14, 0.24, 0.34, 0.66, 0.76, 0.86].map((t, i) => {
+      const [x, y] = qpt([-4, 12], [50, 30], [104, 12], t);
+      return `<path d="M${n(x - 2.6)} ${n(y - 0.4)}L${n(x + 2.6)} ${n(y + 0.4)}L${n(x + 0.2)} ${n(y + 5.6)}z" fill="${['#ff6f8f', '#4fc3f7', '#7fd36a', '#ffb347', '#b48cff', '#ff6f8f'][i]}"/>`;
+    }).join('')
+    // 風船（右）
+    + bgBalloon(80, 30, 5.6, '#ff7fa8', 84, 60) + bgBalloon(90, 42, 4.8, '#5fc8ff', 85, 60) + bgBalloon(73, 19, 4, '#b48cff', 83, 60)
+    // 床とラグ
+    + '<rect y="66" width="100" height="3" fill="#fff"/>'
+    + '<rect y="69" width="100" height="31" fill="#f0c294"/>'
+    + '<path d="M0 76H100M0 85H100M0 94H100M20 69v7M60 76v9M34 85v9M80 69v7M74 94v6" fill="none" stroke="#dfab78" stroke-width=".8"/>'
+    + '<ellipse cx="50" cy="89" rx="42" ry="9" fill="#ffb3c6"/><ellipse cx="50" cy="89" rx="34" ry="6.4" fill="none" stroke="#ffd3df" stroke-width="1.4"/>'
+    // テレビ台とテレビ（中はボウリングのストライク）
+    + '<rect x="3" y="54" width="34" height="6" rx="1.2" fill="#c98f5e"/><rect x="5" y="60" width="3" height="4" fill="#a8704a"/><rect x="32" y="60" width="3" height="4" fill="#a8704a"/>'
+    + '<rect x="6" y="32" width="29" height="21.6" rx="2.4" fill="#3b3570"/>'
+    + '<rect x="8.2" y="34.2" width="24.6" height="17.2" rx="1.2" fill="#7fb6ff"/>'
+    + '<path d="M8.2 45H32.8V51.4H8.2z" fill="#ffd9a0"/><path d="M12 51.4L17 45M29 51.4L24 45" fill="none" stroke="#e6b47a" stroke-width=".6"/>'
+    + `<path d="${star(20.5, 41.4, 7, 3.4)}" fill="#fff3a0"/>`
+    + bgPin(16.6, 47, 6) + bgPin(24.4, 47, 6) + bgPin(20.5, 48.6, 6.8)
+    + '<circle cx="11.4" cy="49" r="1.9" fill="#ff5f8f"/><path d="M7.6 48h1.6M7.2 50h1.8" fill="none" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>'
+    + '<path d="M26.6 35.6l3.6 3.6M28.8 35.6l3 3" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".6"/>'
+    // クッション
+    + '<g transform="rotate(-10 18 80)"><rect x="8" y="75" width="20" height="10" rx="4.4" fill="#6fc3ff"/><path d="M10 80h16" fill="none" stroke="#4fa6e6" stroke-width=".8"/><circle cx="18" cy="80" r="1" fill="#4fa6e6"/></g>'
+    + '<g transform="rotate(8 82 81)"><rect x="73" y="76" width="18" height="10" rx="4.4" fill="#ff9a6a"/><path d="M75 81h14" fill="none" stroke="#f07a46" stroke-width=".8"/><circle cx="82" cy="81" r="1" fill="#f07a46"/></g>'
+    // 紙吹雪
+    + bgConfetti([[12, 22, 20, '#ff6f8f'], [26, 26, -30, '#4fc3f7'], [70, 30, 40, '#ffb347'], [92, 24, -20, '#7fd36a'], [8, 50, 60, '#b48cff'], [94, 56, -50, '#ff6f8f'], [38, 62, 30, '#ffb347'], [66, 58, 70, '#4fc3f7'], [36, 12, -60, '#7fd36a'], [62, 10, 15, '#b48cff'], [40, 30, 80, '#ff6f8f'], [64, 44, -40, '#7fd36a'], [22, 64, 10, '#4fc3f7']])
+    + dots([[30, 18, 0.7], [56, 20, 0.6], [86, 50, 0.7], [16, 58, 0.6]], '#ffb347')
+    + sparkle(36, 40, 1.8, '#fff') + sparkle(66, 24, 1.6, '#fff8d0'),
+
+  // インタビューのスタジオ。背景パネル、上から2本のスポットライト、相棒に向いたマイク
+  bg_interview: '<rect width="100" height="100" fill="#221f63"/>'
+    + [-8, 16, 40, 64, 88].map((x) => [-6, 18, 42].map((y) => `<rect x="${x}" y="${y}" width="22" height="22" rx="1.6" fill="#2c2878"/><path d="M${x + 1.4} ${y + 1.2}h19.2" fill="none" stroke="#3b379a" stroke-width=".8"/>`
+      + `<path d="M${x + 11} ${y + 8.6}l.7 1.7 1.7.7-1.7.7-.7 1.7-.7-1.7-1.7-.7 1.7-.7z" fill="#3e3aa0"/>`).join('')).join('')
+    // 床
+    + '<path d="M-4 66H104V100H-4z" fill="#191650"/><path d="M-4 66H104" fill="none" stroke="#3d3a9c" stroke-width="1.2"/>'
+    // スポットライトの光（外側の淡い光＋内側の明るい光）。真ん中で重なって相棒を照らす
+    + '<path d="M22 12L30 8.6L72 96L24 96z" fill="#fff3c4" opacity=".12"/><path d="M78 12L70 8.6L28 96L76 96z" fill="#fff3c4" opacity=".12"/>'
+    + '<path d="M24 11.6L28.4 9.6L62 96L34 96z" fill="#fff3c4" opacity=".16"/><path d="M76 11.6L71.6 9.6L38 96L66 96z" fill="#fff3c4" opacity=".16"/>'
+    + '<ellipse cx="50" cy="86" rx="32" ry="7.6" fill="#fff3c4" opacity=".26"/><ellipse cx="50" cy="86" rx="20" ry="4.6" fill="#fffbe6" opacity=".4"/>'
+    // ライト本体
+    + [[26, 10, -24], [74, 10, 24]].map(([x, y, r]) => `<g transform="rotate(${r} ${x} ${y})"><circle cx="${x}" cy="${y + 4}" r="5" fill="#fff3c4" opacity=".3"/><rect x="${x - 4}" y="${y - 4}" width="8" height="7" rx="1.6" fill="#141138"/><rect x="${x - 4.6}" y="${y + 2.2}" width="9.2" height="2.2" rx="1.1" fill="#fff8dc"/><path d="M${x - 5.6} ${y + 1}V${y - 2}Q${x} ${y - 7} ${x + 5.6} ${y - 2}V${y + 1}" fill="none" stroke="#141138" stroke-width="1"/></g>`).join('')
+    // マイクスタンドのシルエット（右。ふちに光）
+    + ['#8f8af0', '#0d0b2c'].map((c, i) => `<path d="M86 90L80 95M86 90L92 95M86 90V57M86 58.4L79 54.6" fill="none" stroke="${c}" stroke-width="${i ? 1.6 : 3}" stroke-linecap="round"/>`
+      + `<g transform="rotate(28.5 76 53)"><rect x="${i ? 70.6 : 69.9}" y="${i ? 50.8 : 50.1}" width="${i ? 9.4 : 10.8}" height="${i ? 4.4 : 5.8}" rx="${i ? 2.2 : 2.9}" fill="${c}"/></g>`).join('')
+    + '<path d="M72.4 50.4q.8-1.3 2.2-1.6" fill="none" stroke="#c9c4ff" stroke-width=".8" stroke-linecap="round"/>'
+    // ON AIR のランプ（左の壁）
+    + '<rect x="6.4" y="42" width="17" height="7" rx="1.6" fill="#ff4f6a" opacity=".3"/>'
+    + '<rect x="7.4" y="43" width="15" height="5" rx="1.2" fill="#ff4f6a" stroke="#ffd0d8" stroke-width=".6"/>'
+    + '<text x="14.9" y="46.7" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="3.4" fill="#fff">ON AIR</text>'
+    // 光の粒
+    + dots([[32, 28, 0.6], [38, 44, 0.5], [66, 34, 0.6], [70, 22, 0.5], [58, 62, 0.5], [42, 70, 0.6], [30, 56, 0.4], [72, 60, 0.4], [48, 10, 0.5]], '#fffbe6', 0.5)
+    + sparkle(33, 38, 1.8, '#fffbe6') + sparkle(68, 28, 2, '#fffbe6') + sparkle(14, 58, 1.4, '#fffbe6') + sparkle(55, 74, 1.4, '#fffbe6')
 };
 
 /** 背景 id ごとの風景 SVG。未知の id は空文字（呼び出し側でグラデーションに倒れる） */
@@ -887,6 +1299,117 @@ function snowflake(x, y, r) {
 const FLAKES = [[15, 26, 6], [86, 22, 5.2], [9, 60, 4.4], [90, 62, 6.4], [25, 90, 4.8], [76, 90, 5.2], [50, 4, 3.8]];
 const SHARDS = [[26, 12, 3, 20], [93, 42, 2.6, -20], [7, 80, 2.8, 30], [60, 97, 2.4, -10], [40, 97, 2, 15]];
 
+// ---- オーラ: Miacis の遊び（卓球・ヘアアイロン・パーソナルカラー）の部品 ----
+/** (50, 50) 中心・半径 r の円の上の点（deg は度。0 が右、時計回り）。動く層はこの中心で回る */
+const auAt = (r, deg) => [50 + r * Math.cos((deg * Math.PI) / 180), 50 + r * Math.sin((deg * Math.PI) / 180)];
+/** 同じ中心の円弧（d0 → d1 を時計回り。180° 未満） */
+function auArc(r, d0, d1, c, w, op) {
+  const [x0, y0] = auAt(r, d0);
+  const [x1, y1] = auAt(r, d1);
+  return `<path d="M${n(x0)} ${n(y0)}A${r} ${r} 0 0 1 ${n(x1)} ${n(y1)}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+}
+/** 光の輪（softRing）の楕円の上の点。k は大きさの倍率 */
+const auE = (deg, k = 1) => [AX + 41 * k * Math.cos((deg * Math.PI) / 180), AY + 46.5 * k * Math.sin((deg * Math.PI) / 180)];
+
+/** 卓球のラケット（ブレードの中心 (x, y)。rot=0 で柄が下） */
+function auPaddle(x, y, rot, rubber, op = 1) {
+  return `<g transform="rotate(${n(rot)} ${n(x)} ${n(y)})"${op < 1 ? ` opacity="${op}"` : ''}>`
+    + `<rect x="${n(x - 1.4)}" y="${n(y + 3.8)}" width="2.8" height="6.4" rx="1.1" fill="#eab878" stroke="${INK}" stroke-width="1"/>`
+    + `<path d="M${n(x - 1.4)} ${n(y + 6.6)}h2.8" fill="none" stroke="#c98a4e" stroke-width=".8"/>`
+    + `<ellipse cx="${n(x)}" cy="${n(y)}" rx="5.2" ry="5.6" fill="${rubber}" stroke="${INK}" stroke-width="1.1"/>`
+    + `<path d="M${n(x - 3.2)} ${n(y - 1.6)}Q${n(x - 2.4)} ${n(y - 3.9)} ${n(x - 0.2)} ${n(y - 4.3)}" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".85"/>`
+    + '</g>';
+}
+/** 振ったラケット: 半径 40・角度 deg に本体、後ろに残像2枚と風を切る弧、先に打った瞬間の線 */
+function auSwing(deg, rubber) {
+  const at = (d) => auAt(42, d);
+  const seg = (r0, d0, r1, d1) => `M${auAt(r0, d0).map(n).join(' ')}L${auAt(r1, d1).map(n).join(' ')}`;
+  const ghost = (d, op) => `<ellipse cx="${n(at(d)[0])}" cy="${n(at(d)[1])}" rx="5.2" ry="5.6" transform="rotate(${n(d + 90)} ${n(at(d)[0])} ${n(at(d)[1])})" fill="${rubber}" opacity="${op}"/>`;
+  return auArc(48, deg - 52, deg - 6, '#ff8a2a', 3.6, 0.9) + auArc(48, deg - 46, deg - 7, '#fff', 1.8, 1)
+    + auArc(43, deg - 40, deg - 9, '#fff', 2.6, 0.8) + auArc(37.5, deg - 30, deg - 11, '#ffd2a8', 1.8, 0.9)
+    + ghost(deg - 30, 0.2) + ghost(deg - 15, 0.4) + auPaddle(...at(deg), deg + 90, rubber)
+    + `<path d="${seg(49, deg + 10, 54, deg + 13) + seg(48, deg + 17, 51.6, deg + 23) + seg(50, deg + 4, 54, deg + 5)}" fill="none" stroke="#ff8a2a" stroke-width="1.3" stroke-linecap="round"/>`;
+}
+/** ピンポン球（半径 r の円を時計回りに飛ぶ。後ろに尾） */
+function auBall(deg, r, fill, trail) {
+  const [x, y] = auAt(r, deg);
+  return auArc(r, deg - 36, deg - 4, trail, 3.8, 0.3) + auArc(r, deg - 20, deg - 4, trail, 2.8, 0.55)
+    + `<circle cx="${n(x)}" cy="${n(y)}" r="3.1" fill="${fill}" stroke="${INK}" stroke-width="1"/>`
+    + `<path d="M${n(x + 2)} ${n(y + 0.6)}A2.1 2.1 0 0 1 ${n(x + 0.6)} ${n(y + 2)}" fill="none" stroke="${fill === '#fff' ? '#d9d4f0' : '#e0661a'}" stroke-width=".8" stroke-linecap="round"/>`
+    + `<circle cx="${n(x - 1)}" cy="${n(y - 1)}" r=".85" fill="#fff" opacity=".95"/>`;
+}
+
+/** 髪のつやのような光の筋（光の輪に沿った三日月。d0 → d1 度、k は輪の倍率、w は真ん中の太さ） */
+function auGloss(d0, d1, k, w) {
+  const mid = (d0 + d1) / 2;
+  const p0 = auE(d0, k);
+  const p2 = auE(d1, k);
+  const ctrl = (m) => [2 * m[0] - (p0[0] + p2[0]) / 2, 2 * m[1] - (p0[1] + p2[1]) / 2];
+  const c1 = ctrl(auE(mid, k));
+  const c2 = ctrl(auE(mid, k - w / 44));
+  const P = ([x, y]) => `${n(x)} ${n(y)}`;
+  return `<path d="M${P(p0)}Q${P(c1)} ${P(p2)}" fill="none" stroke="#fff" stroke-width="${n(w * 2.6)}" stroke-linecap="round" opacity=".3"/>`
+    + `<path d="M${P(p0)}Q${P(c1)} ${P(p2)}Q${P(c2)} ${P(p0)}z" fill="#fff"/>`;
+}
+/** ふわっと上がる湯気（(x, y) から高さ h の S 字） */
+function auSteam(x, y, h) {
+  const d = `M${x} ${y}q-2.2 ${n(-h / 4)} 0 ${n(-h / 2)}t0 ${n(-h / 2)}`;
+  return `<path d="${d}" fill="none" stroke="#d9b4ec" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`;
+}
+/** ヘアアイロン（ちょうつがい (x, y) から rot 度の向きに2本の腕。先の内側に銀のプレート） */
+function auIron(x, y, rot) {
+  const arm = (a, yy, py) => `<g transform="rotate(${a} ${x} ${y})"><rect x="${x}" y="${n(y + yy)}" width="17" height="3" rx="1.4" fill="#ff8fb8" stroke="${INK}" stroke-width="1"/>`
+    + `<rect x="${n(x + 9.6)}" y="${n(y + py)}" width="6.6" height="1.2" rx=".4" fill="#eef2fa" stroke="${INK}" stroke-width=".5"/>`
+    + `<path d="M${n(x + 3.4)} ${n(y + yy + 0.8)}v1.4M${n(x + 5)} ${n(y + yy + 0.8)}v1.4" fill="none" stroke="#e0679a" stroke-width=".7" stroke-linecap="round"/></g>`;
+  return `<g transform="rotate(${rot} ${x} ${y})">`
+    + `<path d="M${n(x - 1.6)} ${n(y + 1)}q-3 1.6-2.4 4.6t-1.6 4" fill="none" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`
+    + arm(-6, -3.4, -1.6) + arm(6, 0.4, 0.4)
+    + `<circle cx="${x}" cy="${y}" r="2.4" fill="#d9668f" stroke="${INK}" stroke-width="1"/>`
+    + '</g>';
+}
+
+// パーソナルカラーの4シーズン: [色, 淡い色, 印]
+const SEASONS = [['#ff7f6e', '#ffc8bc', 'spring'], ['#ac96ee', '#e2d8ff', 'summer'], ['#c8643f', '#efbea0', 'autumn'], ['#2f55d4', '#b8c8ff', 'winter']];
+function auSeasonIcon(x, y, kind) {
+  if (kind === 'spring') {
+    return [0, 72, 144, 216, 288].map((d) => `<circle cx="${n(x + 1.15 * Math.cos(((d - 90) * Math.PI) / 180))}" cy="${n(y + 1.15 * Math.sin(((d - 90) * Math.PI) / 180))}" r=".9" fill="#fff"/>`).join('')
+      + `<circle cx="${x}" cy="${y}" r=".7" fill="#ffd25e"/>`;
+  }
+  if (kind === 'summer') return `<path d="M${n(x - 2.4)} ${n(y - 0.6)}q1.2-1.3 2.4 0t2.4 0M${n(x - 2.4)} ${n(y + 1.4)}q1.2-1.3 2.4 0t2.4 0" fill="none" stroke="#fff" stroke-width=".85" stroke-linecap="round"/>`;
+  if (kind === 'autumn') {
+    return `<g transform="rotate(35 ${x} ${y})"><path d="M${x} ${n(y - 2.7)}C${n(x + 2.1)} ${n(y - 1.4)} ${n(x + 1.9)} ${n(y + 1.3)} ${x} ${n(y + 2.3)}C${n(x - 1.9)} ${n(y + 1.3)} ${n(x - 2.1)} ${n(y - 1.4)} ${x} ${n(y - 2.7)}z" fill="#fff"/>`
+      + `<path d="M${x} ${n(y - 1.6)}V${n(y + 3.2)}" fill="none" stroke="#c8643f" stroke-width=".55" stroke-linecap="round"/></g>`;
+  }
+  let d = '';
+  for (let i = 0; i < 3; i++) {
+    const a = ((i * 60 - 90) * Math.PI) / 180;
+    d += `M${n(x - 2.3 * Math.cos(a))} ${n(y - 2.3 * Math.sin(a))}L${n(x + 2.3 * Math.cos(a))} ${n(y + 2.3 * Math.sin(a))}`;
+  }
+  return `<path d="${d}" fill="none" stroke="#fff" stroke-width=".8" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r=".6" fill="#fff"/>`;
+}
+/** 色見本のカード（中心 (x, y)。大きな色面に季節の印、下に淡い色と中くらいの色のチップ）。カードは公転しても立ったまま */
+function auSeasonCard(x, y, [main, tint, kind]) {
+  return '<g class="miacis-4s-card">'
+    + `<rect x="${n(x - 4.8)}" y="${n(y - 6.2)}" width="9.6" height="12.4" rx="1.8" fill="#fff" stroke="${INK}" stroke-width="1.1"/>`
+    + `<rect x="${n(x - 3.6)}" y="${n(y - 5)}" width="7.2" height="7.4" rx="1.1" fill="${main}"/>`
+    + auSeasonIcon(n(x), n(y - 1.3), kind)
+    + `<rect x="${n(x - 3.6)}" y="${n(y + 3.3)}" width="3.3" height="1.8" rx=".5" fill="${tint}"/><rect x="${n(x + 0.3)}" y="${n(y + 3.3)}" width="3.3" height="1.8" rx=".5" fill="${main}" opacity=".6"/>`
+    + '</g>';
+}
+/** ふち取りした花びら（(x, y) が中心、rot 度） */
+const auPetal = (x, y, rot, c) => `<g transform="rotate(${rot} ${n(x)} ${n(y)})"><path d="M${n(x)} ${n(y - 3)}C${n(x + 2.4)} ${n(y - 1.4)} ${n(x + 2)} ${n(y + 2)} ${n(x)} ${n(y + 3)}C${n(x - 2)} ${n(y + 2)} ${n(x - 2.4)} ${n(y - 1.4)} ${n(x)} ${n(y - 3)}z" fill="${c}" stroke="${INK}" stroke-width=".8"/>`
+  + `<circle cx="${n(x - 0.6)}" cy="${n(y - 1)}" r=".55" fill="#fff" opacity=".9"/></g>`;
+/** 4色の色相環（うっすらした4つの扇と、輪の4色の弧） */
+function auSeasonWheel() {
+  const P = ([x, y]) => `${n(x)} ${n(y)}`;
+  return SEASONS.map(([c], i) => {
+    const a0 = -135 + i * 90;
+    const a1 = a0 + 90;
+    return `<path d="M${AX} ${AY}L${P(auE(a0, 0.98))}A${n(41 * 0.98)} ${n(46.5 * 0.98)} 0 0 1 ${P(auE(a1, 0.98))}z" fill="${c}" opacity=".22"/>`
+      + `<path d="M${P(auE(a0 + 2))}A41 46.5 0 0 1 ${P(auE(a1 - 2))}" fill="none" stroke="${c}" stroke-width="3.2" stroke-linecap="round"/>`;
+  }).join('');
+}
+
 const auras = {
   aura_white: softRing('#ffffff', 1.6),
   aura_green: softRing('#8ff0be'),
@@ -907,7 +1430,23 @@ const auras = {
     + LEAVES.map(([x, y, rot, c]) => leafShape(x, y, rot, c, 4.4, 1.1)).join(''),
   aura_fire: rays('#ff9a4d', 14, 14, 47, 0.18, 0.5) + softRing('#ff7f45', 0.9),
   aura_ice: rays('#bff0ff', 12, 14, 47, 0.16, 0.6) + softRing('#8fdcff', 0.9)
-    + SHARDS.map(([x, y, sz, rot]) => `<path transform="rotate(${rot} ${x} ${y})" d="M${x} ${n(y - sz)}L${n(x + sz * 0.4)} ${y}L${x} ${n(y + sz)}L${n(x - sz * 0.4)} ${y}z" fill="#e6fbff" stroke="${INK}" stroke-width=".8" stroke-linejoin="round"/>`).join('')
+    + SHARDS.map(([x, y, sz, rot]) => `<path transform="rotate(${rot} ${x} ${y})" d="M${x} ${n(y - sz)}L${n(x + sz * 0.4)} ${y}L${x} ${n(y + sz)}L${n(x - sz * 0.4)} ${y}z" fill="#e6fbff" stroke="${INK}" stroke-width=".8" stroke-linejoin="round"/>`).join(''),
+
+  // --- Miacis の遊び ---
+  // 卓球: オレンジの光の輪。ラケットと球は動く層（auraMotion）
+  aura_pingpong: rays('#ffffff', 12, 14, 46, 0.14, 0.42) + softRing('#ffa860', 0.9)
+    + sparkle(14, 50, 2.2, '#fff6d8') + sparkle(86, 48, 2, '#fff6d8') + sparkle(50, 97, 1.8, '#fff6d8'),
+  // ヘアアイロン: 髪のつやのような白い三日月の筋と、アイロンから上がる湯気
+  aura_iron_shine: softRing('#ff9cc8', 1.1)
+    + auGloss(146, 214, 0.9, 2.4) + auGloss(166, 200, 0.78, 1.3) + auGloss(-34, 34, 0.9, 2.4) + auGloss(-20, 14, 0.78, 1.3)
+    + auGloss(-124, -56, 0.92, 1.8)
+    + sparkle(...auE(146, 0.9).map(n), 1.8, '#fff') + sparkle(...auE(34, 0.9).map(n), 1.8, '#fff')
+    + auSteam(14, 92, 12) + auSteam(20, 84, 8) + auSteam(85, 79, 10) + auSteam(91, 76, 8)
+    + auIron(72, 92, -32)
+    + sparkle(11, 34, 2, '#fff') + sparkle(89, 30, 2, '#fff') + sparkle(30, 7, 1.6, '#fff'),
+  // パーソナルカラー: 春・夏・秋・冬の4色の色相環。色見本のカードと花びらは動く層
+  aura_4season: auSeasonWheel() + `<ellipse cx="${AX}" cy="${AY}" rx="30" ry="36" fill="#fff" opacity=".35"/>`
+    + sparkle(14, 16, 2, '#fff') + sparkle(87, 86, 2, '#fff') + sparkle(88, 16, 1.6, '#fff') + sparkle(13, 86, 1.6, '#fff')
 };
 
 const auraSvg = (cls, body) => `<svg class="miacis-aura-art${cls}" aria-hidden="true" viewBox="0 0 100 100" style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible">${body}</svg>`;
@@ -916,13 +1455,23 @@ const auraSvg = (cls, body) => `<svg class="miacis-aura-art${cls}" aria-hidden="
 const SPIN_STYLE = '<style>@keyframes miacis-aura-spin{to{transform:rotate(360deg)}}.miacis-aura-spin{transform-origin:50% 50%;animation:miacis-aura-spin 18s linear infinite}@media (prefers-reduced-motion:reduce){.miacis-aura-spin{animation:none}}</style>';
 const FLAME_STYLE = '<style>@keyframes miacis-flicker{0%,100%{transform:scale(1,1)}50%{transform:scale(.9,1.12)}}.miacis-flame{transform-box:fill-box;transform-origin:50% 100%;animation:miacis-flicker 1.6s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.miacis-flame{animation:none}}</style>';
 const FLAKE_STYLE = '<style>@keyframes miacis-flake-spin{to{transform:rotate(360deg)}}.miacis-flake{transform-box:fill-box;transform-origin:50% 50%;animation:miacis-flake-spin 16s linear infinite}@media (prefers-reduced-motion:reduce){.miacis-flake{animation:none}}</style>';
+// 卓球: 球は (50, 50) のまわりを速く回り、ラケットは行ったり来たり振る。4シーズン: カードはゆっくり公転し、自分は立ったまま
+const PP_STYLE = '<style>@keyframes miacis-pp-orbit{to{transform:rotate(360deg)}}.miacis-pp-orbit{transform-origin:50px 50px;animation:miacis-pp-orbit 6s linear infinite}@keyframes miacis-pp-swing{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(6deg)}}.miacis-pp-swing{transform-origin:50px 50px;animation:miacis-pp-swing 1.5s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.miacis-pp-orbit,.miacis-pp-swing{animation:none}}</style>';
+const SEASON_STYLE = '<style>@keyframes miacis-4s-orbit{to{transform:rotate(360deg)}}.miacis-4s-orbit{transform-origin:50% 50%;animation:miacis-4s-orbit 30s linear infinite}.miacis-4s-card{transform-box:fill-box;transform-origin:50% 50%;animation:miacis-4s-orbit 30s linear infinite reverse}@media (prefers-reduced-motion:reduce){.miacis-4s-orbit,.miacis-4s-card{animation:none}}</style>';
 
 const auraMotion = {
   aura_rainbow: () => SPIN_STYLE + auraSvg(' miacis-aura-spin', rainbowRing() + sparkle(50, 4, 2.6, '#fff') + sparkle(94, 56, 2.2, '#fff') + sparkle(14, 80, 2, '#fff')),
   aura_fire: () => FLAME_STYLE + auraSvg('', FLAMES.map(([x, y, h, w, tilt], i) => `<g class="miacis-flame" style="animation-delay:-${n((i * 0.37) % 1.6)}s">${flame(x, y, h, w, tilt)}</g>`).join('')
     + sparkle(20, 12, 2.2, '#fff3d0') + sparkle(84, 84, 2, '#fff3d0')),
   aura_ice: () => FLAKE_STYLE + auraSvg('', FLAKES.map(([x, y, r], i) => `<g class="miacis-flake"${i % 2 ? ' style="animation-direction:reverse"' : ''}>${snowflake(x, y, r)}</g>`).join('')
-    + sparkle(70, 8, 2, '#fff') + sparkle(5, 42, 1.8, '#fff') + sparkle(95, 80, 1.8, '#fff'))
+    + sparkle(70, 8, 2, '#fff') + sparkle(5, 42, 1.8, '#fff') + sparkle(95, 80, 1.8, '#fff')),
+  aura_pingpong: () => PP_STYLE + auraSvg('', `<g class="miacis-pp-swing">${auSwing(-130, '#e8424f') + auSwing(42, '#3a62d8')}</g>`
+    + `<g class="miacis-pp-orbit">${auBall(-70, 45, '#ff8a2a', '#ffb070') + auBall(15, 45, '#fff', '#fff') + auBall(110, 45, '#ff8a2a', '#ffb070') + auBall(195, 45, '#fff', '#fff')}</g>`),
+  aura_4season: () => SEASON_STYLE + auraSvg(' miacis-4s-orbit', SEASONS.map((s, i) => auSeasonCard(...auAt(42, -90 + i * 90), s)).join('')
+    + SEASONS.map(([c], i) => {
+      const g = -45 + i * 90;
+      return auPetal(...auAt(45, g - 12), g + 78, c) + auPetal(...auAt(40.5, g + 9), g + 99, SEASONS[(i + 1) % 4][0]);
+    }).join(''))
 };
 
 /** オーラ id ごとの SVG（相棒の後ろに置く）。未知の id は空文字。動く層があれば後ろに重ねる */

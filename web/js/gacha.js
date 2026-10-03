@@ -13,7 +13,8 @@ import {
   calcNutsDisplay,
   gachaPrice,
   formatGachaRates,
-  rarityInfo
+  rarityInfo,
+  raffleNo
 } from './logic.js';
 
 import {
@@ -74,6 +75,17 @@ export async function renderGachaView(containerEl, state, callbacks = {}) {
 /**
  * ガチャトップ画面（ボタン・確率表）
  */
+// ピックアップの UR（DB の 0021 と同じ id）
+const PICKUP_UR = [
+  ['aura', 'aura_pingpong', 'ピンポン旋風'],
+  ['background', 'bg_mahjong', '役満の卓'],
+  ['hat', 'hat_curls', 'サロン帰りの巻き髪'],
+  ['face', 'face_bullseye', 'ブルズアイ・ゴーグル'],
+  ['neck', 'neck_remote', '白いリモコン'],
+  ['aura', 'aura_4season', '4シーズンのオーラ'],
+  ['background', 'bg_interview', 'インタビューのスポットライト']
+];
+
 function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const price = gachaPrice(ratesData);
   state.gachaPrice = price;
@@ -98,7 +110,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       ${stockPrizes.length ? `<div class="gacha-prize-list">${stockPrizes.map(p => `
         <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>${p.stock}名</p><p>${escapeHtml(p.description || '')}</p></div></article>
       `).join('')}</div>` : '<p class="gacha-showcase-note">今月の景品は スタッフが準備中</p>'}
-      <p class="gacha-showcase-note">結果は月初に「自分の記録」へ</p>
+      <p class="gacha-showcase-note">券には番号。月初に 当たり番号を発表</p>
     </section>`;
 
 
@@ -121,9 +133,16 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     </div>
   `).join('');
 
+  // ピックアップ: 館の遊びから作った UR（2026-10-03）。真ん中は全部着た姿、左右と下の列は1つずつ
+  const pickupHtml = `
+    <section class="gacha-wardrobe pickup"><span class="eyebrow">PICK UP</span><h2>館の UR 7種、登場</h2><p>卓球・麻雀・巻き髪・ダーツ・リモコン・パーソナルカラー・インタビュー</p>
+      <div class="gacha-mascots">${renderMiacis({ aura: { id: 'aura_pingpong' }, hat: { id: 'hat_pingpong_band' } }, 100)}${renderMiacis({ background: { id: 'bg_interview' }, aura: { id: 'aura_4season' }, hat: { id: 'hat_curls' }, face: { id: 'face_bullseye' }, neck: { id: 'neck_remote' } }, 136)}${renderMiacis({ background: { id: 'bg_mahjong' } }, 100)}</div>
+      <div class="pickup-row">${PICKUP_UR.map(([slot, id, name]) => `<div class="pickup-card">${renderMiacis({ [slot]: { id } }, 64)}<span>${name}</span><em>UR</em></div>`).join('')}</div>
+    </section>`;
+
   mainEl.innerHTML = `
     ${staffNotice}
-    <section class="gacha-wardrobe"><span class="eyebrow">ガチャ</span><h2>次は、どんな相棒に？</h2><p>帽子・顔・首・背景・オーラ・称号・すがた</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div></section>
+    ${pickupHtml}
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance}</span>
@@ -311,8 +330,8 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     let visualHtml = '';
     if (item.kind === 'raffle') {
       visualHtml = `
-        <div style="font-size:56px; margin-bottom:8px;">🎟️</div>
-        <div style="font-size:14px; font-weight:800; color:#c2413a; margin-bottom:4px;">月末抽選の券</div>
+        <div class="raffle-ticket big"><span>月末抽選</span><strong>${raffleNo(item.no ?? item.display?.no)}</strong></div>
+        <div style="font-size:14px; font-weight:800; color:#c2413a; margin:8px 0 4px;">この番号が当たりなら 景品</div>
       `;
     } else if (isPrize) {
       visualHtml = `
@@ -467,7 +486,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
         <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''} ${isRaffle ? 'is-raffle' : ''}">
           <div style="font-size:32px; margin-bottom:4px;">${itemIcon}</div>
           <div style="font-size:14px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
-          <div style="font-size:11px; color:${isRaffle ? '#c2413a' : rInfo.color}; font-weight:700;">${isRaffle ? '抽選券' : isPrize ? '景品' : rInfo.code}</div>
+          <div style="font-size:11px; color:${isRaffle ? '#c2413a' : rInfo.color}; font-weight:700;">${isRaffle ? escapeHtml(raffleNo(item.no ?? item.display?.no) || '抽選券') : isPrize ? '景品' : rInfo.code}</div>
           <div style="margin-top:4px;">
             ${isRaffle ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#c2413a;">月末</span>' : isPrize ? '<span class="new-badge" style="font-size:10px; padding:1px 5px; background:#ec4899;">景品</span>' : (item.is_new ? '<span class="new-badge" style="font-size:10px; padding:1px 5px;">NEW</span>' : `<span style="font-size:11px; color:var(--link);">💎+${item.shards}</span>`)}
           </div>
@@ -478,10 +497,12 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     let prizeAlertHtml = '';
     if (raffleCount > 0) {
       const monthTotal = state.lastGacha?.raffle_entries_month;
+      const nos = items.filter(i => i.kind === 'raffle').map(i => raffleNo(i.no ?? i.display?.no)).filter(Boolean);
       prizeAlertHtml = `
         <div class="prize-ticket-box raffle" style="margin-bottom:16px;">
           <div style="font-size:18px; font-weight:900; color:#c2413a;">🎟️ 抽選券 +${raffleCount}</div>
-          <div style="font-size:14px; margin-top:6px;">今月 ${monthTotal ?? '—'}枚。月末の抽選で、館の景品が当たる</div>
+          ${nos.length ? `<div class="raffle-ticket-row">${nos.map(n => `<span class="raffle-ticket">${n}</span>`).join('')}</div>` : ''}
+          <div style="font-size:14px; margin-top:6px;">今月 ${monthTotal ?? '—'}枚。月末に 当たり番号を発表</div>
         </div>
       `;
     }

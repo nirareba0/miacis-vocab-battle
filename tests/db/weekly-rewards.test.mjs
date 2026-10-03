@@ -253,7 +253,45 @@ test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた�
       assert.equal(ok.shards_balance, 4900);
     });
     const n = (await db.query("select count(*)::int n from public.items where active and source='gacha'")).rows[0].n;
-    assert.equal(n, 105); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した
+    assert.equal(n, 127); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した。0021: ミアキスの遊びの品 22 種
+  } finally {
+    await db.close();
+  }
+});
+
+test('抽選券の番号（0021）: 月ごとに 1 から振られて、たまっていく。当たりは券の番号で決まり、ほかの生徒には名前を出さない', async () => {
+  const db = await setup();
+  try {
+    const a = await player(db, 'A');
+    const b = await player(db, 'B');
+    const ra = await pull(db, a, 10);
+    const nosA = ra.results.filter(i => i.kind === 'raffle').map(i => i.no);
+    assert.deepEqual(nosA, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    const rb = await pull(db, b, 1);
+    assert.equal(rb.results[0].no, 11);
+    assert.equal(rb.results[0].display.no, 11);
+
+    const mine = await call(db, a, 'select public.my_raffle() as r');
+    assert.deepEqual(mine.my_numbers, nosA);
+
+    // 月が替わると番号は 1 から
+    await setTestTime(db, '2026-10-01T00:05:00+09:00');
+    const drawn = (await db.query('select public.draw_monthly_raffle_if_due() as r')).rows[0].r;
+    assert.equal(drawn.length, 1);
+    const owner = (await db.query("select player_id from public.raffle_entries where month='2026-09-01' and no=$1", [drawn[0].no])).rows[0].player_id;
+    assert.equal(owner, drawn[0].player_id, '当たり番号は当選者の券');
+
+    const winner = drawn[0].player_id;
+    const loser = winner === a ? b : a;
+    const w = await call(db, winner, 'select public.my_raffle() as r');
+    assert.equal(w.last_results[0].no, drawn[0].no);
+    assert.equal(w.last_results[0].is_me, true);
+    const l = await call(db, loser, 'select public.my_raffle() as r');
+    assert.equal(l.last_results[0].no, drawn[0].no, '番号は全員に見える');
+    assert.equal(l.last_results[0].nickname, null, 'ほかの生徒には名前を出さない');
+
+    const r10 = await pull(db, loser, 1);
+    assert.equal(r10.results[0].no, 1, '10月の券は 1 番から');
   } finally {
     await db.close();
   }
