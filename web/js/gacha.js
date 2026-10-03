@@ -137,7 +137,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const pickupHtml = `
     <section class="gacha-wardrobe pickup"><span class="eyebrow">PICK UP</span><h2>館の UR 7種、登場</h2><p>卓球・麻雀・巻き髪・ダーツ・リモコン・パーソナルカラー・インタビュー</p>
       <div class="gacha-mascots">${renderMiacis({ aura: { id: 'aura_pingpong' }, hat: { id: 'hat_pingpong_band' } }, 100)}${renderMiacis({ background: { id: 'bg_interview' }, aura: { id: 'aura_4season' }, hat: { id: 'hat_curls' }, face: { id: 'face_bullseye' }, neck: { id: 'neck_remote' } }, 136)}${renderMiacis({ background: { id: 'bg_mahjong' } }, 100)}</div>
-      <div class="pickup-row">${PICKUP_UR.map(([slot, id, name]) => `<div class="pickup-card">${renderMiacis({ [slot]: { id } }, 64)}<span>${name}</span><em>UR</em></div>`).join('')}</div>
+      <div class="pickup-row"><div class="pickup-track">${[0, 1].map(k => PICKUP_UR.map(([slot, id, name]) => `<div class="pickup-card"${k ? ' aria-hidden="true"' : ''}>${renderMiacis({ [slot]: { id } }, 64)}<span>${name}</span><em>UR</em></div>`).join('')).join('')}</div></div>
     </section>`;
 
   mainEl.innerHTML = `

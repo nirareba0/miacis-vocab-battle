@@ -472,7 +472,17 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 /* ガチャのピックアップ（2026-10-03）: 新しい UR を1つずつ並べる */
 .gacha-wardrobe.pickup { background:radial-gradient(ellipse at 50% 20%,#fff1c2,transparent 70%),linear-gradient(160deg,#f3e9ff,#ffe3ec); border-color:#e8c46a; }
 .gacha-wardrobe.pickup .eyebrow { color:#b07a12; letter-spacing:.14em; font-weight:900; }
-.pickup-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:14px; }
+.pickup-row { overflow:hidden; margin:14px -6px 0; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); }
+/* 1行で横に流す。同じ並びを2回つなげて -50% まで動かすと切れ目なく回る（2026-10-03） */
+.pickup-track { display:flex; gap:8px; width:max-content; animation:pickup-flow 28s linear infinite; }
+.pickup-row:hover .pickup-track, .pickup-row:active .pickup-track { animation-play-state:paused; }
+.pickup-track .pickup-card { flex:0 0 92px; }
+@keyframes pickup-flow { from { transform:translateX(0); } to { transform:translateX(calc(-50% - 4px)); } }
+@media (prefers-reduced-motion: reduce) {
+  .pickup-row { overflow-x:auto; -webkit-mask-image:none; mask-image:none; }
+  .pickup-track { animation:none; }
+  .pickup-track .pickup-card[aria-hidden="true"] { display:none; }
+}
 .pickup-card { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px 6px; border-radius:14px; background:#ffffffcc; border:1.5px solid #e8c46a; }
 .pickup-card span { font-size:10.5px; font-weight:700; line-height:1.2; text-align:center; min-height:2.4em; display:flex; align-items:center; }
 .pickup-card em { position:absolute; top:4px; right:5px; font-style:normal; font-size:9px; font-weight:900; color:#fff; background:#d9467a; border-radius:6px; padding:0 4px; }
