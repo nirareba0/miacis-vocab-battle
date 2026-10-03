@@ -24,6 +24,7 @@ import {
   nextMetaUnlock,
   savedStreakBand,
   saveStreakBand,
+  nextStageGuide,
   tierLabel,
   questSummary,
   questLine,
@@ -149,6 +150,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
     bests = bests || null;
   }
   run.meta = meta;
+  run.stages = Array.isArray(meta) ? meta : null;  // 次のステージの案内に使う（my_stages）
   const a = area();
   if (!a || run.mode !== mode) return;
 
@@ -318,6 +320,20 @@ function showQuestion(q) {
   `;
 
   // 通知は問題の上に重ねる（CSS で position:fixed）。流れに差し込むと問題と選択肢が下にずれて押し間違える（2026-10-03 本人「画面は動かさない」）
+  // 次のステージが開いた知らせは、ほかの通知より先に1つだけ出す（同じ場所に重ねると読めない）
+  if (run.unlockToast) {
+    const g = run.unlockToast;
+    run.unlockToast = null;
+    run.stageToast = null;
+    run.rankUp = null;
+    const toast = document.createElement('div');
+    toast.className = 'rank-up-toast unlock';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = `<strong>🔓 次のレベルへ！</strong><span>${STAGE_NAMES[g.band]} が開いた。この回のあとで挑戦できる</span>`;
+    a.prepend(toast);
+    later(() => toast.remove(), 2200);
+  }
+
   if (run.stageToast) {
     const s = run.stageToast;
     run.stageToast = null;
@@ -452,6 +468,16 @@ async function submit(choice, ms, btn) {
   if (res.shield_used) {
     run.mood = 'wow';
     run.shieldToast = true;
+  }
+
+  // 次のステージが開く連続に届いた（この回で初めて）。サーバーが開くのは回が終わったとき（stage_unlocked は終わった回を見る）
+  if (run.mode === 'streak' && res.correct) {
+    const g = nextStageGuide(run.stages, run.band, run.score);
+    if (g?.firstOpen && run.score === g.need) {
+      run.unlockToast = g;
+      playSfx('rankUp');
+      vibrate('stageUp');
+    }
   }
 
   // 100本ノック: 10本ごとの小さな区切り（桜井: 喜びのスパンは短く）
@@ -638,22 +664,72 @@ async function finish() {
   }
 }
 
-function missedHtml(missed) {
+// 次のレベルへ（2026-10-03 本人「20問達成したときに次のレベルへ！という案内を」）
+// 届いたら次のステージで始めるボタン、届かなかったら「◯連続で開く・今回◯」
+function nextLevelHtml(g) {
+  if (!g) return '';
+  const next = (run.stages || []).find(s => s.band === g.band);
+  if (g.reached) {
+    return `<button class="next-level-btn" id="btn-next-level">
+      ${g.firstOpen ? '<span class="next-level-badge">🔓 新しく開いた</span>' : ''}
+      <strong>次のレベルへ！</strong><span>${STAGE_NAMES[g.band]} ・ ${STAGE_SUBS[g.band]}</span>
+    </button>`;
+  }
+  if (next?.unlocked) return '';
+  return `<p class="next-level-left">🔒 ${STAGE_NAMES[g.band]} は <strong>${g.need}連続</strong>で開く ・ 今回 ${g.need - g.left}</p>`;
+}
+
+// 振り返り（2026-10-03 本人「間違えた単語の振り返りをおこなえるリザルト画面に」）
+// 正解と自分の答えの2択でもう一度選ぶ。時間切れは「意味を見る」。🔊 で発音
+function reviewHtml(missed) {
   if (!missed || missed.length === 0) return '';
+  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
   return `
-    <div class="card-title" style="margin-top: 20px;">${run.mode === 'streak' ? 'つまずいた単語' : '間違えた単語'}<small class="revenge-note">次の回の最初に リベンジ</small></div>
-    <div class="review-list">
-      ${missed.map(m => `
-        <div class="review-item wrong">
-          <div>
-            <div style="font-weight: 700;">${escapeHtml(m.prompt)}</div>
-            <div style="font-size: 13px; color: var(--text-muted);">正解 ${escapeHtml(m.correct_text)}${m.timeout ? ' ・ 時間切れ' : ` ・ あなた ${escapeHtml(m.your_text ?? '')}`}</div>
-          </div>
-          <div class="review-mark wrong" aria-label="不正解">×</div>
-        </div>
-      `).join('')}
-    </div>
+    <section class="review-card" aria-labelledby="review-title">
+      <div class="review-head"><h3 id="review-title">振り返り</h3><span>${missed.length}語 ・ 次の回の最初に リベンジ</span></div>
+      ${missed.map(m => {
+        const two = m.your_text && m.your_text !== m.correct_text;
+        const opts = two ? (Math.random() < 0.5 ? [m.correct_text, m.your_text] : [m.your_text, m.correct_text]) : [];
+        return `<div class="review-q">
+          <div class="review-word"><strong lang="en">${escapeHtml(m.prompt)}</strong>${canSpeak ? `<button class="review-say" data-say="${escapeHtml(m.prompt)}" aria-label="${escapeHtml(m.prompt)} の発音を聞く">🔊</button>` : ''}</div>
+          ${two
+            ? `<p class="review-ask">意味は どっち？</p><div class="review-opts">${opts.map(o => `<button class="review-opt" data-ok="${o === m.correct_text ? '1' : '0'}">${escapeHtml(o)}</button>`).join('')}</div>`
+            : '<button class="review-reveal">意味を見る</button>'}
+          <p class="review-answer" hidden><span class="review-verdict"></span>正解 <strong>${escapeHtml(m.correct_text)}</strong>${m.timeout ? ' ・ 時間切れ' : ` ・ あなた ${escapeHtml(m.your_text ?? '')}`}</p>
+        </div>`;
+      }).join('')}
+    </section>
   `;
+}
+
+function bindReview(root) {
+  root.querySelectorAll('.review-q').forEach(q => {
+    const answer = q.querySelector('.review-answer');
+    q.querySelectorAll('.review-opt').forEach(btn => btn.addEventListener('click', () => {
+      const ok = btn.dataset.ok === '1';
+      q.querySelectorAll('.review-opt').forEach(b => {
+        b.disabled = true;
+        if (b.dataset.ok === '1') b.classList.add('choice-correct');
+      });
+      if (!ok) btn.classList.add('choice-wrong');
+      q.querySelector('.review-verdict').textContent = ok ? '○ 覚えた ・ ' : '× ここで覚える ・ ';
+      answer.hidden = false;
+      playSfx(ok ? 'correct' : 'wrong');
+    }));
+    q.querySelector('.review-reveal')?.addEventListener('click', e => {
+      e.currentTarget.hidden = true;
+      answer.hidden = false;
+    });
+    q.querySelector('.review-say')?.addEventListener('click', e => {
+      try {
+        const u = new SpeechSynthesisUtterance(e.currentTarget.dataset.say);
+        u.lang = 'en-US';
+        u.rate = 0.9;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      } catch {}
+    });
+  });
 }
 
 function showResult(result) {
@@ -725,15 +801,20 @@ function showResult(result) {
     run.meta = result.meta;
   }
 
+  // 次のステージの案内（サバイバルだけ。最後のステージには無い）
+  const guide = mode === 'streak' ? nextStageGuide(run.stages, run.band, result.correct) : null;
+
   a.innerHTML = `
     <div class="result-banner ${isNewBest || isWeekBest ? 'win' : 'lose'}">
       ${recordBadge}
       ${headline}
       <div class="result-sub">${sub}</div>
     </div>
+    ${nextLevelHtml(guide)}
+    ${reviewHtml(result.missed)}
     ${rankHtml}
     ${metaGainHtml}
-    <button class="btn-primary" id="btn-challenge-again" style="margin-top: 12px;">もう一度</button>
+    <button class="${guide?.reached ? 'btn-secondary' : 'btn-primary'}" id="btn-challenge-again" style="margin-top: 12px;">もう一度${guide?.reached ? ` ・ ${STAGE_NAMES[run.band]}` : ''}</button>
     <div class="result-next" id="result-next" aria-live="polite"></div>
     <div class="challenge-bests">${bestLine('今週ベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
     <div class="points-grid">
@@ -742,12 +823,18 @@ function showResult(result) {
     </div>
     ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の上限 到達</div>' : ''}
     ${titles.length ? `<div class="title-award"><span class="eyebrow">称号 獲得！</span>${titles.map(t => `<strong>👑 ${escapeHtml(t.name)}</strong>`).join('')}<p>着せ替えで付けられる</p></div>` : ''}
-    ${missedHtml(result.missed)}
     <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 16px;">ランキング</button>
     <button class="btn-sub" id="btn-challenge-home" style="margin-top: 10px;">ホーム</button>
   `;
 
   document.getElementById('btn-challenge-again').addEventListener('click', () => begin(mode));
+  document.getElementById('btn-next-level')?.addEventListener('click', () => {
+    saveStreakBand(guide.band);
+    begin(mode);
+  });
+  bindReview(a);
+  // 次の回の案内のために、開いたステージを取り直す（サーバーはこの回の終わりで開いている）
+  if (mode === 'streak') getMyStages().then(s => { if (Array.isArray(s)) run.stages = s; }).catch(() => {});
   document.getElementById('btn-challenge-ranking').addEventListener('click', () => run.callbacks.onGoRanking?.(mode));
   document.getElementById('btn-challenge-home').addEventListener('click', () => run.callbacks.onGoHome?.());
   fillResultNext(result);

@@ -619,3 +619,36 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .home-share { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; margin:-10px 0 22px; padding:15px 17px; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:20px; text-align:left; }
 .home-share strong { font-size:14px; white-space:nowrap; }
 .home-share span { font-size:11px; color:var(--text-muted); font-weight:500; text-align:right; overflow-wrap:anywhere; }
+
+/* 次のレベルへ・振り返り（結果画面。2026-10-03） */
+#challenge-area .rank-up-toast.unlock { background:#c2413a; color:#fff; }
+.next-level-btn { display:flex; flex-direction:column; align-items:center; gap:2px; width:100%; margin:12px 0 0; padding:16px; border:0; border-radius:20px; background:#2a2140; color:#fff; box-shadow:0 4px 0 #120c20; }
+.next-level-btn strong { font-size:22px; letter-spacing:.04em; }
+.next-level-btn span { font-size:13px; font-weight:700; color:#f5ce65; }
+.next-level-btn .next-level-badge { padding:2px 10px; border-radius:999px; background:#f5ce65; color:#2a2140; font-size:11px; font-weight:900; margin-bottom:4px; }
+.next-level-left { margin:10px 0 0; text-align:center; font-size:13px; color:var(--text-muted); }
+.next-level-left strong { color:var(--text); }
+.review-card { margin:14px 0 0; padding:14px 16px 16px; border:1px solid #e9c9c6; border-radius:20px; background:#fff; }
+.review-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.review-head h3 { margin:0; font-size:16px; }
+.review-head span { font-size:11px; font-weight:800; color:#c2413a; }
+.review-q + .review-q { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+.review-word { display:flex; align-items:center; justify-content:center; gap:10px; }
+.review-word strong { font-size:28px; letter-spacing:.02em; overflow-wrap:anywhere; }
+.review-say { width:40px; height:40px; flex:0 0 auto; border:1px solid var(--border); border-radius:50%; background:#f5f0fc; font-size:18px; }
+.review-ask { margin:6px 0 8px; text-align:center; font-size:12px; color:var(--text-muted); font-weight:700; }
+.review-opts { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.review-opt { min-height:52px; padding:8px 10px; border:1px solid #d6cce7; border-radius:14px; background:#fff; color:var(--text); font-size:15px; font-weight:700; }
+.review-opt.choice-correct { background:#e1f3e7; color:#245739; border-color:#429767; }
+.review-opt.choice-wrong { background:#fff0f1; color:#9d3045; border-color:#ce7180; }
+.review-opt:disabled { opacity:1; }
+.review-reveal { display:block; width:100%; margin-top:8px; min-height:48px; border:1px dashed #b9a8d8; border-radius:14px; background:#faf8fe; color:#5b4590; font-weight:800; }
+.review-answer { margin:10px 0 0; text-align:center; font-size:13px; color:var(--text-muted); }
+.review-answer strong { color:var(--text); font-size:15px; }
+.review-verdict { font-weight:900; color:#2a2140; }
+
+/* ホームの「まずはここ！」（2026-10-03） */
+.start-here { position:relative; margin-top:6px; }
+.start-here-label { display:inline-block; margin:0 0 6px 4px; padding:4px 12px; border-radius:999px; background:#c2413a; color:#fff; font-size:13px; font-weight:900; letter-spacing:.04em; }
+.start-here .battle-launch { outline:3px solid #f5ce65; outline-offset:2px; }
+.record-strip[hidden] { display:none; } /* 記録がまだ無い人に空の枠を出さない */

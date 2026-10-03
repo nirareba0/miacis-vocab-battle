@@ -1079,3 +1079,22 @@ export function shareInfo(href) {
     url: `${u.origin}${u.pathname}`
   };
 }
+
+// ==========================================
+// 次のレベルへの案内（サバイバル）
+// ==========================================
+
+/**
+ * いまのステージの連続から、次のステージまでの案内を作る。2026-10-03 本人「20問達成したときに次のレベルへ！という案内を」
+ * @param {Array<{band:number, unlocked:boolean, need?:number}>|null} stages 回を始める前の my_stages
+ * @returns {null | {band:number, need:number, left:number, reached:boolean, firstOpen:boolean}}
+ *   firstOpen: この回で初めて開いた（始める前は閉じていた）
+ */
+export function nextStageGuide(stages, band, correct) {
+  const next = (stages || []).find(s => s.band === band + 1);
+  if (!next) return null;
+  const need = Number(next.need) > 0 ? Number(next.need) : 20;
+  const c = Math.max(0, Number(correct) || 0);
+  const reached = c >= need;
+  return { band: band + 1, need, left: Math.max(0, need - c), reached, firstOpen: reached && !next.unlocked };
+}

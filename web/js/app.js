@@ -668,9 +668,11 @@ async function renderHome() {
     homeContent.innerHTML = `
       <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
       ${dailyToastHtml}
-      <section class="today-card" id="today-card" aria-labelledby="today-title"><div class="today-head"><h2 id="today-title">今日やること</h2><strong id="today-count">…</strong></div><ol class="today-list" id="today-list"></ol></section>
-      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <!-- まずはここ！（2026-10-03 本人「どこにいけばいいかわからなくなってる学生がおおい」）。迷ったらサバイバル、を一番上に -->
+      <div class="start-here"><span class="start-here-label">👇 まずはここ！</span>
+      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button></div>
       <div class="record-strip" id="record-strip" hidden></div>
+      <section class="today-card" id="today-card" aria-labelledby="today-title"><div class="today-head"><h2 id="today-title">今日やること</h2><strong id="today-count">…</strong></div><ol class="today-list" id="today-list"></ol></section>
       <div class="challenge-launch single"><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本トレーニング</strong><span>100問 ミスしても止まらない</span></button></div>
       <section class="companion-card" aria-label="相棒と進化">
         <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${visits ? visits.days : progress.streak_days}日</span></div>

@@ -23,3 +23,14 @@ test('shareInfo: 送る URL は入口だけ（ハッシュや ?debug を落と�
   assert.equal(s.url, 'https://nirareba0.github.io/miacis-vocab-battle/');
   assert.match(s.text, /ミアキス英単語サバイバル/);
 });
+
+test('nextStageGuide: 次のステージまで あと何連続か・この回で初めて開いたか', async () => {
+  const { nextStageGuide } = await import('../js/logic.js');
+  const stages = [{ band: 1, unlocked: true, need: 20 }, { band: 2, unlocked: false, need: 20 }];
+  assert.deepEqual(nextStageGuide(stages, 1, 12), { band: 2, need: 20, left: 8, reached: false, firstOpen: false });
+  assert.deepEqual(nextStageGuide(stages, 1, 20), { band: 2, need: 20, left: 0, reached: true, firstOpen: true });
+  const opened = [{ band: 1, unlocked: true, need: 20 }, { band: 2, unlocked: true, need: 20 }];
+  assert.equal(nextStageGuide(opened, 1, 25).firstOpen, false);
+  assert.equal(nextStageGuide(opened, 2, 25), null, '最後のステージの次は無い');
+  assert.equal(nextStageGuide(null, 1, 5), null);
+});
