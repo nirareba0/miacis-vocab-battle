@@ -253,7 +253,7 @@ test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた�
       assert.equal(ok.shards_balance, 4900);
     });
     const n = (await db.query("select count(*)::int n from public.items where active and source='gacha'")).rows[0].n;
-    assert.equal(n, 127); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した。0021: ミアキスの遊びの品 22 種
+    assert.equal(n, 128); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した。0021: ミアキスの遊びの品 22 種。0026: 本のすがた
   } finally {
     await db.close();
   }

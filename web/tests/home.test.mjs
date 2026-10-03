@@ -34,3 +34,11 @@ test('nextStageGuide: 次のステージまで あと何連続か・この回で
   assert.equal(nextStageGuide(opened, 2, 25), null, '最後のステージの次は無い');
   assert.equal(nextStageGuide(null, 1, 5), null);
 });
+
+test('withStaffTag / staffTagLabel: 表示名があればそれ、無ければ「スタッフ」', async () => {
+  const { withStaffTag, staffTagLabel } = await import('../js/logic.js');
+  assert.equal(withStaffTag('Maria', true, '大学生スタッフ'), 'Maria（大学生スタッフ）');
+  assert.equal(withStaffTag('にしむ～', true), 'にしむ～（スタッフ）');
+  assert.equal(withStaffTag('たろう', false, '大学生スタッフ'), 'たろう');
+  assert.equal(staffTagLabel(null), 'スタッフ');
+});

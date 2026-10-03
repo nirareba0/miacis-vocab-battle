@@ -481,7 +481,7 @@ test('ガチャ（0019）: 子孫の動物8種はガチャから外れ、SECRET 
   const db = await setup();
   try {
     const secret = (await db.query("select id from public.items where active and rarity = 5 order by id")).rows.map(r => r.id);
-    assert.deepEqual(secret, ['form_cat', 'form_dog', 'staff_aussie', 'staff_backpacker', 'staff_designer', 'staff_engineer', 'staff_family', 'staff_shisa', 'staff_stylist']);
+    assert.deepEqual(secret, ['form_cat', 'form_dog', 'staff_aussie', 'staff_backpacker', 'staff_book', 'staff_designer', 'staff_engineer', 'staff_family', 'staff_shisa', 'staff_stylist']);
     const off = (await db.query("select count(*)::int n from public.items where id like 'form_%' and active")).rows[0].n;
     assert.equal(off, 2);
   } finally {

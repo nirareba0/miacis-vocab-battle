@@ -80,6 +80,7 @@ import {
   getStageName,
   normalizeInviteCode,
   withStaffTag,
+  staffTagLabel,
   KNOCK_LEVELS,
   savedKnockBand,
   saveKnockBand,
@@ -755,11 +756,11 @@ async function renderHome() {
       const myRow = rows.find(r => isMyRow(r, state.player.nickname));
       let msg;
       if (top && isMyRow(top, state.player.nickname)) {
-        msg = rows[1] ? `1位。${escapeHtml(withStaffTag(rows[1].nickname, rows[1].is_staff))} が ${rows[1].best_streak}連続で追ってくる` : '1位。追われる側だ';
+        msg = rows[1] ? `1位。${escapeHtml(withStaffTag(rows[1].nickname, rows[1].is_staff, rows[1].staff_label))} が ${rows[1].best_streak}連続で追ってくる` : '1位。追われる側だ';
       } else if (top && mine !== null) {
-        msg = `1位 ${escapeHtml(withStaffTag(top.nickname, top.is_staff))} まで あと${top.best_streak + 1 - mine}問`;
+        msg = `1位 ${escapeHtml(withStaffTag(top.nickname, top.is_staff, top.staff_label))} まで あと${top.best_streak + 1 - mine}問`;
       } else if (top) {
-        msg = `1位 ${escapeHtml(withStaffTag(top.nickname, top.is_staff))} ${top.best_streak}連続。抜けるか？`;
+        msg = `1位 ${escapeHtml(withStaffTag(top.nickname, top.is_staff, top.staff_label))} ${top.best_streak}連続。抜けるか？`;
       } else {
         msg = 'まだ誰も出していない。1位をとれる';
       }
@@ -2004,7 +2005,7 @@ async function loadRankingData() {
           <div class="rank-col">${rankText}</div>
           <div class="ranking-avatar-col">${miacisAvatarHtml}</div>
           <div class="nick-col">
-            <div style="font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.nickname)}${r.is_staff ? '<span class="staff-tag">（スタッフ）</span>' : ''}</div>
+            <div style="font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.nickname)}${r.is_staff ? `<span class="staff-tag">（${escapeHtml(staffTagLabel(r.staff_label))}）</span>` : ''}</div>
             ${titleName ? `<div class="ranking-title-badge">👑 ${titleName}</div>` : ''}
           </div>
           ${state.flags.rank_mode_enabled ? `<div class="tier-col">${tierText}</div>` : ''}

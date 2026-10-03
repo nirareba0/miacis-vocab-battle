@@ -847,9 +847,14 @@ export function saveKnockBand(band) {
   try { localStorage.setItem('miacis_knock_band', String(band)); } catch {}
 }
 
-export function withStaffTag(nickname, isStaff) {
+/** スタッフの印。staff_label があればその言葉（例「大学生スタッフ」0026）、無ければ「スタッフ」 */
+export function withStaffTag(nickname, isStaff, label = null) {
   const n = String(nickname ?? '');
-  return isStaff ? `${n}（スタッフ）` : n;
+  return isStaff ? `${n}（${staffTagLabel(label)}）` : n;
+}
+
+export function staffTagLabel(label) {
+  return label ? String(label) : 'スタッフ';
 }
 
 // ==========================================

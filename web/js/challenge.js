@@ -239,7 +239,7 @@ async function begin(mode) {
       if (run.id !== res.run_id) return;
       run.board = (rows || [])
         .filter(r => r.nickname !== run.nickname)
-        .map(r => ({ nickname: withStaffTag(r.nickname, r.is_staff), score: mode === 'streak' ? r.best_streak : r.best_correct }));
+        .map(r => ({ nickname: withStaffTag(r.nickname, r.is_staff, r.staff_label), score: mode === 'streak' ? r.best_streak : r.best_correct }));
       run.boardReady = true;
     }).catch(() => {});
   } catch (err) {
