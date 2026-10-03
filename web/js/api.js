@@ -195,6 +195,16 @@ export async function getMySummary() {
 }
 
 /**
+ * 自分の今日のコミットポイント（日本時間の day を渡す）。points は自分の行だけ読める（RLS points_select_own）
+ */
+export async function getMyCommitToday(day) {
+  checkClient();
+  const { data, error } = await supabase.from('points').select('amount').eq('kind', 'commit').eq('day', day);
+  if (error) throw new Error(translateError(error));
+  return (data || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+}
+
+/**
  * 対戦開始 (start_match)
  */
 export async function startMatch() {

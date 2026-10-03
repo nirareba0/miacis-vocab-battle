@@ -12,6 +12,7 @@ import {
   isStaffUser,
   touchToday,
   getMySummary,
+  getMyCommitToday,
   getMyProgress,
   startMatch,
   submitMatch,
@@ -95,7 +96,9 @@ import {
   loginStreak,
   calDayLabel,
   parseWeekdays,
-  DOW_JA
+  DOW_JA,
+  jstToday,
+  commitTodayLine
 } from './logic.js';
 
 import {
@@ -593,13 +596,14 @@ async function renderHome() {
     await touchToday();
     const dailyNutsRes = await claimDailyNuts().catch(() => ({ earned: 0 }));
 
-    const [summary, progress, nutsData, myLooksData, allItems, streakData] = await Promise.all([
+    const [summary, progress, nutsData, myLooksData, allItems, streakData, commitToday] = await Promise.all([
       getMySummary(),
       getMyProgress(),
       getMyNuts(),
       getMyLooks(),
       getItems(),
-      getMyStreak().catch(() => null)
+      getMyStreak().catch(() => null),
+      getMyCommitToday(jstToday()).catch(() => null)
     ]);
     const visits = weekVisits(streakData);
     state.progress = progress;
@@ -675,7 +679,7 @@ async function renderHome() {
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       ${visits ? weekVisitsHtml(visits) : ''}
-      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
+      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
       ${lastWeekDiff ? `<p class="week-history">${lastWeekDiff}</p>` : ''}
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
       ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}

@@ -1039,3 +1039,26 @@ export function calDayLabel(iso) {
 export function parseWeekdays(text) {
   return [...new Set(String(text || '').split(',').map(x => parseInt(x, 10)).filter(n => n >= 1 && n <= 7))].sort((a, b) => a - b);
 }
+
+// ==========================================
+// コミットポイントの「今日 ◯ / 10」（ホーム）
+// ==========================================
+
+/** コミットポイントの1日の上限。サーバーの add_commit（0002）と同じ数。2026-10-03 本人「とりあえず10のまま」 */
+export const COMMIT_DAILY_CAP = 10;
+
+/** 日本時間の今日（YYYY-MM-DD）。points.day と比べる */
+export function jstToday(now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(now).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/**
+ * ホームのコミット欄の「今日 ◯ / 10」。上限で止まっていること、日付が変わってまた入ることが分かるように出す
+ * @returns {string} 「今日 7 / 10」／ 上限なら「今日 10 / 10 上限」
+ */
+export function commitTodayLine(today, cap = COMMIT_DAILY_CAP) {
+  const n = Math.min(Math.max(0, Math.floor(Number(today) || 0)), cap);
+  return n >= cap ? `今日 ${n} / ${cap} 上限` : `今日 ${n} / ${cap}`;
+}
