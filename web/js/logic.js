@@ -912,3 +912,75 @@ export function saveStreakBand(band) {
 export function tierLabel(tier) {
   return ['', '同じ品詞', '似た単語に注意', 'つづりの罠'][parseInt(tier, 10) || 0] || '';
 }
+
+// ==========================================
+// 学習のやる気（0023）: 今日やること・図鑑の途中ごほうび・リベンジ・ガチャまでの距離
+// ==========================================
+
+/**
+ * 今日やること の要約。次にやる1つ（未達成の最初）と、全部済んだか
+ * @param {{quests?: Array<{key:string,label:string,unit:string,goal:number,progress:number,claimed?:boolean}>}} state
+ */
+export function questSummary(state) {
+  const quests = Array.isArray(state?.quests) ? state.quests.map(q => {
+    const goal = Math.max(1, parseInt(q.goal, 10) || 1);
+    const progress = Math.max(0, Math.min(goal, parseInt(q.progress, 10) || 0));
+    return { ...q, goal, progress, done: progress >= goal, left: goal - progress };
+  }) : [];
+  const done = quests.filter(q => q.done).length;
+  return { quests, done, total: quests.length, allDone: quests.length > 0 && done === quests.length, next: quests.find(q => !q.done) || null };
+}
+
+/** 今日やること 1行の文言。「正解 12/20問」「サバイバル 1回」 */
+export function questLine(q) {
+  if (!q) return '';
+  const goal = Math.max(1, parseInt(q.goal, 10) || 1);
+  if (goal === 1) return `${q.label} 1${q.unit}`;
+  return `${q.label} ${Math.min(goal, parseInt(q.progress, 10) || 0)}/${goal}${q.unit}`;
+}
+
+/**
+ * 1回の挑戦で図鑑がどれだけ増えたか。before / after は my_zukan_progress / claim_zukan_milestones の bands
+ * @returns {{gained:number, collected:number, total:number, toNext:number|null, nextKind:string|null, coin:number}|null}
+ */
+export function zukanGain(before, after, band) {
+  const find = list => (Array.isArray(list) ? list.find(b => Number(b.band) === Number(band)) : null);
+  const a = find(after);
+  if (!a) return null;
+  const b = find(before);
+  const collected = parseInt(a.collected, 10) || 0;
+  const nextAt = a.next_at == null ? null : parseInt(a.next_at, 10);
+  return {
+    gained: b ? Math.max(0, collected - (parseInt(b.collected, 10) || 0)) : 0,
+    collected,
+    total: parseInt(a.total, 10) || 0,
+    toNext: nextAt == null ? null : Math.max(0, nextAt - collected),
+    nextKind: a.next_kind || null,
+    coin: parseInt(a.coin, 10) || 0
+  };
+}
+
+/** 図鑑の「次のごほうびまで」の1行。コンプリートが次なら すがた の名前を言う */
+export function zukanNextLine(g, completeName = 'すがた') {
+  if (!g || g.total === 0) return '';
+  if (g.collected >= g.total) return 'コンプリート済み';
+  if (g.toNext == null) return '';
+  return g.nextKind === 'complete' ? `あと${g.toNext}語で ${completeName}` : `あと${g.toNext}語で Mi +${g.coin}`;
+}
+
+/** ガチャ1回まであと何個か（0 なら引ける） */
+export function coinsToGacha(balance, price = GACHA_PRICE) {
+  const b = Math.max(0, parseInt(balance, 10) || 0);
+  return Math.max(0, (price?.single || GACHA_PRICE.single) - b);
+}
+
+/**
+ * 抽選券の出る確率の言い方。スタッフは抽選券が出ない（サーバーが 0 を返す）ので「0%」と出さない
+ * @returns {string} 「ガチャ1回で 10%」／ スタッフ「スタッフには出ない」
+ */
+export function raffleRateLabel(rates) {
+  if (rates?.staff_mode) return 'スタッフには出ない';
+  const r = Math.max(0, Math.min(1, Number(rates?.raffle_rate) || 0));
+  if (r <= 0) return 'いまは出ない';
+  return `ガチャ1回で ${Math.round(r * 100)}%`;
+}

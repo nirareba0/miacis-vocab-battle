@@ -5,7 +5,8 @@ import {
   getMyNuts,
   pullGacha,
   getGachaRates,
-  getMyShards
+  getMyShards,
+  equipItem
 } from './api.js';
 
 import {
@@ -14,7 +15,8 @@ import {
   gachaPrice,
   formatGachaRates,
   rarityInfo,
-  raffleNo
+  raffleNo,
+  raffleRateLabel
 } from './logic.js';
 
 import {
@@ -98,7 +100,8 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const staffNotice = ratesData.staff_mode ? '<div class="alert">スタッフ用：着せ替え・称号のみ出ます。実物景品の週1枚は消費しません。</div>' : '';
   const weeklyNotice = '';
   // 抽選券: ガチャで出る。月末に抽選。券が多いほど当たりやすい
-  const rafflePct = `${Math.round((Number(ratesData.raffle_rate) || 0) * 100)}%`;
+  // スタッフには抽選券が出ない（サーバーが確率 0 を返す）。「ガチャ1回で 0%」と出さない（2026-10-03）
+  const rafflePct = raffleRateLabel(ratesData);
   const myEntries = Number(ratesData.raffle_my_entries) || 0;
   const allEntries = Number(ratesData.raffle_total_entries) || 0;
   const prizeShowcase = `
@@ -106,7 +109,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <p class="gacha-showcase-kicker">🎟️ 抽選券</p>
       <h2 id="gacha-showcase-title">月末、館の景品が当たる</h2>
       <div class="raffle-count"><div><span>今月の自分の券</span><strong>${myEntries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${allEntries}<small>枚</small></strong></div></div>
-      <p class="gacha-showcase-note">ガチャ1回で ${rafflePct}。${multiLabel}なら 1枚確定。券が多いほど当たりやすい</p>
+      <p class="gacha-showcase-note">${ratesData.staff_mode ? '抽選券は 生徒だけ。スタッフには出ない' : `${rafflePct}。${multiLabel}なら 1枚確定。券が多いほど当たりやすい`}</p>
       ${stockPrizes.length ? `<div class="gacha-prize-list">${stockPrizes.map(p => `
         <article class="gacha-prize-ticket"><span aria-hidden="true">🎁</span><div><h3>${escapeHtml(p.name)}</h3><p>${p.stock}名</p><p>${escapeHtml(p.description || '')}</p></div></article>
       `).join('')}</div>` : '<p class="gacha-showcase-note">今月の景品は スタッフが準備中</p>'}
@@ -172,7 +175,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
         ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel} 引ける</span>` : ''}
         <span class="pull-label">${multiLabel}</span><span class="pull-cost"><span class="mi-coin" aria-hidden="true">Mi</span> ${price.multi}</span>
-        <div class="pull-note">SR以上 1つ確定<br>🎟️ 1枚確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
+        <div class="pull-note">SR以上 1つ確定<br>${ratesData.staff_mode ? '' : '🎟️ 1枚確定'}${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
       </button>
     </div>
 
@@ -182,7 +185,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:800; font-size:16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
         <span>確率と景品</span>
-        <span style="font-size:13px; color:var(--primary); font-weight:700;">抽選券 ${rafflePct}</span>
+        <span style="font-size:13px; color:var(--primary); font-weight:700;">抽選券 ${escapeHtml(rafflePct.replace('ガチャ1回で ', ''))}</span>
       </div>
 
       <div style="margin-bottom:14px;">
@@ -308,8 +311,9 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       pack.classList.add('is-opening');
       mainEl.querySelector('#gacha-opening-status').textContent = 'パックがひらく…';
       sound('packShake');
-      if (reducedMotion) showCard(0);
-      else openingTimer = setTimeout(() => { stopOpening(); showCard(0); }, 1200);
+      // まとめ引きは袋を開けたら一覧へ（1枚ずつめくるのは11回のタップになるのでやめた。2026-10-03）
+      if (reducedMotion) showSummary();
+      else openingTimer = setTimeout(() => { stopOpening(); showSummary(); }, 1200);
     };
     mainEl.querySelector('#btn-opening-skip').onclick = () => { stopOpening(); showSummary(); };
     window.addEventListener('hashchange', stopOpening, { once: true });
@@ -392,7 +396,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
           <div style="font-size:15px; font-weight:700;">
             ${items.length > 1 ? `${idx + 1} / ${items.length} 枚目` : '結果'}
           </div>
-          <div class="gacha-reveal-tools"><button class="btn-sub" data-gacha-sound></button><button class="btn-sub" id="btn-skip-gacha">まとめて見る</button></div>
+          <div class="gacha-reveal-tools"><button class="btn-sub" data-gacha-sound></button>${items.length > 1 ? '<button class="btn-sub" id="btn-skip-gacha">まとめて見る</button>' : ''}</div>
         </div>
 
         <div class="gacha-card-container" id="gacha-card-wrap">
@@ -411,9 +415,9 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
         <p class="gacha-reveal-status" role="status">どんなアイテムかな？</p>
 
         <div style="width:100%; margin-top:16px;">
-          <button class="btn-primary" id="btn-next-card" hidden style="font-size:18px;">
-            ${idx + 1 < items.length ? '次のアイテムへ ➡️' : '結果を見る ✨'}
-          </button>
+          ${items.length === 1 ? singleActionsHtml(item, isPrize) : `<button class="btn-primary" id="btn-next-card" hidden style="font-size:18px;">
+            ${idx + 1 < items.length ? '次のアイテムへ' : '結果を見る'}
+          </button>`}
         </div>
       </div>
     `;
@@ -429,19 +433,20 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       mainEl.querySelector('.gacha-card-back').removeAttribute('aria-hidden');
       mainEl.querySelector('#gacha-ticket-detail').hidden = false;
       mainEl.querySelector('.gacha-reveal-status').textContent = isPrize ? '館の景品引換券を獲得！' : `${rInfo.label}を獲得！`;
-      const next = mainEl.querySelector('#btn-next-card');
+      const next = mainEl.querySelector('#btn-next-card') || mainEl.querySelector('#gacha-single-actions');
       next.hidden = false;
-      next.focus({ preventScroll: true });
+      (next.querySelector?.('button') || next).focus({ preventScroll: true });
       sound(isPrize ? 'prizeWin' : 'cardReveal', { rarity: item.rarity });
       if (!reducedMotion && (isPrize || item.rarity >= 3)) {
         try { triggerConfetti(1600); } catch {}
       }
     };
 
-    document.getElementById('btn-next-card').addEventListener('click', () => {
+    document.getElementById('btn-next-card')?.addEventListener('click', () => {
       currentIndex++;
       showCard(currentIndex);
     });
+    bindSingleActions(item);
 
     const skipBtn = document.getElementById('btn-skip-gacha');
     if (skipBtn) {
@@ -451,13 +456,51 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     }
   }
 
+  // 1回引き: めくった場で「着る・もう一度・着せ替え」まで出す（引く → めくる の2タップで結果。2026-10-03）
+  function singleActionsHtml(item, isPrize) {
+    const price = state.gachaPrice || gachaPrice(null);
+    const canWear = !isPrize && item.kind !== 'raffle' && item.slot && item.id;
+    return `<div class="gacha-single-actions" id="gacha-single-actions" hidden>
+      ${canWear ? '<button class="btn-primary" id="btn-wear-now">すぐ着る</button>' : ''}
+      <button class="${canWear ? 'btn-secondary' : 'btn-primary'}" id="btn-pull-again">もう1回<span class="pull-again-cost"><span class="mi-coin" aria-hidden="true">Mi</span> ${price.single}</span></button>
+      <div class="gacha-single-sub"><button class="btn-sub" id="btn-summary-closet">着せ替え</button><button class="btn-sub" id="btn-summary-top">ガチャ</button><button class="btn-sub" id="btn-summary-home">ホーム</button></div>
+      <p class="gacha-single-balance">残り <span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance}${item.shards ? ` ・ 💎 +${item.shards}` : ''}</p>
+    </div>`;
+  }
+  function bindSingleActions(item) {
+    if (items.length !== 1) return;
+    const wear = document.getElementById('btn-wear-now');
+    wear?.addEventListener('click', async () => {
+      wear.disabled = true;
+      try {
+        await equipItem(item.slot, item.id);
+        if (state.myLooks) state.myLooks[item.slot] = item.id;
+        wear.textContent = '着た！';
+        sound('correct');
+      } catch (err) {
+        wear.disabled = false;
+        wear.textContent = 'うまくいかなかった。もう一度';
+      }
+    });
+    document.getElementById('btn-pull-again')?.addEventListener('click', () => executeGacha(mainEl, state, 1, callbacks));
+    document.getElementById('btn-summary-closet')?.addEventListener('click', () => {
+      if (callbacks.onGoCloset) callbacks.onGoCloset();
+      else window.location.hash = '#/closet';
+    });
+    document.getElementById('btn-summary-top')?.addEventListener('click', () => renderGachaView(mainEl.parentElement, state, callbacks));
+    document.getElementById('btn-summary-home')?.addEventListener('click', () => {
+      if (callbacks.onGoHome) callbacks.onGoHome();
+      else window.location.hash = '#/home';
+    });
+  }
+
   function showSummary() {
     stopOpening();
     if (!mainEl.isConnected) return;
     let gainedShards = 0;
     let prizeCount = 0;
     let raffleCount = 0;
-    const itemsHtml = items.map(item => {
+    const itemsHtml = items.map((item, i) => {
       const isPrize = item.kind === 'prize';
       const isRaffle = item.kind === 'raffle';
       if (isPrize) prizeCount++;
@@ -483,7 +526,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       }
 
       return `
-        <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''} ${isRaffle ? 'is-raffle' : ''}">
+        <div class="gacha-summary-item rarity-${item.rarity} ${isPrize ? 'is-prize' : ''} ${isRaffle ? 'is-raffle' : ''}" style="--i:${i}">
           <div style="font-size:32px; margin-bottom:4px;">${itemIcon}</div>
           <div style="font-size:14px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
           <div style="font-size:11px; color:${isRaffle ? '#c2413a' : rInfo.color}; font-weight:700;">${isRaffle ? escapeHtml(raffleNo(item.no ?? item.display?.no) || '抽選券') : isPrize ? '景品' : rInfo.code}</div>
@@ -557,5 +600,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     });
   }
 
-  showOpening();
+  // 1回引きは袋を飛ばして、すぐカードへ。まとめ引きは袋の「ため」を残す
+  if (items.length === 1) showCard(0);
+  else showOpening();
 }

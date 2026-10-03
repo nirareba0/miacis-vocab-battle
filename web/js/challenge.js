@@ -4,7 +4,7 @@
  * 対戦と違い、1問ずつサーバーに答えを送り、正誤と次の問題を受け取る。
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
-import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages } from './api.js';
+import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages, getMyZukanProgress, claimZukanMilestones, claimDailyQuests, getMyNuts, getGachaRates } from './api.js';
 import { renderMiacis } from './look.js';
 import {
   escapeHtml,
@@ -24,7 +24,13 @@ import {
   nextMetaUnlock,
   savedStreakBand,
   saveStreakBand,
-  tierLabel
+  tierLabel,
+  questSummary,
+  questLine,
+  zukanGain,
+  zukanNextLine,
+  coinsToGacha,
+  gachaPrice
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -55,6 +61,10 @@ const run = {
   best: null,
   weekBest: null,
   board: [],          // 自分以外の今週ベスト（いまの順位の計算用）
+  boardReady: false,  // 順位表が届いたか（届く前に「いま1位」と出さない。2026-10-03）
+  revenge: { asked: 0, won: 0 },  // リベンジ（前の回のつまずき）の出題数と正解数（0023）
+  revengeToast: false,
+  zukanBefore: null,  // 始める前の図鑑（結果で「+◯語」を出す）
   nickname: '',
   rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
   milestone: null,    // 100本ノックの 10本ごとの区切り
@@ -188,7 +198,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
       const d = e.target.dataset.d;
       if (!d) return;
       const q = { no: 6, stage: 2, range: 2, limit_ms: 6600, prompt: 'debug', choices: ['a', 'b', 'c', 'd'] };
-      run.score = 7; run.board = [{ nickname: 'テスト', score: 6 }];
+      run.score = 7; run.board = [{ nickname: 'テスト', score: 6 }]; run.boardReady = true;
       if (d === 'rankup') { run.rankUp = { rank: 2, passed: ['テスト'] }; playSfx('rankUp'); showQuestion(q); }
       if (d === 'stage') showStageUp(q);
       if (d === 'shake') { showQuestion(q); shake(area()); vibrate('wrong'); }
@@ -201,6 +211,9 @@ async function begin(mode) {
   const a = area();
   if (!a) return;
   a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">用意中…</div>';
+  // 始める前の図鑑の数（結果で「図鑑 +◯語」を出すため。届かなくても遊べる）
+  run.zukanBefore = null;
+  getMyZukanProgress().then(b => { run.zukanBefore = b; }).catch(() => {});
   try {
     const res = await startRun(mode, mode === 'knock' ? savedKnockBand() : savedStreakBand());
     if (run.mode !== mode || !area()) return;
@@ -217,6 +230,9 @@ async function begin(mode) {
     run.startedAt = performance.now();
     run.rankUp = null;
     run.board = [];
+    run.boardReady = false;
+    run.revenge = { asked: 0, won: 0 };
+    run.revengeToast = false;
     if (res.offer) {
       run.pendingStage = run.startStage;
       showCards(res.offer, true);
@@ -230,6 +246,7 @@ async function begin(mode) {
       run.board = (rows || [])
         .filter(r => r.nickname !== run.nickname)
         .map(r => ({ nickname: withStaffTag(r.nickname, r.is_staff), score: mode === 'streak' ? r.best_streak : r.best_correct }));
+      run.boardReady = true;
     }).catch(() => {});
   } catch (err) {
     showError(err);
@@ -242,6 +259,8 @@ function effectiveScore() {
 }
 
 function rankPillHtml() {
+  // 順位表が届く前は出さない（届く前は誰とも比べられず、必ず「1位」になってしまう）
+  if (!run.boardReady) return '';
   if (!run.board.length && !run.weekBest && run.score === 0) return '';
   const lr = liveRank(effectiveScore(), run.board);
   return `<span class="rank-pill" aria-label="いまやめたら今週 ${lr.rank} 位">いま <strong>${lr.rank}</strong>位</span>`;
@@ -249,6 +268,7 @@ function rankPillHtml() {
 
 function chaseLabel() {
   // すぐ上の人まで3問以内なら、そちらを先に言う（自己ベストより人のほうが燃える）
+  if (!run.boardReady) return run.mode === 'streak' ? streakPressureLabel(run.score, run.best) : '';
   const lr = liveRank(effectiveScore(), run.board);
   if (lr.next && lr.next.gap <= 3) {
     return lr.next.gap === 1
@@ -297,7 +317,7 @@ function showQuestion(q) {
     ${headerHtml(q)}
     <div class="timer-bar-bg"><div id="timer-bar" class="timer-bar-fill"></div></div>
     <div class="timer-label"><span id="timer-sec">${(q.limit_ms / 1000).toFixed(1)}</span> 秒</div>
-    ${q.tier ? `<div class="tier-tag tier-${q.tier}">${tierLabel(q.tier)}</div>` : ''}
+    ${q.revenge ? '<div class="tier-tag revenge">リベンジ <small>前回つまずいた単語</small></div>' : q.tier ? `<div class="tier-tag tier-${q.tier}">${tierLabel(q.tier)}</div>` : ''}
     <div class="word-prompt">${escapeHtml(q.prompt)}</div>
     <div class="choices-list">
       ${q.choices.map((c, i) => `<button class="btn-choice" data-choice="${i}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c)}</span></button>`).join('')}
@@ -311,6 +331,16 @@ function showQuestion(q) {
     toast.className = 'rank-up-toast milestone';
     toast.setAttribute('role', 'status');
     toast.innerHTML = '<strong>🛡 たてで守った！</strong><span>連続はそのまま</span>';
+    a.prepend(toast);
+    later(() => toast.remove(), 1300);
+  }
+
+  if (run.revengeToast) {
+    run.revengeToast = false;
+    const toast = document.createElement('div');
+    toast.className = 'rank-up-toast milestone revenge';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = '<strong>リベンジ成功！</strong><span>図鑑に入った</span>';
     a.prepend(toast);
     later(() => toast.remove(), 1300);
   }
@@ -393,6 +423,7 @@ async function submit(choice, ms, btn) {
   const a = area();
   a?.querySelectorAll('.btn-choice').forEach(b => { b.disabled = true; });
   const prevStage = run.q?.stage;
+  const wasRevenge = Boolean(run.q?.revenge);
 
   let res;
   try {
@@ -406,9 +437,11 @@ async function submit(choice, ms, btn) {
   const buttons = a ? [...a.querySelectorAll('.btn-choice')] : [];
   run.mood = res.correct ? 'happy' : 'ouch';
   a?.querySelector('.hud-miacis')?.setAttribute('class', `hud-miacis mood-${run.mood}`);
+  if (wasRevenge) run.revenge.asked++;
   if (res.correct) {
     btn?.classList.add('choice-correct');
     playSfx('correct');
+    if (wasRevenge) { run.revenge.won++; run.revengeToast = true; }
   } else {
     btn?.classList.add('choice-wrong');
     buttons[res.answer_index]?.classList.add('correct');
@@ -626,7 +659,7 @@ async function finish() {
 function missedHtml(missed) {
   if (!missed || missed.length === 0) return '';
   return `
-    <div class="card-title" style="margin-top: 20px;">${run.mode === 'streak' ? 'つまずいた単語' : '間違えた単語'}</div>
+    <div class="card-title" style="margin-top: 20px;">${run.mode === 'streak' ? 'つまずいた単語' : '間違えた単語'}<small class="revenge-note">次の回の最初に リベンジ</small></div>
     <div class="review-list">
       ${missed.map(m => `
         <div class="review-item wrong">
@@ -718,6 +751,8 @@ function showResult(result) {
     </div>
     ${rankHtml}
     ${metaGainHtml}
+    <button class="btn-primary" id="btn-challenge-again" style="margin-top: 12px;">もう一度</button>
+    <div class="result-next" id="result-next" aria-live="polite"></div>
     <div class="challenge-bests">${bestLine('今週ベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
     <div class="points-grid">
       <div class="point-box"><div class="point-label">学習ポイント</div><div class="point-val">+${result.learn_points}</div></div>
@@ -726,14 +761,64 @@ function showResult(result) {
     ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の上限 到達</div>' : ''}
     ${titles.length ? `<div class="title-award"><span class="eyebrow">称号 獲得！</span>${titles.map(t => `<strong>👑 ${escapeHtml(t.name)}</strong>`).join('')}<p>着せ替えで付けられる</p></div>` : ''}
     ${missedHtml(result.missed)}
-    <button class="btn-primary" id="btn-challenge-again" style="margin-top: 16px;">もう一度</button>
-    <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 10px;">ランキング</button>
+    <button class="btn-secondary" id="btn-challenge-ranking" style="margin-top: 16px;">ランキング</button>
     <button class="btn-sub" id="btn-challenge-home" style="margin-top: 10px;">ホーム</button>
   `;
 
   document.getElementById('btn-challenge-again').addEventListener('click', () => begin(mode));
   document.getElementById('btn-challenge-ranking').addEventListener('click', () => run.callbacks.onGoRanking?.(mode));
   document.getElementById('btn-challenge-home').addEventListener('click', () => run.callbacks.onGoHome?.());
+  fillResultNext(result);
+}
+
+/**
+ * 結果の「次の一手」（0023）: 図鑑 +◯語・今日やること・ガチャまで。届いたものから出す（遊びの流れは止めない）
+ * 図鑑の区切りと今日やることの Miコインはここで受け取る
+ */
+async function fillResultNext(result) {
+  const band = run.band;
+  const before = run.zukanBefore;
+  const [zk, qs, nuts, rates] = await Promise.all([
+    claimZukanMilestones().catch(() => null),
+    claimDailyQuests().catch(() => null),
+    getMyNuts().catch(() => null),
+    getGachaRates().catch(() => null)
+  ]);
+  const box = document.getElementById('result-next');
+  if (!box) return;
+  const rows = [];
+
+  if (run.revenge.asked > 0) {
+    rows.push(`<div class="next-row revenge"><span class="next-label">リベンジ</span><strong>${run.revenge.won} / ${run.revenge.asked}</strong><p>${run.revenge.won ? '前回のつまずきを取り返した' : '次の回でもう一度出る'}</p></div>`);
+  }
+
+  const g = zk ? zukanGain(before, zk.bands, band) : null;
+  if (g) {
+    const mile = (zk.claimed_now || []).filter(m => Number(m.band) === Number(band));
+    const name = ['', 'A1', 'A2', 'B1', 'B2', '最難関'][band] || '';
+    rows.push(`<div class="next-row zukan ${mile.length ? 'hit' : ''}"><span class="next-label">図鑑 ${name}</span><strong>${before ? `+${g.gained}<small>語</small>` : `${g.collected}<small>語</small>`}</strong><p>${g.collected} / ${g.total} ・ ${escapeHtml(zukanNextLine(g))}</p>${mile.length ? `<em class="next-reward">${mile[mile.length - 1].at}語 達成！ <span class="mi-coin" aria-hidden="true">Mi</span> +${mile.reduce((n, m) => n + m.coin, 0)}</em>` : ''}</div>`);
+  }
+
+  if (qs) {
+    const sum = questSummary(qs);
+    const got = qs.claimed_now || [];
+    const coin = got.reduce((n, q) => n + (q.coin || 0), 0);
+    rows.push(`<div class="next-row quest ${got.length ? 'hit' : ''}"><span class="next-label">今日やること</span><strong>${sum.done} / ${sum.total}</strong><p>${sum.allDone ? '今日の分 全部クリア！' : `次は ${escapeHtml(questLine(sum.next))}`}</p>${got.length ? `<em class="next-reward">${got.map(q => escapeHtml(q.label)).join('・')} 達成！ <span class="mi-coin" aria-hidden="true">Mi</span> +${coin}</em>` : ''}</div>`);
+  }
+
+  if (nuts) {
+    const price = gachaPrice(rates);
+    const left = coinsToGacha(nuts.balance, price);
+    rows.push(`<div class="next-row gacha"><span class="next-label">ガチャ</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${nuts.balance}</strong><p>${left ? `1回まで あと${left}` : '1回 引ける'}</p>${left ? '' : '<button class="btn-sub" id="btn-result-gacha">ガチャへ</button>'}</div>`);
+  }
+
+  if (!rows.length) return;
+  box.innerHTML = rows.join('');
+  if ((zk?.claimed_now || []).length || (qs?.claimed_now || []).length) {
+    playSfx('combo');
+    run.callbacks.onNuts?.();
+  }
+  document.getElementById('btn-result-gacha')?.addEventListener('click', () => { window.location.hash = '#/gacha'; });
 }
 
 function showError(err) {

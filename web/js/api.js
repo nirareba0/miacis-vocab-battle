@@ -640,6 +640,30 @@ export async function getMyWeekTitles() {
   return escapeDeep(data || []);
 }
 
+/** 今日やること（0023）。達成していれば Miコインを受け取り、いまの状態を返す（何度呼んでもよい） */
+export async function claimDailyQuests() {
+  checkClient();
+  const { data, error } = await supabase.rpc('claim_daily_quests');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data);
+}
+
+/** 図鑑のレベルごとの いま と 次のごほうび（0023。受け取りはしない） */
+export async function getMyZukanProgress() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_zukan_progress');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/** 図鑑の途中ごほうび（0023）。区切りに届いていれば Miコインを受け取る（何度呼んでもよい） */
+export async function claimZukanMilestones() {
+  checkClient();
+  const { data, error } = await supabase.rpc('claim_zukan_milestones');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || { claimed_now: [], bands: [] });
+}
+
 export async function getMyWords() {
   checkClient();
   const { data, error } = await supabase.rpc('my_words');

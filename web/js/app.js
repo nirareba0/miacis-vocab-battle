@@ -57,7 +57,9 @@ import {
   staffDrawRaffle,
   getStaffSettings,
   staffSetSetting,
-  getTryoutWords
+  getTryoutWords,
+  claimDailyQuests,
+  claimZukanMilestones
 } from './api.js';
 
 import {
@@ -80,7 +82,11 @@ import {
   savedStreakBand,
   saveStreakBand,
   raffleNo,
-  monthLabel
+  monthLabel,
+  questSummary,
+  questLine,
+  zukanNextLine,
+  zukanGain
 } from './logic.js';
 
 import {
@@ -646,14 +652,15 @@ async function renderHome() {
     homeContent.innerHTML = `
       <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
       ${dailyToastHtml}
+      <section class="today-card" id="today-card" aria-labelledby="today-title"><div class="today-head"><h2 id="today-title">今日やること</h2><strong id="today-count">…</strong></div><ol class="today-list" id="today-list"></ol></section>
+      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <div class="record-strip" id="record-strip" hidden></div>
+      <div class="challenge-launch single"><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本トレーニング</strong><span>100問 ミスしても止まらない</span></button></div>
       <section class="companion-card" aria-label="相棒と進化">
         <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
         <div class="companion-art">${miacisAvatarHtml}</div>
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
-      <div class="record-strip" id="record-strip" hidden></div>
-      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
-      <div class="challenge-launch single"><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本トレーニング</strong><span>100問 ミスしても止まらない</span></button></div>
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
@@ -675,6 +682,19 @@ async function renderHome() {
     document.getElementById('go-battle')?.addEventListener('click', () => {
       window.location.hash = '#/battle';
     });
+    // 今日やること（0023）: 3つ。達成済みの Miコインはここでも受け取る（別の端末で遊んだ分など）
+    Promise.all([claimDailyQuests(), claimZukanMilestones().catch(() => null)]).then(([qs, zk]) => {
+      renderTodayCard(qs, zk);
+      const got = [...(qs.claimed_now || []).map(q => ({ name: q.label, coin: q.coin })), ...((zk?.claimed_now) || []).map(m => ({ name: `図鑑 ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][m.band]} ${m.at}語`, coin: m.coin }))];
+      if (got.length) {
+        const coin = got.reduce((n, g) => n + g.coin, 0);
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success today-toast';
+        toast.innerHTML = `<span class="mi-coin" aria-hidden="true">Mi</span> +${coin} <small>${got.map(g => escapeHtml(g.name)).join('・')}</small>`;
+        document.getElementById('today-card')?.before(toast);
+        getMyNuts().then(n => { state.nuts = n; const w = document.querySelector('.home-wallet strong'); if (w) w.innerHTML = `<span class="mi-coin" aria-hidden="true">Mi</span> ${n.balance.toLocaleString()} <small>個</small>`; }).catch(() => {});
+      }
+    }).catch(() => { document.getElementById('today-card')?.remove(); });
     claimZukanRewards().then(list => {
       if (list.length) showRewardPopup(list.map(r => ({ title: '図鑑コンプリート！', name: r.name, look: { form: { id: r.id, name: r.name } }, note: '着せ替えの「すがた」で着られる' })));
     }).catch(() => {});
@@ -756,6 +776,37 @@ async function renderHome() {
       homeContent.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
     }
   }
+}
+
+/**
+ * ホームの「今日やること」（0023）。3つと、次にやる1つ。図鑑の次のごほうびも1行
+ */
+function renderTodayCard(qs, zk) {
+  const card = document.getElementById('today-card');
+  if (!card) return;
+  const sum = questSummary(qs);
+  if (!sum.total) { card.remove(); return; }
+  const coin = Number(qs.coin) || 0;
+  document.getElementById('today-count').textContent = sum.allDone ? 'クリア！' : `${sum.done} / ${sum.total}`;
+  card.classList.toggle('all-done', sum.allDone);
+  document.getElementById('today-list').innerHTML = sum.quests.map(q => `
+    <li class="${q.done ? 'done' : ''} ${sum.next && q.key === sum.next.key ? 'next' : ''}">
+      <span class="today-check" aria-hidden="true">${q.done ? '✓' : ''}</span>
+      <span class="today-label">${escapeHtml(questLine(q))}</span>
+      <span class="today-bar" aria-hidden="true"><i style="width:${Math.round((q.progress / q.goal) * 100)}%"></i></span>
+      <span class="today-reward">${q.done ? '済' : coin ? `<span class="mi-coin" aria-hidden="true">Mi</span>+${coin}` : ''}</span>
+    </li>`).join('');
+  // 図鑑: 選んでいるステージの、次のごほうびまで
+  const band = savedStreakBand();
+  const g = zk ? zukanGain(null, zk.bands, band) : null;
+  if (g && g.total) {
+    const li = document.createElement('li');
+    li.className = 'today-zukan';
+    li.innerHTML = `<span class="today-check" aria-hidden="true">📖</span><span class="today-label">図鑑 ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][band]} ${g.collected}/${g.total}</span><span class="today-next">${escapeHtml(zukanNextLine(g))}</span>`;
+    li.addEventListener('click', () => { state.zukanTab = band; window.location.hash = '#/zukan'; });
+    document.getElementById('today-list').append(li);
+  }
+  card.querySelectorAll('li:not(.today-zukan)').forEach(li => li.addEventListener('click', () => { window.location.hash = '#/streak'; }));
 }
 
 /**
@@ -1378,7 +1429,8 @@ async function renderZukan() {
 
   try {
     const newRewards = await claimZukanRewards().catch(() => []);
-    const wordsData = await getMyWords();
+    // 途中のごほうび（0023）: 区切りの語数ごとに Miコイン。届いた分はここでも受け取る
+    const [wordsData, miles] = await Promise.all([getMyWords(), claimZukanMilestones().catch(() => null)]);
     const contentEl = document.getElementById('zukan-content');
     if (!contentEl) return;
 
@@ -1401,6 +1453,11 @@ async function renderZukan() {
     }
 
     const uncollectedCount = Math.max(0, bandStat.total - bandStat.collected);
+    // 次のごほうび（50語ごとの Miコイン。最後はコンプリートの すがた）
+    const mg = miles ? zukanGain(null, miles.bands, state.zukanTab) : null;
+    const gotNow = (miles?.claimed_now || []).filter(m => Number(m.band) === state.zukanTab);
+    const mileHtml = mg && mg.collected < mg.total ? `<p class="zukan-next">次のごほうび <strong>${escapeHtml(zukanNextLine(mg, bandStat.reward?.name || 'すがた'))}</strong></p>` : '';
+    const mileToast = gotNow.length ? `<div class="alert alert-success today-toast"><span class="mi-coin" aria-hidden="true">Mi</span> +${gotNow.reduce((n, m) => n + m.coin, 0)} <small>図鑑 ${gotNow.map(m => `${m.at}語`).join('・')} 達成！</small></div>` : '';
     // コンプリートのごほうび（すがた）。目の前に吊るしておく
     const reward = bandStat.reward;
     const rewardHtml = reward?.id ? `
@@ -1414,6 +1471,7 @@ async function renderZukan() {
       </div>` : '';
 
     contentEl.innerHTML = `
+      ${mileToast}
       <div class="zukan-progress-card">
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px;">
           <span>${['', 'A1 中学前半', 'A2 中学', 'B1 高校', 'B2 大学受験', '最難関 学術語'][state.zukanTab]}</span>
@@ -1422,6 +1480,7 @@ async function renderZukan() {
         <div class="evolution-bar-bg">
           <div class="evolution-bar-fill" style="width: ${percent}%;"></div>
         </div>
+        ${mileHtml}
       </div>
       ${rewardHtml}
 
