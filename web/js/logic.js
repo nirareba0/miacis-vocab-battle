@@ -984,3 +984,58 @@ export function raffleRateLabel(rates) {
   if (r <= 0) return 'いまは出ない';
   return `ガチャ1回で ${Math.round(r * 100)}%`;
 }
+
+// ==========================================
+// 🔥 を週単位に・休館日は数えない（0024）
+// ==========================================
+
+export const DOW_JA = ['月', '火', '水', '木', '金', '土', '日'];
+
+/**
+ * my_streak の返り値を画面の形に。今週の7日は 来た／休館／まだ（今日まで）／これから
+ * @returns {{days:number, weekDays:number, weekOpen:number, rested:boolean, chips:Array<{label:string, state:'played'|'closed'|'open'|'future', today:boolean}>}|null}
+ */
+export function weekVisits(s) {
+  if (!s || !Array.isArray(s.week)) return null;
+  return {
+    days: Math.max(0, parseInt(s.days, 10) || 0),
+    weekDays: Math.max(0, parseInt(s.week_days, 10) || 0),
+    weekOpen: Math.max(0, parseInt(s.week_open, 10) || 0),
+    rested: Boolean(s.rested_last_week),
+    chips: s.week.map(d => ({
+      label: DOW_JA[((parseInt(d.dow, 10) || 1) - 1) % 7],
+      state: d.played ? 'played' : d.closed ? 'closed' : d.future ? 'future' : 'open',
+      today: Boolean(d.today)
+    }))
+  };
+}
+
+/** 先週休んだが 🔥 がつながっているときの1行（切れたとは言わない）。それ以外は空 */
+export function restLine(v) {
+  return v?.rested ? '先週は休み。🔥 は つながってる' : '';
+}
+
+/**
+ * ログインボーナスの 🔥 の行。上乗せがあれば「🔥 9日 Mi +3」、まだなら「あと2日で ボーナス↑」
+ * streak_bonus_next が無い古い返り値は、前の決まり（3日で上乗せ）で数える
+ * @returns {{days:number, bonus:number, next:number}}
+ */
+export function loginStreak(res) {
+  const days = Math.max(0, parseInt(res?.streak_days, 10) || 0);
+  const bonus = Math.max(0, parseInt(res?.streak_bonus, 10) || 0);
+  const next = res?.streak_bonus_next == null ? (days >= 1 && days < 3 ? 3 - days : 0) : Math.max(0, parseInt(res.streak_bonus_next, 10) || 0);
+  return { days, bonus, next };
+}
+
+/** 'YYYY-MM-DD' → '12/28(月)'（日付だけを扱う。端末の時差に左右されない） */
+export function calDayLabel(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return '';
+  const dow = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay(); // 0=日
+  return `${+m[2]}/${+m[3]}(${DOW_JA[(dow + 6) % 7]})`;
+}
+
+/** 曜日の設定 '1,2' ⇔ [1,2]。並べ直して重複と範囲外を落とす */
+export function parseWeekdays(text) {
+  return [...new Set(String(text || '').split(',').map(x => parseInt(x, 10)).filter(n => n >= 1 && n <= 7))].sort((a, b) => a - b);
+}

@@ -321,7 +321,7 @@ test('進化: 段階の境目と名前、routeの確定と固定', async () => {
   });
 });
 
-test('連続日数: 今日または昨日まで途切れずに reason=open のコミットがある日数', async () => {
+test('連続日数（0024 から週単位）: 来た日を数え、1日空いても切れない', async () => {
   const db = await setupGameTest();
   const uid = crypto.randomUUID();
   await createUser(db, uid);
@@ -363,11 +363,12 @@ test('連続日数: 今日または昨日まで途切れずに reason=open の�
     assert.equal(rows[0].p.streak_days, 4);
   });
 
-  // 2日飛んで 2026-09-28 (月) に進む (2026-09-27 を逃した) -> 途切れて 0 になる
+  // 2日飛んで 2026-09-28 (月) に進む (2026-09-27 を逃した)
+  // 0024 から週単位: 1日空いても切れない（前は 0 に戻っていた）。今週はまだ途中なので 4 のまま
   await setTestTime(db, '2026-09-28T09:00:00+09:00');
   await asUser(db, uid, async () => {
     const { rows } = await db.query(`select public.my_progress() as p`);
-    assert.equal(rows[0].p.streak_days, 0, '途切れたので0日');
+    assert.equal(rows[0].p.streak_days, 4, '週単位なので1日空いても切れない');
   });
 
   await setTestTime(db, null);

@@ -853,6 +853,25 @@ export function staffSetSetting(key, value) {
   return rpc('staff_set_setting', { p_key: key, p_value: String(value) });
 }
 
+// ==========================================
+// 🔥 を週単位に・休館日（0024）
+// ==========================================
+
+/** 自分の 🔥（週でつながっている間に来た日数）と今週の7日 */
+export function getMyStreak() {
+  return rpc('my_streak');
+}
+
+/** スタッフ: 日付で登録した休館・臨時開館と、これからの2週間 */
+export function getStaffCalendar() {
+  return rpc('staff_calendar');
+}
+
+/** @param {string} day 'YYYY-MM-DD'  @param {boolean|null} closed true=休館 / false=臨時開館 / null=登録を消す */
+export function staffSetCalendarDay(day, closed, note = '') {
+  return rpc('staff_set_calendar_day', { p_day: day, p_closed: closed, p_note: note });
+}
+
 /** 登録前に1問だけ遊ぶための単語（頻度上位・匿名で読める）。選ぶのは端末側 */
 export async function getTryoutWords() {
   checkClient();

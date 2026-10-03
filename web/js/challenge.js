@@ -4,7 +4,7 @@
  * 対戦と違い、1問ずつサーバーに答えを送り、正誤と次の問題を受け取る。
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
-import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages, getMyZukanProgress, claimZukanMilestones, claimDailyQuests, getMyNuts, getGachaRates } from './api.js';
+import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages, getMyZukanProgress, claimZukanMilestones, claimDailyQuests, getMyNuts, getGachaRates, getMyStreak } from './api.js';
 import { renderMiacis } from './look.js';
 import {
   escapeHtml,
@@ -30,7 +30,8 @@ import {
   zukanGain,
   zukanNextLine,
   coinsToGacha,
-  gachaPrice
+  gachaPrice,
+  weekVisits
 } from './logic.js';
 import { playSfx, triggerConfetti, isMuted, toggleMute, vibrate } from './game.js';
 
@@ -778,11 +779,12 @@ function showResult(result) {
 async function fillResultNext(result) {
   const band = run.band;
   const before = run.zukanBefore;
-  const [zk, qs, nuts, rates] = await Promise.all([
+  const [zk, qs, nuts, rates, streak] = await Promise.all([
     claimZukanMilestones().catch(() => null),
     claimDailyQuests().catch(() => null),
     getMyNuts().catch(() => null),
-    getGachaRates().catch(() => null)
+    getGachaRates().catch(() => null),
+    getMyStreak().catch(() => null)
   ]);
   const box = document.getElementById('result-next');
   if (!box) return;
@@ -810,6 +812,12 @@ async function fillResultNext(result) {
     const price = gachaPrice(rates);
     const left = coinsToGacha(nuts.balance, price);
     rows.push(`<div class="next-row gacha"><span class="next-label">ガチャ</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${nuts.balance}</strong><p>${left ? `1回まで あと${left}` : '1回 引ける'}</p>${left ? '' : '<button class="btn-sub" id="btn-result-gacha">ガチャへ</button>'}</div>`);
+  }
+
+  // 今週（0024）: 開館日のうち何日来たか と 🔥。休館日は数えない
+  const v = weekVisits(streak);
+  if (v) {
+    rows.push(`<div class="next-row week"><span class="next-label">今週</span><strong>${v.weekDays}<small>日</small></strong><p>🔥 ${v.days}日 ・ 開館 ${v.weekOpen}日のうち</p></div>`);
   }
 
   if (!rows.length) return;

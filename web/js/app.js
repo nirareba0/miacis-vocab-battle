@@ -59,7 +59,10 @@ import {
   staffSetSetting,
   getTryoutWords,
   claimDailyQuests,
-  claimZukanMilestones
+  claimZukanMilestones,
+  getMyStreak,
+  getStaffCalendar,
+  staffSetCalendarDay
 } from './api.js';
 
 import {
@@ -86,7 +89,13 @@ import {
   questSummary,
   questLine,
   zukanNextLine,
-  zukanGain
+  zukanGain,
+  weekVisits,
+  restLine,
+  loginStreak,
+  calDayLabel,
+  parseWeekdays,
+  DOW_JA
 } from './logic.js';
 
 import {
@@ -584,13 +593,15 @@ async function renderHome() {
     await touchToday();
     const dailyNutsRes = await claimDailyNuts().catch(() => ({ earned: 0 }));
 
-    const [summary, progress, nutsData, myLooksData, allItems] = await Promise.all([
+    const [summary, progress, nutsData, myLooksData, allItems, streakData] = await Promise.all([
       getMySummary(),
       getMyProgress(),
       getMyNuts(),
       getMyLooks(),
-      getItems()
+      getItems(),
+      getMyStreak().catch(() => null)
     ]);
+    const visits = weekVisits(streakData);
     state.progress = progress;
     state.nuts = nutsData;
     state.myLooks = myLooksData || {};
@@ -635,12 +646,12 @@ async function renderHome() {
     // デイリーボーナス案内
     let dailyToastHtml = '';
     if (dailyNutsRes.earned > 0) {
-      const bonus = dailyNutsRes.streak_bonus || 0;
-      const days = dailyNutsRes.streak_days || 0;
-      const streakLine = bonus > 0
-        ? `<div style="font-size:12px; font-weight:700; margin-top:2px;">${days}日連続 <span class="mi-coin" aria-hidden="true">Mi</span> +${bonus}</div>`
-        : days >= 1 && days < 3
-          ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">あと${3 - days}日連続で ボーナス↑</div>`
+      // 🔥 は週単位（0024）。「連続」と言わない
+      const ls = loginStreak(dailyNutsRes);
+      const streakLine = ls.bonus > 0
+        ? `<div style="font-size:12px; font-weight:700; margin-top:2px;">🔥 ${ls.days}日 <span class="mi-coin" aria-hidden="true">Mi</span> +${ls.bonus}</div>`
+        : ls.next > 0
+          ? `<div style="font-size:12px; font-weight:500; margin-top:2px;">🔥 あと${ls.next}日で ボーナス↑</div>`
           : '';
       dailyToastHtml = `
         <div class="alert alert-success" style="margin-bottom:12px; font-weight:700; text-align:center;">
@@ -657,12 +668,13 @@ async function renderHome() {
       <div class="record-strip" id="record-strip" hidden></div>
       <div class="challenge-launch single"><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本トレーニング</strong><span>100問 ミスしても止まらない</span></button></div>
       <section class="companion-card" aria-label="相棒と進化">
-        <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
+        <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${visits ? visits.days : progress.streak_days}日</span></div>
         <div class="companion-art">${miacisAvatarHtml}</div>
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
+      ${visits ? weekVisitsHtml(visits) : ''}
       <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
       ${lastWeekDiff ? `<p class="week-history">${lastWeekDiff}</p>` : ''}
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
@@ -2407,8 +2419,8 @@ async function renderStaff() {
         } catch (err) { alert(err.message); }
       });
     } else if (state.staffTab === 'settings') {
-      const settings = await getStaffSettings();
-      const rows = Object.entries(settings).map(([key, v]) => `
+      const [settings, cal] = await Promise.all([getStaffSettings(), getStaffCalendar().catch(() => null)]);
+      const rows = Object.entries(settings).filter(([key]) => !CALENDAR_KEYS.includes(key)).map(([key, v]) => `
         <div class="setting-row">
           <label for="set-${key}"><strong>${escapeHtml(v.label)}</strong><small>${escapeHtml(key)}${v.kind === 'bool' ? '' : `（${escapeHtml(String(v.min))}〜${escapeHtml(String(v.max))}）`}</small></label>
           ${v.kind === 'bool'
@@ -2417,6 +2429,7 @@ async function renderStaff() {
           <button class="btn-secondary" data-save="${key}">保存</button>
         </div>`).join('');
       container.innerHTML = `
+        ${settings.closed_weekdays ? staffCalendarHtml(settings, cal) : ''}
         <div class="card">
           <div class="card-title">調整値</div>
           <p class="notice-line">保存した瞬間から効く（画面の再読み込みは不要。遊んでいる途中の回は始めたときの値のまま）</p>
@@ -2438,6 +2451,7 @@ async function renderStaff() {
           setTimeout(() => { btn.textContent = '保存'; }, 1500);
         }
       }));
+      bindStaffCalendar(container);
     } else if (state.staffTab === 'contents') {
       const unapproved = await getUnapprovedContents();
       let unapprovedHtml = '<div style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">未承認の今週の英語はありません</div>';
@@ -2524,6 +2538,88 @@ async function renderStaff() {
       container.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
     }
   }
+}
+
+// ==========================================
+// 🔥 を週単位に・休館日（0024）
+// ==========================================
+
+const VISIT_WORD = { played: '来た', closed: '休館', open: 'まだ', future: 'これから' };
+
+/** ホームの「今週」: 開館日のうち何日来たか（主）と 🔥（従）。休館日は「休」 */
+function weekVisitsHtml(v) {
+  const chips = v.chips.map(c => `<li class="${c.state}${c.today ? ' today' : ''}" aria-label="${c.label} ${VISIT_WORD[c.state]}"><span>${c.label}</span><small>${c.state === 'closed' ? '休' : c.state === 'played' ? '🔥' : ''}</small></li>`).join('');
+  const rest = restLine(v);
+  return `<div class="week-visits"><div class="week-visits-head"><strong>${v.weekDays}<small>日</small></strong><span>開館 ${v.weekOpen}日のうち</span><em class="week-fire">🔥 ${v.days}日</em></div><ol class="week-chips" aria-label="今週の7日">${chips}</ol>${rest ? `<p class="week-rest">${escapeHtml(rest)}</p>` : ''}</div>`;
+}
+
+const CALENDAR_KEYS = ['closed_weekdays', 'closed_nth_week', 'closed_nth_weekday'];
+
+/** スタッフ画面「設定」の休館日（毎週の曜日・毎月 第◯ ◯曜・日付の登録・これからの2週間） */
+function staffCalendarHtml(settings, cal) {
+  const weekdays = new Set(parseWeekdays(settings.closed_weekdays?.value));
+  const nth = parseInt(settings.closed_nth_week?.value, 10) || 0;
+  const nthDow = parseInt(settings.closed_nth_weekday?.value, 10) || 1;
+  const minOpen = settings.streak_week_min_open?.value ?? '3';
+  const grace = settings.streak_grace_weeks?.value ?? '1';
+  const days = cal?.days || [];
+  const upcoming = cal?.upcoming || [];
+  return `
+    <div class="card staff-calendar">
+      <div class="card-title">休館日</div>
+      <p class="notice-line">🔥 は休館日を数えない。開館 ${escapeHtml(String(minOpen))}日未満の週は数えず、${escapeHtml(String(grace))}週 来なくても切れない（下の調整値で変える）</p>
+      <div class="setting-row">
+        <label><strong>毎週</strong><small>押して切り替えて 保存</small></label>
+        <div class="dow-toggle" role="group" aria-label="毎週の休館日">${DOW_JA.map((l, i) => `<label class="dow-chip"><input type="checkbox" value="${i + 1}" ${weekdays.has(i + 1) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+        <button class="btn-secondary" id="btn-save-weekdays">保存</button>
+      </div>
+      <div class="setting-row">
+        <label for="cal-nth"><strong>毎月</strong><small>館の案内: 第3月曜</small></label>
+        <div class="cal-inline"><select class="form-input" id="cal-nth">${[0, 1, 2, 3, 4, 5].map(n => `<option value="${n}" ${n === nth ? 'selected' : ''}>${n ? `第${n}` : 'なし'}</option>`).join('')}</select><select class="form-input" id="cal-nth-dow" aria-label="曜日">${DOW_JA.map((l, i) => `<option value="${i + 1}" ${i + 1 === nthDow ? 'selected' : ''}>${l}曜</option>`).join('')}</select></div>
+        <button class="btn-secondary" id="btn-save-nth">保存</button>
+      </div>
+      <div class="setting-row">
+        <label for="cal-day"><strong>日付で登録</strong><small>祝日・年末年始・臨時休館。決まった休館日に開けるなら 臨時開館</small></label>
+        <div class="cal-inline"><input class="form-input" id="cal-day" type="date"><select class="form-input" id="cal-kind" aria-label="休館か臨時開館か"><option value="true">休館</option><option value="false">臨時開館</option></select></div>
+        <input class="form-input" id="cal-note" maxlength="40" placeholder="メモ（例: 年末年始）" aria-label="メモ">
+        <button class="btn-secondary" id="btn-add-day">登録</button>
+      </div>
+      ${days.length ? `<div class="cal-list">${days.map(d => `<div class="cal-item ${d.closed ? 'closed' : 'open'}"><span>${escapeHtml(calDayLabel(d.day))}</span><strong>${d.closed ? '休館' : '臨時開館'}</strong><small>${escapeHtml(d.note || '')}</small><button class="btn-sub" data-del-day="${escapeHtml(d.day)}">消す</button></div>`).join('')}</div>` : '<p class="notice-line">日付の登録は まだない</p>'}
+      ${upcoming.length ? `<div class="cal-upcoming"><span class="eyebrow">これからの2週間</span><ol>${upcoming.map(u => `<li class="${u.closed ? 'closed' : ''}"><span>${escapeHtml(calDayLabel(u.day).replace(/\(.\)$/, ''))}</span><small>${DOW_JA[(u.dow - 1) % 7]}${u.closed ? ' 休' : ''}</small></li>`).join('')}</ol></div>` : ''}
+    </div>`;
+}
+
+function bindStaffCalendar(container) {
+  const save = async (btn, fn) => {
+    btn.disabled = true;
+    try {
+      await fn();
+      renderStaff();
+    } catch (err) {
+      alert(err.message);
+      btn.disabled = false;
+    }
+  };
+  container.querySelector('#btn-save-weekdays')?.addEventListener('click', e => save(e.currentTarget, () => {
+    const list = [...container.querySelectorAll('.dow-toggle input:checked')].map(i => i.value).join(',');
+    return staffSetSetting('closed_weekdays', list);
+  }));
+  container.querySelector('#btn-save-nth')?.addEventListener('click', e => save(e.currentTarget, async () => {
+    await staffSetSetting('closed_nth_week', container.querySelector('#cal-nth').value);
+    await staffSetSetting('closed_nth_weekday', container.querySelector('#cal-nth-dow').value);
+  }));
+  container.querySelector('#btn-add-day')?.addEventListener('click', e => {
+    const day = container.querySelector('#cal-day').value;
+    if (!day) {
+      alert('日付を選ぶ');
+      return;
+    }
+    save(e.currentTarget, () => staffSetCalendarDay(day, container.querySelector('#cal-kind').value === 'true', container.querySelector('#cal-note').value.trim()));
+  });
+  container.querySelectorAll('[data-del-day]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm(`${calDayLabel(btn.dataset.delDay)} の登録を消す（曜日の決まりに戻る）`)) return;
+    save(btn, () => staffSetCalendarDay(btn.dataset.delDay, null));
+  }));
 }
 
 // 起動
