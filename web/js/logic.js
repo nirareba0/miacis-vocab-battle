@@ -670,7 +670,9 @@ export function formatGachaRates(rates) {
 
   const defaultRates = { N: 0.70, R: 0.22, SR: 0.07, UR: 0.01 };
   const rawItemRates = r.item_rates || defaultRates;
+  const pct = v => `${(v * 100).toFixed(2).replace(/.?0+$/, '')}%`;
   const itemRates = [
+    ...(rawItemRates.SECRET ? [{ code: 'SECRET', percent: pct(rawItemRates.SECRET) }] : []),
     { code: 'UR', percent: `${((rawItemRates.UR ?? 0.01) * 100).toFixed(1).replace(/\.0$/, '')}%` },
     { code: 'SR', percent: `${((rawItemRates.SR ?? 0.07) * 100).toFixed(1).replace(/\.0$/, '')}%` },
     { code: 'R', percent: `${((rawItemRates.R ?? 0.22) * 100).toFixed(1).replace(/\.0$/, '')}%` },
@@ -704,6 +706,16 @@ export function checkGuaranteedSr(pullCount, results) {
  * @param {number} rarity
  * @returns {number}
  */
+/** かけらで交換できるのはガチャの品のスーパーレア（SR）まで。UR・SECRET・すがた・条件達成の称号は交換できない（2026-10-03 本人） */
+export const EXCHANGE_MAX_RARITY = 3;
+export function canExchange(item) {
+  return !!item && item.source !== 'achievement' && (item.source || 'gacha') === 'gacha'
+    && item.slot !== 'form' && parseInt(item.rarity, 10) <= EXCHANGE_MAX_RARITY;
+}
+
+/** すがた（特殊スキン）を着ている間は付けられないスロット */
+export const FORM_BLOCKS = ['hat', 'face', 'neck'];
+
 export function itemExchangeCost(rarity) {
   const r = parseInt(rarity, 10);
   switch (r) {

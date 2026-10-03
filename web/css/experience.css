@@ -400,3 +400,49 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .tier-tag.tier-1 { background:#eef0ff; color:#3b3f8f; }
 .tier-tag.tier-2 { background:#fff1d6; color:#8a5a00; }
 .tier-tag.tier-3 { background:#c2413a; color:#fff; }
+
+/* ランキング: ステージの札は説明文と別の行（2026-10-03） */
+.band-chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:4px 0 6px; }
+.band-chips[hidden] { display:none; }
+.band-chip { min-height:36px; padding:4px 14px; border-radius:999px; border:2px solid var(--border, #ddd6ee); background:#fff; font-weight:800; font-size:14px; color:#5d43b5; }
+.band-chip[aria-pressed="true"] { background:#5d43b5; border-color:#5d43b5; color:#fff; }
+.band-chip.scope { margin-left:8px; color:#6b647d; }
+.challenge-launch.single { grid-template-columns:1fr; }
+.challenge-launch.single button { display:grid; grid-template-columns:auto 1fr; column-gap:12px; row-gap:2px; align-items:center; }
+.challenge-launch.single .challenge-launch-mark { grid-row:span 2; }
+
+/* 着せ替え・交換所（2026-10-03）: タブは折り返して全部見せる。交換所は絵と名前を重ねない */
+.closet-tabs { flex-wrap:wrap; overflow:visible; }
+.closet-tab-btn { flex:0 0 auto; }
+.closet-blocked { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; margin-bottom:12px; border-radius:14px; background:#f0eaf9; border:1px dashed #c9b8ea; }
+.closet-blocked strong { font-size:14px; }
+.closet-blocked .btn-sub { width:auto; min-height:40px; padding:4px 12px; font-size:13px; }
+.closet-item-card:disabled { opacity:.45; }
+.shard-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; margin-bottom:16px; }
+.shard-bar-label { font-size:12px; color:var(--text-muted); }
+.shard-bar-num { font-size:20px; font-weight:800; color:var(--link); }
+.shard-bar .btn-primary { width:auto; min-height:44px; padding:6px 18px; font-size:15px; }
+.exchange-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:4px 0 10px; }
+.exchange-head h2 { font-size:22px; font-weight:800; white-space:nowrap; }
+.exchange-balance { font-size:15px; color:var(--link); }
+.exchange-head .btn-sub { width:auto; flex:0 0 auto; min-height:40px; padding:4px 14px; font-size:13px; }
+.exchange-costs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.exchange-costs span { font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:#eee8fa; color:#5d43b5; }
+.exchange-costs span.muted { background:none; color:var(--text-muted); font-weight:500; }
+.exchange-card { display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 6px; }
+.exchange-art { height:76px; display:flex; align-items:center; justify-content:center; }
+.exchange-crown { font-size:36px; }
+.exchange-name { font-size:13px; font-weight:700; line-height:1.2; text-align:center; min-height:2.4em; display:flex; align-items:center; }
+.exchange-rarity { font-size:11px; font-weight:800; }
+.exchange-card .btn-primary { width:100%; min-height:38px; padding:4px 6px; font-size:14px; }
+.exchange-owned { font-size:12px; color:var(--text-muted); min-height:38px; display:flex; align-items:center; }
+.exchange-card.owned { opacity:.6; }
+/* ガチャのボタン: 「回数」と「値段」を2行に分けて、はみ出さない（2026-10-03） */
+.gacha-pull-actions button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:12px 6px; position:relative; }
+.gacha-pull-actions .pull-label { font-size:20px; font-weight:800; line-height:1.1; }
+.gacha-pull-actions .pull-cost { font-size:14px; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.gacha-pull-actions .pull-note { font-size:10px!important; font-weight:500; line-height:1.35; margin-top:2px; }
+.closet-tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.closet-tab-btn { padding:8px 4px; font-size:13px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* タブが3つのときは1行に（2つ＋1つに割れない） */
+.tab-bar:has(> .tab-btn:nth-child(3):last-child) .tab-btn { flex-basis:30%; }

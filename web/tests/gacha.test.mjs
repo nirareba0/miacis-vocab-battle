@@ -202,3 +202,13 @@ test('renderMiacis: look が空または null でも正常に描画できる', (
   assert.ok(htmlEmpty.includes('miacis-avatar-box'));
   assert.ok(htmlEmpty.includes('assets/miacis-avatar.png'));
 });
+
+test('canExchange: かけらで交換できるのはガチャの品の SR まで（UR・SECRET・すがた・条件達成の称号は不可）', async () => {
+  const { canExchange } = await import('../js/logic.js');
+  assert.equal(canExchange({ slot: 'hat', rarity: 1, source: 'gacha' }), true);
+  assert.equal(canExchange({ slot: 'hat', rarity: 3, source: 'gacha' }), true);
+  assert.equal(canExchange({ slot: 'hat', rarity: 4, source: 'gacha' }), false);
+  assert.equal(canExchange({ slot: 'form', rarity: 5, source: 'gacha' }), false);
+  assert.equal(canExchange({ slot: 'form', rarity: 3, source: 'gacha' }), false);
+  assert.equal(canExchange({ slot: 'title', rarity: 1, source: 'achievement' }), false);
+});

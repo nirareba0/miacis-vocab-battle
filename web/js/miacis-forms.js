@@ -624,12 +624,6 @@ Object.assign(forms, {
 
 const cache = {};
 
-/** 頭にかぶり物がある姿。着せ替えの帽子を重ねると二重になるので、帽子を出さない */
-const HEADWEAR = new Set(['staff_designer', 'staff_backpacker', 'staff_shisa']);
-export function formHidesHat(item) {
-  return !!item && HEADWEAR.has(item.id);
-}
-
 /** すがた id ごとの SVG（相棒の画像の代わりに箱いっぱいに置く）。未知の id は空文字 */
 export function renderForm(item) {
   if (!item || typeof item.id !== 'string' || !Object.hasOwn(forms, item.id)) return '';

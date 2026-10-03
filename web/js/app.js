@@ -224,7 +224,7 @@ function renderPreparation() {
     <div class="prep-container">
       <div class="prep-icon">🚧</div>
       <h1 class="prep-title">準備中</h1>
-      <p class="prep-desc">現在アプリの初期設定を行っています。<br>しばらくお待ちください。</p>
+      <p class="prep-desc">準備中。少し待ってから開き直そう</p>
     </div>
   `;
 }
@@ -353,11 +353,11 @@ function renderAuth(mode = 'register') {
     const pass = document.getElementById('auth-pass').value;
 
     if (!nick) {
-      alertEl.innerHTML = '<div class="alert alert-error">ニックネームを入力してください</div>';
+      alertEl.innerHTML = '<div class="alert alert-error">ニックネームを入れよう</div>';
       return;
     }
     if (!pass || pass.length < 6) {
-      alertEl.innerHTML = '<div class="alert alert-error">あいことばは6文字以上で入力してください</div>';
+      alertEl.innerHTML = '<div class="alert alert-error">あいことばは 6文字以上</div>';
       return;
     }
 
@@ -368,7 +368,7 @@ function renderAuth(mode = 'register') {
       if (mode === 'register') {
         const gradeVal = parseInt(document.getElementById('auth-grade').value, 10);
         if (!gradeVal || gradeVal < 1 || gradeVal > 6) {
-          alertEl.innerHTML = '<div class="alert alert-error">学年を選択してください</div>';
+          alertEl.innerHTML = '<div class="alert alert-error">学年を選ぼう</div>';
           submitBtn.disabled = false;
           submitBtn.textContent = 'はじめる';
           return;
@@ -376,7 +376,7 @@ function renderAuth(mode = 'register') {
         const inviteGroup = document.getElementById('invite-group');
         const inviteVal = document.getElementById('auth-invite').value.trim();
         if (inviteGroup && !inviteGroup.hidden && !inviteVal) {
-          alertEl.innerHTML = '<div class="alert alert-error">ミアキスの合言葉を入力してください</div>';
+          alertEl.innerHTML = '<div class="alert alert-error">ミアキスの合言葉を入れよう</div>';
           submitBtn.disabled = false;
           submitBtn.textContent = 'はじめる';
           return;
@@ -589,7 +589,7 @@ async function renderHome() {
     const learnRankStr = summary.learn_rank_in_tier ? `${summary.learn_rank_in_tier}位` : '集計中';
     const commitRankStr = summary.commit_rank ? `${summary.commit_rank}位` : '集計中';
 
-    let lastWeekDiff = '先週のデータなし';
+    let lastWeekDiff = '';
     if (summary.last_week) {
       const lw = summary.last_week;
       lastWeekDiff = `先週: 段${lw.tier_before} → 段${lw.tier_after}（${lw.learn_points}点）`;
@@ -640,7 +640,7 @@ async function renderHome() {
     }
 
     homeContent.innerHTML = `
-      <div class="home-greeting"><div><p class="eyebrow">ベース</p><h2>${escapeHtml(state.player.nickname)}</h2></div><span class="level-pill${state.flags.rank_mode_enabled || state.player.account_type === 'staff' ? '' : ' locked'}">${state.player.account_type === 'staff' ? 'スタッフ' : state.flags.rank_mode_enabled ? tierToLabel(summary.tier) : '🔒 ランク 準備中'}</span></div>
+      <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
       ${dailyToastHtml}
       <section class="companion-card" aria-label="相棒と進化">
         <div class="companion-copy"><span class="eyebrow">あなたの相棒</span><h3>${escapeHtml(progress.stage_name || 'ミアキス')}</h3>${progress.route ? `<p>${progress.route === 'grass' ? '草原ルート' : '木の上ルート'}</p>` : ''}${titleName ? `<span class="companion-title">${titleName}</span>` : ''}<span class="streak-pill">🔥 ${progress.streak_days} 日連続</span></div>
@@ -648,12 +648,12 @@ async function renderHome() {
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
       <div class="record-strip" id="record-strip" hidden></div>
-      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>連続チャレンジ</strong><small>間違えたら終わり。何問続く？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
-      <div class="challenge-launch"><button id="go-battle"><span class="challenge-launch-mark" aria-hidden="true">${icon('battle')}</span><strong>対戦</strong><span>10問 vs だれかの記録</span></button><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本ノック</strong><span>100問 ノンストップ</span></button></div>
+      <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button>
+      <div class="challenge-launch single"><button id="go-knock"><span class="challenge-launch-mark" aria-hidden="true">💯</span><strong>100本トレーニング</strong><span>100問 ミスしても止まらない</span></button></div>
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
-      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong><p>${state.flags.rank_mode_enabled ? `段内 ${learnRankStr}` : 'ランク 準備中'}</p></div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
-      <p class="week-history">${lastWeekDiff}</p>
+      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>全体 ${commitRankStr}</p></div></div>
+      ${lastWeekDiff ? `<p class="week-history">${lastWeekDiff}</p>` : ''}
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
       ${state.isStaff ? '<button class="btn-sub" id="go-staff">スタッフ画面</button>' : ''}
 
@@ -668,7 +668,7 @@ async function renderHome() {
     document.getElementById('go-closet').addEventListener('click', () => {
       window.location.hash = '#/closet';
     });
-    document.getElementById('go-battle').addEventListener('click', () => {
+    document.getElementById('go-battle')?.addEventListener('click', () => {
       window.location.hash = '#/battle';
     });
     getMyRaffle().then(r => {
@@ -704,7 +704,7 @@ async function renderHome() {
       } else {
         msg = 'まだ誰も出していない。1位をとれる';
       }
-      strip.innerHTML = `<span class="eyebrow">今週の連続記録（${['', 'A1', 'A2', 'B1', 'B2', '最難関'][savedStreakBand()]}）</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
+      strip.innerHTML = `<span class="eyebrow">今週のサバイバル ${['', 'A1', 'A2', 'B1', 'B2', '最難関'][savedStreakBand()]}</span><strong>${mine === null ? '—' : `${mine} 連続`}${myRow ? `<small>${myRow.rank}位</small>` : ''}</strong><p>${msg}</p>`;
       strip.hidden = false;
     });
 
@@ -1210,7 +1210,7 @@ async function handleOpenPackModal(matchId) {
         // パック開封ボタンを非表示化
         const packBtn = document.getElementById('btn-open-pack');
         if (packBtn && packBtn.parentElement) {
-          packBtn.parentElement.innerHTML = `<div style="font-size: 15px; color: var(--text-muted);">本日のカードを獲得しました（残り: ${card.remaining}回）</div>`;
+          packBtn.parentElement.innerHTML = `<div style="font-size: 15px; color: var(--text-muted);">カード ゲット！ 今日 あと${card.remaining}回</div>`;
         }
         await checkEvolutionAfterMatch();
       });
@@ -1271,7 +1271,7 @@ function showEvolutionModal(prevProg, newProg) {
           <img src="assets/miacis-logo.png" class="miacis-avatar" alt="ミアキス">
         </div>
         <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
-          累計 ${newProg.total_points} 点に到達！ ミアキスが新たな姿に進化しました。
+          累計 ${newProg.total_points}点。ミアキスが進化した！
         </div>
         <button class="btn-primary" id="btn-evolution-ok" style="font-size: 20px;">やった！</button>
       </div>
@@ -1340,7 +1340,7 @@ async function renderZukan() {
 
     let cardsHtml = '';
     if (bandWords.length === 0) {
-      cardsHtml = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 30px 16px;">この段で正解した単語はまだありません。<br>対戦で正解して単語を覚えよう！</div>`;
+      cardsHtml = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 30px 16px;">まだ 0語。<br>サバイバルで正解すると ここに増える</div>`;
     } else {
       const itemsHtml = bandWords.map(w => `
         <div class="zukan-card-item" data-word="${escapeHtml(w.en + ' ' + w.ja)}" style="border-left: 4px solid var(--primary); padding: 10px 12px; margin-bottom: 8px;">
@@ -1374,7 +1374,7 @@ async function renderZukan() {
         </div>
       ` : ''}
 
-      <div class="notice-line" style="margin-top: 16px;">対戦で正解した単語がここに記録されます</div>
+      <div class="notice-line" style="margin-top: 16px;">サバイバル・トレーニングで正解した単語が ここに残る</div>
     `;
     const search = document.getElementById('word-search');
     search?.addEventListener('input', () => {
@@ -1384,7 +1384,7 @@ async function renderZukan() {
         card.hidden = !card.dataset.word.toLocaleLowerCase().includes(query);
         if (!card.hidden) found++;
       });
-      document.getElementById('word-search-status').textContent = found ? `${found}語 見つかりました` : '該当する単語はありません';
+      document.getElementById('word-search-status').textContent = found ? `${found}語` : '見つからない';
     });
     document.getElementById('toggle-meanings')?.addEventListener('click', event => {
       const hidden = contentEl.classList.toggle('meanings-hidden');
@@ -1433,7 +1433,7 @@ async function renderContent() {
     if (contents.length === 0) {
       area.innerHTML = `
         <div class="card" style="text-align: center; padding: 32px 16px;">
-          <p style="margin-bottom: 20px;">今週の英語はまだありません。お楽しみに！</p>
+          <p style="margin-bottom: 20px;">今週の分は スタッフが準備中</p>
           <button class="btn-secondary" onclick="window.location.hash='#/home'">ホーム</button>
         </div>
       `;
@@ -1547,7 +1547,7 @@ async function renderContent() {
       pickerHtml = `
         <div class="card" style="border-color: var(--primary);">
           <div class="card-title">今週の英語を出す（ピッカー専用）</div>
-          <div class="form-help" style="margin-bottom: 12px;">スタッフが見てから公開されます</div>
+          <div class="form-help" style="margin-bottom: 12px;">スタッフが見てから公開</div>
           <div id="propose-alert"></div>
           <form id="propose-form">
             <div class="form-group">
@@ -1685,7 +1685,7 @@ async function renderContent() {
             const rawWords = document.getElementById('prop-words').value;
             const words = rawWords.split(',').map(w => w.trim()).filter(Boolean);
             if (words.length === 0) {
-              propAlert.innerHTML = '<div class="alert alert-error">指定単語を入力してください</div>';
+              propAlert.innerHTML = '<div class="alert alert-error">単語を入れよう</div>';
               return;
             }
             writingPrompt.words = words;
@@ -1693,7 +1693,7 @@ async function renderContent() {
 
           try {
             await proposeContent(title, url, quiz, writingPrompt);
-            propAlert.innerHTML = '<div class="alert alert-success">提案しました！スタッフが確認したあと公開されます</div>';
+            propAlert.innerHTML = '<div class="alert alert-success">送った！ スタッフが見てから公開</div>';
             propForm.reset();
           } catch (err) {
             propAlert.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
@@ -1729,11 +1729,12 @@ async function renderRanking() {
 
     <div class="tab-bar">
       ${state.flags.rank_mode_enabled ? `<button id="tab-learn" class="tab-btn ${state.rankingTab === 'learn' ? 'active' : ''}">学習（自分の段）</button>` : ''}
-      <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット（全員）</button>
-      <button id="tab-streak" class="tab-btn ${state.rankingTab === 'streak' ? 'active' : ''}">連続記録</button>
-      <button id="tab-knock" class="tab-btn ${state.rankingTab === 'knock' ? 'active' : ''}">100本ノック</button>
+      <button id="tab-streak" class="tab-btn ${state.rankingTab === 'streak' ? 'active' : ''}">サバイバル</button>
+      <button id="tab-knock" class="tab-btn ${state.rankingTab === 'knock' ? 'active' : ''}">トレーニング</button>
+      <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット</button>
     </div>
 
+    <div class="band-chips" id="ranking-bands"></div>
     <div class="notice-line" id="ranking-notice"></div>
 
     <div id="ranking-reward"></div>
@@ -1779,21 +1780,28 @@ async function loadRankingData() {
   const notices = {
     learn: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
     commit: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
-    streak: state.streakScope === 'all'
-      ? 'これまでの最高記録。同じ記録なら、かかった時間が短い人が上'
-      : '今週の自己ベスト。月曜にリセット。同じ記録なら、かかった時間が短い人が上',
-    knock: `${KNOCK_LEVELS.map(l => `<button class="btn-inline" ${l.band === savedKnockBand() ? 'aria-pressed="true" style="background:#5d43b5;color:#fff"' : ''} data-knock-band="${l.band}">${l.label}</button>`).join('')} 今週の自己ベスト（100問完走）。同じ数なら速い人が上`
+    streak: state.streakScope === 'all' ? '歴代ベスト。同点は速い順' : '今週ベスト。月曜リセット。同点は速い順',
+    knock: '100問完走の今週ベスト。同点は速い順'
   };
+  // ステージ（レベル）の札は説明文と別の行に出す（同じ行だと折り返して重なる）
+  const bands = document.getElementById('ranking-bands');
+  if (bands) {
+    const cur = tab === 'streak' ? savedStreakBand() : savedKnockBand();
+    const key = tab === 'streak' ? 'streak' : 'knock';
+    bands.innerHTML = tab === 'streak' || tab === 'knock'
+      ? KNOCK_LEVELS.map(l => `<button class="band-chip" aria-pressed="${l.band === cur}" data-${key}-band="${l.band}">${l.label}</button>`).join('')
+        + (tab === 'streak' ? `<button class="band-chip scope" id="btn-streak-scope">${state.streakScope === 'all' ? '今週' : '歴代'}</button>` : '')
+      : '';
+    bands.hidden = !bands.innerHTML;
+  }
   const notice = document.getElementById('ranking-notice');
   if (notice) {
-    notice.innerHTML = tab === 'streak'
-      ? `${KNOCK_LEVELS.map(l => `<button class="btn-inline" ${l.band === savedStreakBand() ? 'aria-pressed="true" style="background:#5d43b5;color:#fff"' : ''} data-streak-band="${l.band}">${l.label}</button>`).join('')} ${notices.streak} <button class="btn-inline" id="btn-streak-scope">${state.streakScope === 'all' ? '今週を見る' : '歴代を見る'}</button>`
-      : notices[tab];
-    notice.querySelectorAll('[data-streak-band]').forEach(b => b.addEventListener('click', () => {
+    notice.innerHTML = notices[tab];
+    document.querySelectorAll('#ranking-bands [data-streak-band]').forEach(b => b.addEventListener('click', () => {
       saveStreakBand(parseInt(b.dataset.streakBand, 10));
       loadRankingData();
     }));
-    notice.querySelectorAll('[data-knock-band]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#ranking-bands [data-knock-band]').forEach(b => b.addEventListener('click', () => {
       saveKnockBand(parseInt(b.dataset.knockBand, 10));
       loadRankingData();
     }));
@@ -1820,7 +1828,7 @@ async function loadRankingData() {
     if (state.rankingTab !== tab) return;
 
     if (rows.length === 0) {
-      container.innerHTML = '<div class="card" style="text-align: center;">まだランキングデータがありません</div>';
+      container.innerHTML = '<div class="card" style="text-align: center;">まだ だれもいない。1位になるなら今</div>';
       return;
     }
 
@@ -1905,7 +1913,7 @@ async function renderMe() {
     const unusedTickets = tickets.filter(t => !t.redeemed_at);
     const usedTickets = tickets.filter(t => !!t.redeemed_at);
 
-    let unusedTicketsHtml = '<div style="color: var(--text-muted); font-size: 14px;">未使用の引換券はありません</div>';
+    let unusedTicketsHtml = '<div style="color: var(--text-muted); font-size: 14px;">まだ ない。月末抽選で当たると ここに出る</div>';
     if (unusedTickets.length > 0) {
       unusedTicketsHtml = unusedTickets.map(t => {
         const shortId = t.id ? t.id.slice(-8) : '';
@@ -1944,7 +1952,7 @@ async function renderMe() {
       }).join('');
     }
 
-    let weeklyHtml = '<div style="color: var(--text-muted); font-size: 14px;">過去の週次記録はありません</div>';
+    let weeklyHtml = '<div style="color: var(--text-muted); font-size: 14px;">まだ ない。月曜に先週の分が入る</div>';
     if (weeklyResults.length > 0) {
       weeklyHtml = weeklyResults.map(res => `
         <div class="card" style="padding: 12px 16px; margin-bottom: 10px;">
@@ -1960,7 +1968,7 @@ async function renderMe() {
       `).join('');
     }
 
-    let writingsHtml = '<div style="color: var(--text-muted); font-size: 14px;">投稿した一言はありません</div>';
+    let writingsHtml = '<div style="color: var(--text-muted); font-size: 14px;">まだ ない</div>';
     if (writings.length > 0) {
       writingsHtml = writings.map(w => {
         const dateStr = new Date(w.created_at).toLocaleDateString('ja-JP');

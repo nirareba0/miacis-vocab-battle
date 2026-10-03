@@ -116,14 +116,14 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
 
   const ratesTableHtml = formattedRates.itemRates.map(r => `
     <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border);">
-      <span style="font-weight:700;">レア度 ${r.code}</span>
+      <span style="font-weight:700;">${r.code}</span>
       <span style="color:var(--text-muted);">${r.percent}</span>
     </div>
   `).join('');
 
   mainEl.innerHTML = `
     ${staffNotice}
-    <section class="gacha-wardrobe"><span class="eyebrow">ガチャ</span><h2>次は、どんな相棒に？</h2><p>帽子・メガネ・称号。全45種</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div><p>着せ替えの一例です。各アイテムは個別に出ます。</p></section>
+    <section class="gacha-wardrobe"><span class="eyebrow">ガチャ</span><h2>次は、どんな相棒に？</h2><p>帽子・顔・首・背景・オーラ・称号・すがた</p><div class="gacha-mascots">${renderMiacis({hat:{id:'hat_cap'},face:{id:'face_sun'}},100)}${renderMiacis({hat:{id:'hat_crown'},neck:{id:'neck_star'}},136)}${renderMiacis({hat:{id:'hat_ribbon'},neck:{id:'neck_muffler'}},100)}</div></section>
     <div style="text-align:center; margin: 12px 0 20px 0;">
       <div class="nuts-badge" style="font-size:20px; padding:8px 18px;">
         <span><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance}</span>
@@ -140,20 +140,20 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       <div><strong>${untilSingle ? `1回まで あと${untilSingle}` : '1回 引ける'}</strong><span><span class="mi-coin" aria-hidden="true">Mi</span> ${nutsDisp.balance}</span></div>
       <progress max="${price.multi}" value="${Math.min(price.multi, nutsDisp.balance)}" aria-label="${multiLabel}までのMiコイン"></progress>
       <p>${untilTen ? `${multiLabel}まで あと${untilTen}` : `${multiLabel} 引ける`}</p>
-      <button class="btn-sub" id="btn-gacha-to-battle">Miコインを集めに行く</button>
+      <button class="btn-sub" id="btn-gacha-to-battle">サバイバルで集める</button>
     </section>
 
     <div class="gacha-pull-actions">
       <!-- 1回ガチャボタン -->
       <button class="btn-secondary" id="btn-pull-1" style="min-height:60px; font-size:18px; font-weight:700;">
-        1回引く (${price.single}<span class="mi-coin" aria-hidden="true">Mi</span>)
+        <span class="pull-label">1回</span><span class="pull-cost"><span class="mi-coin" aria-hidden="true">Mi</span> ${price.single}</span>
       </button>
 
       <!-- 10連ガチャボタン -->
       <button class="btn-primary btn-gacha-10 ${nutsDisp.canPull10 ? 'ready' : ''}" id="btn-pull-10" style="min-height:64px; font-size:19px;">
         ${nutsDisp.canPull10 ? `<span class="ready-badge">${multiLabel} 引ける</span>` : ''}
-        ${multiLabel}引く (${price.multi}<span class="mi-coin" aria-hidden="true">Mi</span>)
-        <div style="font-size:12px; font-weight:normal; margin-top:2px;">SR以上 1つ確定 ＋ 🎟️ 1枚確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
+        <span class="pull-label">${multiLabel}</span><span class="pull-cost"><span class="mi-coin" aria-hidden="true">Mi</span> ${price.multi}</span>
+        <div class="pull-note">SR以上 1つ確定<br>🎟️ 1枚確定${price.multiCount - Math.round(price.multi / price.single) > 0 ? ` ＋${price.multiCount - Math.round(price.multi / price.single)}回おまけ` : ''}</div>
       </button>
     </div>
 
@@ -181,13 +181,9 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
       </div>
     </div>
 
-    <div style="display:flex; gap:10px;">
-      <button class="btn-sub" id="btn-to-closet">着せ替え</button>
-      <button class="btn-sub" id="btn-gacha-home">ホーム</button>
-    </div>
   `;
 
-  document.getElementById('btn-gacha-to-battle').addEventListener('click', () => { window.location.hash = '#/battle'; });
+  document.getElementById('btn-gacha-to-battle').addEventListener('click', () => { window.location.hash = '#/streak'; });
 
   document.getElementById('btn-pull-1').addEventListener('click', () => {
     executeGacha(mainEl, state, 1, callbacks);
@@ -197,12 +193,12 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
     executeGacha(mainEl, state, 10, callbacks);
   });
 
-  document.getElementById('btn-to-closet').addEventListener('click', () => {
+  document.getElementById('btn-to-closet')?.addEventListener('click', () => {
     if (callbacks.onGoCloset) callbacks.onGoCloset();
     else window.location.hash = '#/closet';
   });
 
-  document.getElementById('btn-gacha-home').addEventListener('click', () => {
+  document.getElementById('btn-gacha-home')?.addEventListener('click', () => {
     if (callbacks.onGoHome) callbacks.onGoHome();
     else window.location.hash = '#/home';
   });
@@ -492,7 +488,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     if (prizeCount > 0) {
       prizeAlertHtml = `
         <div class="prize-ticket-box" style="margin-bottom:16px;">
-          <div style="font-size:18px; font-weight:900; color:#ec4899;">🎉 館の景品が ${prizeCount} 件当選しました！</div>
+          <div style="font-size:18px; font-weight:900; color:#ec4899;">館の景品 ${prizeCount}件 当たった！</div>
           <div style="font-size:14px; margin-top:6px;">「自分の記録」の引換券一覧からスタッフに見せて交換してね</div>
         </div>
       `;

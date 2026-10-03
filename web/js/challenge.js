@@ -33,14 +33,14 @@ const KNOCK_TOTAL = 100;
 
 const MODES = {
   streak: {
-    title: '連続チャレンジ',
+    title: '英単語サバイバル',
     lead: '間違えたら終わり。',
-    rules: ['1問 7秒から', '10問ごと 時間↓', '選択肢がどんどん細かく', '❤️ 復活 1回']
+    rules: ['1問 7秒から', '10問ごと 時間↓', '選択肢が だんだん細かく', '❤️ 復活 1回']
   },
   knock: {
-    title: '100本ノック',
+    title: '100本トレーニング',
     lead: '100問 ノンストップ。',
-    rules: ['1問 6秒', '間違えても止まらない', '記録は 100本完走で', 'レベルごとに順位']
+    rules: ['1問 6秒', 'ミスしても止まらない', '記録は 100問完走で', 'レベルごとに順位']
   }
 };
 
@@ -546,7 +546,7 @@ function stageGatesHtml(stages) {
       const lock = s.unlocked ? '' : `<small class="lock">🔒 ${STAGE_NAMES[s.band - 1]}で${s.need}連続で開く</small>`;
       return `<button class="stage-gate ${s.band === saved ? 'active' : ''} ${s.completed ? 'done' : ''}" data-band="${s.band}" ${s.unlocked ? '' : 'disabled'} aria-pressed="${s.band === saved}">
         <strong>${STAGE_NAMES[s.band]}</strong><span>${STAGE_SUBS[s.band]} ・ ${s.words}語</span>
-        ${s.unlocked ? `<em>${s.completed ? 'コンプリート済み' : best !== null ? `自己ベスト ${best}連続` : 'まだ挑戦していない'}</em>` : lock}
+        ${s.unlocked ? `<em>${s.completed ? 'コンプリート済み' : best !== null ? `自己ベスト ${best}連続` : '初挑戦'}</em>` : lock}
       </button>`;
     }).join('')}
   </div>`;

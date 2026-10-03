@@ -13,14 +13,17 @@ import {
 import {
   escapeHtml,
   itemExchangeCost,
-  rarityInfo
+  rarityInfo,
+  canExchange,
+  EXCHANGE_MAX_RARITY,
+  FORM_BLOCKS
 } from './logic.js';
 
 import { playSfx } from './game.js';
 import { renderMiacis } from './look.js';
 
 const SLOTS = [
-  { id: 'form', label: 'すがた' },
+  { id: 'form', label: '🐾 すがた' },
   { id: 'hat', label: '🎩 帽子' },
   { id: 'face', label: '👓 顔' },
   { id: 'neck', label: '🧣 首まわり' },
@@ -111,17 +114,24 @@ function renderClosetBody(mainEl, state, callbacks) {
   const slotUnownedCount = slotAllItems.length - slotOwnedItems.length;
 
   const currentEquippedId = state.myLooks[state.closetActiveTab];
+  // すがた（特殊スキン）を着ている間は、帽子・顔・首は付けられない（外せば元の装備が戻る）
+  const blocked = !!state.myLooks.form && FORM_BLOCKS.includes(state.closetActiveTab);
 
   let itemsGridHtml = '';
 
   // 現在装備中の解除ボタン（装備中アイテムがある場合）
   let unequipBtnHtml = '';
-  if (currentEquippedId) {
+  if (blocked) {
+    unequipBtnHtml = `
+      <div class="closet-blocked">
+        <strong>すがたの間は 付けられない</strong>
+        <button class="btn-sub" id="btn-unequip-form">すがたを外す</button>
+      </div>
+    `;
+  } else if (currentEquippedId) {
     unequipBtnHtml = `
       <div style="margin-bottom:12px;">
-        <button class="btn-secondary" id="btn-unequip-current" style="min-height:44px; font-size:14px;">
-          ✕ ${SLOTS.find(s => s.id === state.closetActiveTab)?.label || 'パーツ'} を外す
-        </button>
+        <button class="btn-secondary" id="btn-unequip-current" style="min-height:44px; font-size:14px;">外す</button>
       </div>
     `;
   }
@@ -129,7 +139,7 @@ function renderClosetBody(mainEl, state, callbacks) {
   if (slotOwnedItems.length === 0) {
     itemsGridHtml = `
       <div class="card" style="grid-column: 1 / -1; text-align:center; padding:24px 12px; color:var(--text-muted);">
-        まだこのスロットのアイテムを持っていません。<br>ガチャを引くか、かけらで交換しよう！
+        まだ ない。ガチャで出る
       </div>
     `;
   } else {
@@ -151,7 +161,7 @@ function renderClosetBody(mainEl, state, callbacks) {
       }
 
       return `
-        <button type="button" aria-pressed="${isEquipped}" class="closet-item-card ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" style="border-color:${isEquipped ? 'var(--primary)' : rInfo.color};">
+        <button type="button" aria-pressed="${isEquipped}" ${blocked ? 'disabled' : ''} class="closet-item-card ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" style="border-color:${isEquipped ? 'var(--primary)' : rInfo.color};">
           ${isEquipped ? '<span class="equipped-tag">装備中</span>' : ''}
           <div style="font-size:32px; margin-bottom:8px; height:76px; display:flex; align-items:center; justify-content:center;">${visual}</div>
           <div style="font-size:13px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
@@ -166,7 +176,7 @@ function renderClosetBody(mainEl, state, callbacks) {
   if (slotUnownedCount > 0) {
     unownedSummaryHtml = `
       <div style="text-align:center; font-size:13px; color:var(--text-muted); margin-top:12px;">
-        🔒 未獲得のアイテム: あと <strong>${slotUnownedCount}</strong> 種類
+        🔒 あと <strong>${slotUnownedCount}</strong>種
       </div>
     `;
   }
@@ -183,14 +193,12 @@ function renderClosetBody(mainEl, state, callbacks) {
     </div>
 
     <!-- かけら残高とお知らせ -->
-    <div class="card" style="padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+    <div class="card shard-bar">
       <div>
-        <div style="font-size:12px; color:var(--text-muted);">重複アイテムで集まる</div>
-        <div style="font-size:16px; font-weight:800; color:var(--link);">💎 かけら: ${state.shards} 個</div>
+        <div class="shard-bar-label">かけら・ダブりで たまる</div>
+        <div class="shard-bar-num">💎 ${state.shards}</div>
       </div>
-      <button class="btn-primary" id="btn-open-exchange" style="min-height:44px; padding:6px 14px; font-size:14px;">
-        かけら交換所
-      </button>
+      <button class="btn-primary" id="btn-open-exchange">交換所</button>
     </div>
 
     <!-- タブ一覧 -->
@@ -207,10 +215,6 @@ function renderClosetBody(mainEl, state, callbacks) {
 
     ${unownedSummaryHtml}
 
-    <div style="display:flex; gap:10px; margin-top:24px;">
-      <button class="btn-sub" id="btn-to-gacha">Miコインガチャへ</button>
-      <button class="btn-sub" id="btn-closet-home">ホーム</button>
-    </div>
   `;
 
   // タブイベント
@@ -218,6 +222,7 @@ function renderClosetBody(mainEl, state, callbacks) {
     btn.addEventListener('click', () => {
       state.closetActiveTab = btn.dataset.slot;
       renderClosetBody(mainEl, state, callbacks);
+      mainEl.querySelector('.closet-tab-btn.active')?.focus({ preventScroll: true });
     });
   });
 
@@ -268,6 +273,17 @@ function renderClosetBody(mainEl, state, callbacks) {
     }
   });
 
+  document.getElementById('btn-unequip-form')?.addEventListener('click', async () => {
+    try {
+      await equipItem('form', null);
+      state.myLooks.form = null;
+      playSfx('correct');
+      renderClosetBody(mainEl, state, callbacks);
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
   // かけら交換所ボタン
   document.getElementById('btn-open-exchange')?.addEventListener('click', () => {
     renderExchangeView(mainEl, state, callbacks);
@@ -286,86 +302,70 @@ function renderClosetBody(mainEl, state, callbacks) {
 
 /**
  * かけら交換所画面
+ * 交換できるのはガチャの品の SR まで（UR・SECRET・すがた・称号の条件達成品は出ない）。
+ * スロットごとのタブで分け、着せ替えと同じ大きさの絵で見せる（長い1列にしない・絵と名前を重ねない）
  */
 function renderExchangeView(mainEl, state, callbacks) {
   const myOwnedIds = new Set(state.myItems.map(it => it.item_id));
+  const pool = state.allItems.filter(canExchange);
+  const slots = SLOTS.filter(sl => pool.some(it => it.slot === sl.id));
+  if (!slots.some(sl => sl.id === state.exchangeTab)) state.exchangeTab = slots[0]?.id;
+  const tab = state.exchangeTab;
+  const costs = [1, 2, 3].filter(r => r <= EXCHANGE_MAX_RARITY).map(r => `<span>${rarityInfo(r).code} 💎${itemExchangeCost(r)}</span>`).join('');
 
-  const itemsHtml = state.allItems.map(item => {
-    const cost = itemExchangeCost(item.rarity);
-    const canAfford = state.shards >= cost;
-    const isOwned = myOwnedIds.has(item.id);
-    const rInfo = rarityInfo(item.rarity);
-
-    let visual = '✨';
-    if (item.display?.emoji) {
-      visual = renderMiacis({ [item.slot]: item }, 72);
-    } else if (item.slot === 'background') {
-      visual = `<div style="width:36px; height:36px; border-radius:50%; background:${item.display?.css || '#1e6b3c'};"></div>`;
-    } else if (item.slot === 'aura') {
-      const c = item.display?.color || '#ffffff';
-      visual = `<div style="width:30px; height:30px; border-radius:50%; background:#111; border:2px solid ${c}; box-shadow:0 0 6px ${c};"></div>`;
-    } else if (item.slot === 'title') {
-      visual = '👑';
-    }
-
-    return `
-      <div class="card" style="display:flex; align-items:center; justify-content:space-between; padding:12px; margin-bottom:10px; border-left:4px solid ${rInfo.color};">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div style="font-size:32px; width:44px; text-align:center;">${visual}</div>
-          <div>
-            <div style="font-weight:700; font-size:15px;">${escapeHtml(item.name)}</div>
-            <div style="font-size:12px; color:${rInfo.color}; font-weight:700;">
-              ${rInfo.label} (${SLOTS.find(s => s.id === item.slot)?.label || item.slot})
-              ${isOwned ? '・所持済み' : ''}
-            </div>
-          </div>
+  const cards = pool.filter(it => it.slot === tab)
+    .sort((a, b) => Number(myOwnedIds.has(a.id)) - Number(myOwnedIds.has(b.id)) || a.rarity - b.rarity)
+    .map(item => {
+      const cost = itemExchangeCost(item.rarity);
+      const owned = myOwnedIds.has(item.id);
+      const rInfo = rarityInfo(item.rarity);
+      const visual = item.slot === 'title' ? '<span class="exchange-crown">👑</span>' : renderMiacis({ [item.slot]: item }, 72);
+      return `
+        <div class="closet-item-card exchange-card${owned ? ' owned' : ''}" style="border-color:${rInfo.color};">
+          <div class="exchange-art">${visual}</div>
+          <div class="exchange-name">${escapeHtml(item.name)}</div>
+          <div class="exchange-rarity" style="color:${rInfo.color};">${rInfo.code}</div>
+          ${owned
+            ? '<span class="exchange-owned">持っている</span>'
+            : `<button class="btn-primary btn-exchange-act" data-item-id="${item.id}" data-cost="${cost}" ${state.shards < cost ? 'disabled' : ''}>💎 ${cost}</button>`}
         </div>
-        <div>
-          <button class="btn-primary btn-exchange-act"
-                  data-item-id="${item.id}"
-                  data-cost="${cost}"
-                  ${!canAfford ? 'disabled' : ''}
-                  style="min-height:44px; padding:6px 14px; font-size:14px;">
-            💎 ${cost}
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
+      `;
+    }).join('');
 
   mainEl.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+    <div class="exchange-head">
       <div>
-        <h2 style="font-size:20px; font-weight:800;">かけら交換所</h2>
-        <div style="font-size:13px; color:var(--link);">💎 残高: <strong>${state.shards}</strong> 個</div>
+        <h2>交換所</h2>
+        <div class="exchange-balance">💎 <strong>${state.shards}</strong></div>
       </div>
-      <button class="btn-sub" id="btn-close-exchange" style="min-height:38px; padding:4px 12px; font-size:13px;">✕ 閉じる</button>
+      <button class="btn-sub" id="btn-close-exchange">閉じる</button>
     </div>
-
-    <div style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-      好きなアイテムを選んでかけらと交換できます (N: 10 / R: 30 / SR: 100 / UR: 300)
+    <div class="exchange-costs">${costs}<span class="muted">UR・SECRET は ガチャだけ</span></div>
+    <div class="closet-tabs">
+      ${slots.map(sl => `<button class="closet-tab-btn ${sl.id === tab ? 'active' : ''}" data-ex-slot="${sl.id}">${sl.label}</button>`).join('')}
     </div>
-
-    <div class="exchange-list" style="margin-bottom:20px;">
-      ${itemsHtml}
-    </div>
+    <div class="closet-items-grid">${cards}</div>
   `;
 
   document.getElementById('btn-close-exchange').addEventListener('click', () => {
     renderClosetBody(mainEl, state, callbacks);
   });
+  mainEl.querySelectorAll('[data-ex-slot]').forEach(btn => btn.addEventListener('click', () => {
+    state.exchangeTab = btn.dataset.exSlot;
+    renderExchangeView(mainEl, state, callbacks);
+    mainEl.querySelector('[data-ex-slot].active')?.focus({ preventScroll: true });
+  }));
 
   mainEl.querySelectorAll('.btn-exchange-act').forEach(btn => {
     btn.addEventListener('click', async () => {
       const itemId = btn.dataset.itemId;
       const cost = parseInt(btn.dataset.cost, 10);
       btn.disabled = true;
-      btn.textContent = '交換中...';
+      btn.textContent = '…';
 
       try {
         const res = await exchangeItem(itemId);
         state.shards = res.shards_balance;
-        // 所持品更新
         const existing = state.myItems.find(it => it.item_id === itemId);
         if (existing) {
           existing.count = res.count;
@@ -373,8 +373,7 @@ function renderExchangeView(mainEl, state, callbacks) {
           state.myItems.push({ item_id: itemId, count: res.count });
         }
         playSfx('correct');
-        alert('アイテムを交換しました！');
-        renderClosetBody(mainEl, state, callbacks);
+        renderExchangeView(mainEl, state, callbacks);
       } catch (err) {
         alert(err.message);
         btn.disabled = false;

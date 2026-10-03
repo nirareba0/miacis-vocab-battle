@@ -3,7 +3,7 @@
  */
 import { escapeHtml } from './logic.js';
 import { renderAccessory, renderBackdrop, renderAuraArt } from './miacis-accessories.js';
-import { renderForm, formHidesHat } from './miacis-forms.js';
+import { renderForm } from './miacis-forms.js';
 
 /**
  * 許可された CSS（linear-gradient または 単色カラー）のみを通す
@@ -166,10 +166,10 @@ export function renderMiacis(look, size = 120) {
            style="position:absolute; inset:6%; display:flex; align-items:center; justify-content:center; z-index:3; ${auraStyle}">
         ${bodyHtml}
       </div>
-      <!-- 着せ替えパーツ -->
-      ${formHidesHat(l.form) ? '' : (renderAccessory(l.hat, 'hat') || hatHtml)}
+      <!-- 着せ替えパーツ（すがたは完成した姿なので、帽子・顔・首は付けない。外せば元の装備が戻る） -->
+      ${formSvg ? '' : `${renderAccessory(l.hat, 'hat') || hatHtml}
       ${renderAccessory(l.face, 'face') || faceHtml}
-      ${renderAccessory(l.neck, 'neck') || neckHtml}
+      ${renderAccessory(l.neck, 'neck') || neckHtml}`}
     </div>
   `.trim();
 }

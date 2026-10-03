@@ -246,8 +246,11 @@ test('SECRET とすがた（0016）: 超低確率でネコ・イヌのすがた�
       await assert.rejects(db.query("select public.exchange_item('form_dog')"), /item_not_found/);
       await assert.rejects(db.query("select public.exchange_item('title_streak10')"), /item_not_found/);
       await assert.rejects(db.query("select public.exchange_item('form_fox')"), /item_not_found/); // ガチャから外れた
-      const ok = (await db.query("select public.exchange_item('hat_kabuto') as r")).rows[0].r;
-      assert.ok(ok);
+      // 0020: 交換は SR まで。UR はガチャだけ
+      await assert.rejects(db.query("select public.exchange_item('hat_kabuto')"), /item_not_found/);
+      await assert.rejects(db.query("select public.exchange_item('hat_crown')"), /item_not_found/);
+      const ok = (await db.query("select public.exchange_item('hat_rescue') as r")).rows[0].r;
+      assert.equal(ok.shards_balance, 4900);
     });
     const n = (await db.query("select count(*)::int n from public.items where active and source='gacha'")).rows[0].n;
     assert.equal(n, 105); // 0019: 子孫の動物 8 種を外し、スタッフモチーフ 7 種を足した
