@@ -622,6 +622,194 @@ Object.assign(forms, {
   }))
 });
 
+// ===== 単語図鑑のコンプリート（5種）: 中学 → 高校 → 受験 → 博士と学校生活が進む。後ろほど豪華にする =====
+// 作り方は館のスタッフと同じ（ミアキスくん本人に衣装と持ち物を足す）。服は胴の色を塗り替え、
+// あごの下（y 44〜52）にシャツの V・えり・ネクタイをのぞかせる。そこより下は足に隠れる。
+
+/** 制服の前: シャツの V と左右のえり（あごの下から足の陰へ） */
+function uniformFront(S, lapel, shirt = '#fff') {
+  S.shape('<path d="M44.4 43L58.2 41.8L52.2 54Z"/>', shirt, '', 1.2);
+  S.shape('<path d="M43.8 43.2L47.6 43.6L52.2 54L48.2 52.6Z"/>', lapel, '', 1.2);
+  S.shape('<path d="M58.8 41.6L55.6 43L52.2 54L56.6 52Z"/>', lapel, '', 1.2);
+}
+
+/** ネクタイ（結び目と剣先。下は足に隠れる）。stripe はななめの柄 */
+function necktie(S, fill, stripe = '') {
+  S.shape('<path d="M50.4 46.4H52.6L53.8 53.6L51.6 56L49.4 53.6Z"/>', fill,
+    stripe ? `<path d="M49.9 49.4L53.1 47.8M49.6 52.2L53.5 50.4" fill="none" stroke="${stripe}" stroke-width="1"/>` : '', 1.2);
+  S.shape('<path d="M49.6 44.2H53.4L52.7 46.8H50.3Z"/>', fill, '', 1.2);
+}
+
+/** 桜の花びら1枚（中心 x, y・向き rot） */
+const petal = (x, y, rot, s = 1) => `<path transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" d="M0 3.2C-2.8 1.2-2.6-2.4-1-2.9L0-1.9L1-2.9C2.6-2.4 2.8 1.2 0 3.2Z" fill="#ffc3d6" stroke="${INK}" stroke-width=".8"/>`;
+/** 桜の花（5枚の花びら＋黄色い芯） */
+const blossom = (x, y, s = 1, rot = 0) => [0, 72, 144, 216, 288].map((a) => `<path transform="translate(${x} ${y}) rotate(${a + rot}) scale(${s})" d="M0 0C-2.6-1.6-2.8-4.6-1.1-5.4L0-4.4L1.1-5.4C2.8-4.6 2.6-1.6 0 0Z" fill="#ffc3d6" stroke="${INK}" stroke-width=".8"/>`).join('')
+  + `<circle cx="${x}" cy="${y}" r="${n(1 * s)}" fill="#ffd84a" stroke="${INK}" stroke-width=".6"/>`;
+
+/** 八分音符（中心 x, y） */
+const note = (x, y, fill, rot = 0) => `<g transform="translate(${x} ${y}) rotate(${rot})"><path d="M1.6-.6V-7.6Q4.4-6.4 4.8-3.6" fill="none" stroke="${INK}" stroke-width="1.2"/><ellipse rx="2.1" ry="1.6" transform="rotate(-22)" fill="${fill}" stroke="${INK}" stroke-width=".9"/></g>`;
+
+const NAVY = '#3a56a8';
+const NAVY_LAPEL = '#2f4590';
+
+Object.assign(forms, {
+  // A1 新入生: おろしたての紺のブレザー・赤いリボン・胸の名札。まわりに桜の花びら
+  zukan_a1: () => sticker((S) => miacis(S, {
+    body: NAVY,
+    bodyMarks: '<path d="M58 59.4H65.6" fill="none" stroke="#2a3d80" stroke-width="1"/>' + hl('M61.6 41.6Q64.8 42.2 66.4 45.4', 1.2),
+    overTorso: (S) => {
+      uniformFront(S, NAVY_LAPEL);
+      bow(S, 51.6, 46, '#e8414f', 0.92);
+      // 名札（赤い帯・名前の線）
+      S.shape('<rect x="57.8" y="45" width="8.4" height="5.4" rx=".9"/>', '#fff',
+        '<path d="M57.8 45.9Q57.8 45 58.7 45H65.3Q66.2 45 66.2 45.9V46.6H57.8Z" fill="#e8414f" stroke="none"/><path d="M59.4 48.4H64.6" fill="none" stroke-width=".9"/>', 1.2);
+    },
+    sparkles: blossom(26, 24, 1.05, 10) + petal(76, 26, 30) + petal(20, 50, -40, 1.1) + petal(80, 52, 70, .9) + petal(26, 74, 15) + petal(74, 78, -60, 1.1) + petal(33, 34, 120, .8)
+  })),
+
+  // A2 生徒会長: 同じブレザーに赤い腕章・クリップボード・きりっとした眉
+  zukan_a2: () => sticker((S) => miacis(S, {
+    body: NAVY,
+    bodyMarks: '',
+    face: `<path d="M41.2 34.2L45 35.3M48.4 35.6L52 34.6" fill="none" stroke="${INK}" stroke-width="1.2"/>`,
+    overTorso: (S) => {
+      uniformFront(S, NAVY_LAPEL);
+      necktie(S, '#e8414f');
+      // 腕章（肩のあたりに巻く赤い帯。金のふち）
+      S.shape('<path d="M58.6 44.6Q63.4 42.6 67.4 43.6L67.8 50Q63.6 49 59 51Z"/>', '#e8414f',
+        '<path d="M58.8 46Q63.4 44.2 67.5 45M59 49.6Q63.6 47.6 67.7 48.6" fill="none" stroke="#ffd84a" stroke-width=".9"/>', 1.4);
+    },
+    hold: (S) => {
+      // クリップボード（左手。チェックの付いた紙）
+      const r = 'transform="rotate(-8 30.4 45.4)"';
+      S.shape(`<rect ${r} x="21.2" y="35.6" width="18" height="20.4" rx="1.6"/>`, '#c58b4f',
+        `<rect ${r} x="23" y="38.6" width="14.4" height="15.8" rx=".6" fill="#fff" stroke="none"/>`
+        + [41.2, 45.6, 50].map((y) => `<rect ${r} x="24.4" y="${y - 1.2}" width="2.6" height="2.6" rx=".4" fill="#fff" stroke-width=".8"/>`
+          + `<path ${r} d="M28.6 ${y}H35.6" fill="none" stroke="#9aa3c6" stroke-width="1"/>`).join('')
+        + `<path ${r} d="M24.6 41.2L25.6 42.4L27.6 39.4M24.6 45.6L25.6 46.8L27.6 43.8" fill="none" stroke="#e8414f" stroke-width="1.1"/>`, 1.6);
+      S.shape(`<rect ${r} x="26.6" y="33.8" width="7.6" height="3.8" rx="1"/>`, '#d6dbe6', hl('M27.8 35Q29.4 34.6 31.6 34.6', .8), 1.2);
+    },
+    sparkles: sparkles([[28.6, 20, 2.8], [76, 26, 2.2], [76, 74, 2.4]], [[33, 30.6]]) + petal(16, 64, -30) + petal(84, 50, 50, .9)
+  })),
+
+  // B1 高校生: グレーのブレザーにしまのネクタイ・首にヘッドホン・肩にスクールバッグ
+  zukan_b1: () => sticker((S) => miacis(S, {
+    body: '#d2a868',
+    bodyMarks: '<path d="M57.6 60.2H65.8" fill="none" stroke="#a27a40" stroke-width="1"/>',
+    overTorso: (S) => {
+      uniformFront(S, '#b08648');
+      necktie(S, '#2a3f7e', '#e8414f');
+      // ヘッドホン（首にかけて、胸の前にバンドを下げる。両端に大きなカップ）
+      S.shape('<path d="M43.4 45.6Q51.6 54.4 59.8 44.8L61.4 46.6Q51.4 58 41.6 47.4Z"/>', '#3a3456', '', 1);
+      for (const [x, y, rot] of [[42.8, 47.4, 20], [60.6, 46.4, -20]]) {
+        S.shape(`<ellipse cx="${x}" cy="${y}" rx="3" ry="3.8" transform="rotate(${rot} ${x} ${y})"/>`, '#4fd0e0',
+          `<ellipse cx="${x}" cy="${y}" rx="1.6" ry="2.3" transform="rotate(${rot} ${x} ${y})" fill="#c4f4f8" stroke="none"/>`, 1.4);
+      }
+      // スクールバッグ（右肩から下げる。持ち手のひもとチャーム）
+      // 袋は腰の右へずらして置き、ブレザーを見せる
+      const t = 'transform="translate(3 2)"';
+      S.shape('<path d="M62.4 41.6L65.6 40.8L74.6 55.4L71.4 55.8Z"/>', '#3552a8', '', 1.4);
+      S.shape(`<path ${t} d="M60.6 52.6H79Q80.4 52.6 80.2 54L79.2 65.2Q79 66.6 77.6 66.6H62.4Q61 66.6 60.8 65.2L60 54Q59.8 52.6 61.2 52.6Z"/>`, '#3552a8',
+        `<path ${t} d="M60.2 53.6H80.2L79.6 59Q70 61.2 60.6 59Z" fill="#28408a" stroke-width="1.2"/><rect ${t} x="68.4" y="57.6" width="3.6" height="3" rx=".8" fill="#ffd84a" stroke-width=".9"/>`
+        + hl('M66 57.4Q67 56.4 69 56.2', 1));
+      S.add(`<g ${t}><path d="M76.4 59.4V63" fill="none" stroke="${INK}" stroke-width=".8"/><path d="${starD(76.4, 65, 2.4, 1.1)}" fill="#ff8fb0" stroke="${INK}" stroke-width=".8"/></g>`);
+    },
+    sparkles: sparkles([[28.6, 20, 3], [24.6, 62, 2.2]], [[33, 30.4], [84, 72]]) + note(77.4, 30, '#ff6f9f', 10) + note(84.6, 44, '#4fd0e0', -8) + note(19.6, 44, '#ffd84a', -12)
+  })),
+
+  // B2 受験生: 日の丸のはちまき・参考書の山・合格祈願のお守り・えんぴつ。カーディガン
+  zukan_b2: () => sticker((S) => miacis(S, {
+    body: '#3f8a68',
+    bodyMarks: '<path d="M58.6 60.6Q63 62 66.4 59.6M58.4 62.8Q62.4 64 65 62.4" fill="none" stroke="#2c6a4f" stroke-width=".9"/>',
+    back: (S) => {
+      // 参考書の山（背表紙をこちらに向けて積む）
+      const books = [
+        [12.6, 72.6, 25.4, 8, '#e8414f'], [14.6, 65.2, 22.6, 7.4, '#3f8de0'], [12, 58.8, 23.6, 6.4, '#36b56a'],
+        [14.4, 52.2, 22.4, 6.6, '#9a5ad8'], [13.4, 46.6, 20.6, 5.6, '#f29a3a']
+      ];
+      for (const [x, y, w, h, c] of books) {
+        S.shape(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1"/>`, c,
+          `<rect x="${n(x + w * 0.3)}" y="${n(y + h * 0.28)}" width="${n(w * 0.42)}" height="${n(h * 0.44)}" rx=".5" fill="#fff" stroke-width=".7"/>`
+          + `<path d="M${n(x + 2.2)} ${y}V${n(y + h)}M${n(x + w - 2.2)} ${y}V${n(y + h)}" fill="none" stroke="${INK}" stroke-width=".7" opacity=".55"/>`, 1.4);
+      }
+    },
+    overTorso: (S) => {
+      uniformFront(S, '#2f7556');
+      necktie(S, '#2a3f7e');
+      S.add('<circle cx="56.6" cy="46.6" r=".9" fill="#fff" stroke-width=".6"/><circle cx="55.1" cy="50.4" r=".9" fill="#fff" stroke-width=".6"/>');
+    },
+    overHead: (S) => {
+      // はちまき（額に巻いて、後ろで結ぶ）
+      S.shape('<path d="M64.2 27.2Q69 22.4 74.6 21.6L73.6 25.4Q69 26.2 64.8 29Z"/>', '#fff', '', 1.3);
+      S.shape('<path d="M64.6 28.6Q70 29 74.2 32.8L71.6 35Q68 31.4 64.2 30.2Z"/>', '#fff', '', 1.3);
+      S.shape('<path d="M39.4 27.8Q51.4 24.4 64 25.6L64.2 30Q51.4 28.8 39.8 32Z"/>', '#fff', '<circle cx="46.4" cy="28.4" r="1.9" fill="#e8414f" stroke="none"/>', 1.3);
+      S.shape('<ellipse cx="64.6" cy="28" rx="1.7" ry="2.1"/>', '#fff', '', 1.2);
+    },
+    hold: (S) => {
+      // お守り（左手でひもを持つ。赤地に金のふち）
+      S.add('<path d="M35.6 41.6Q35 40 36.4 38.8" fill="none" stroke="#9a5ad8" stroke-width="1.2"/>');
+      S.shape('<path d="M31.6 44.4Q31.6 42 35 41.6Q38.4 42 38.4 44.4V51.2Q38.4 52.6 37 52.6H33Q31.6 52.6 31.6 51.2Z"/>', '#e8414f',
+        '<path d="M32.8 44.8Q32.9 43 35 42.8Q37.1 43 37.2 44.8V50.6Q37.2 51.4 36.4 51.4H33.6Q32.8 51.4 32.8 50.6Z" fill="none" stroke="#ffd84a" stroke-width=".8"/>'
+        + '<rect x="33.9" y="45.4" width="2.2" height="4.4" rx=".4" fill="#fff" stroke="none"/>', 1.4);
+      S.shape('<circle cx="35" cy="42.2" r="1.2"/>', '#9a5ad8', '', .9);
+      // えんぴつ（右手）
+      const r = 'transform="translate(61 40) rotate(28)"';
+      S.shape(`<path ${r} d="M-1.5-12.6H1.5V3.2H-1.5Z"/>`, '#ffcf3a', `<path ${r} d="M0-12.6V3.2" fill="none" stroke="#e0a820" stroke-width=".7"/>`, 1.3);
+      S.shape(`<path ${r} d="M-1.5-15.4Q-1.5-16.4 0-16.4Q1.5-16.4 1.5-15.4V-12.6H-1.5Z"/>`, '#ff8fb0', '', 1.2);
+      S.shape(`<path ${r} d="M-1.5 3.2H1.5L0 7.4Z"/>`, '#f0cf98', `<path ${r} d="M-.5 6L0 7.4L.5 6Z" fill="${INK}" stroke="none"/>`, 1.2);
+    },
+    sparkles: sparkles([[28.6, 16.6, 3], [80, 40, 2.2], [9.4, 40, 2], [76.4, 74, 2.8]], [[31.6, 26], [84.6, 16.6]])
+  })),
+
+  // 最難関 ハカセ: 黒いガウン（赤と金のフード・袖のビロードの帯）・角帽とタッセル・丸めがね・学位記。金のきらめき
+  zukan_ac: () => sticker((S) => {
+    const gown = '#2c2838';
+    const crimson = '#c0283f';
+    const gold = '#ffd84a';
+    miacis(S, {
+      body: gown,
+      // 袖のビロードの帯（3本。いつもの紺のしまと同じ位置に、赤地に金のふち）
+      bodyMarks: [45, 50.4, 55.8].map((y) => `<path d="M68 ${y - 0.6}Q63.4 ${n(y - 0.2)} 60.6 ${n(y + 1.8)}L61.4 ${n(y + 3.2)}Q64.4 ${n(y + 1.6)} 68 ${n(y + 1.8)}Z" fill="${crimson}" stroke="${gold}" stroke-width=".7"/>`).join(''),
+      face: '<circle cx="43.3" cy="37.1" r="2.8" fill="#fff" fill-opacity=".45" stroke="#3a3456" stroke-width=".9"/><circle cx="49.9" cy="37.4" r="2.8" fill="#fff" fill-opacity=".45" stroke="#3a3456" stroke-width=".9"/>'
+        + '<path d="M46.1 37Q46.6 36.4 47.1 37.1M52.7 37L59.6 34.6" fill="none" stroke="#3a3456" stroke-width=".9"/>',
+      back: (S) => {
+        // ガウンのすそ（座った体のまわりに広がる）
+        S.shape('<path d="M45 40C38.6 48 34 62 31.2 78.4C37 82.4 46 83.4 52 82.6C60 83.6 69.6 82.2 76.4 77.8C74.4 64 72.4 50 66.6 40.4Z"/>', gown,
+          '<path d="M37.6 64.6Q36.4 72 35.4 80.4M71.8 62Q73.2 70 73.8 79.4" fill="none" stroke="#4a4560" stroke-width="1"/>'
+          + `<path d="M33.2 79.4Q42 82.6 52 81.8Q62 82.8 75.4 78.4" fill="none" stroke="${gold}" stroke-width="1"/>`);
+        // フード（背中にたらす。赤い裏地に金のふち）
+        S.shape('<path d="M58.4 38.6C66.6 37.4 74.4 41.4 75.2 50C75.6 56.6 72.6 61.6 68 63.8C67.4 56 66.8 48 58.4 38.6Z"/>', gown,
+          `<path d="M62.2 40.4C68.6 40.8 72.8 44.8 73.2 50.6C73.4 55 71.8 58.6 68.8 60.6C68.2 53 66.8 46.6 62.2 40.4Z" fill="${crimson}" stroke="none"/>`
+          + `<path d="M66 44.6Q70.6 48.8 70.8 55.6" fill="none" stroke="${gold}" stroke-width="1.6"/>`);
+      },
+      overTorso: (S) => {
+        uniformFront(S, '#1e1b29');
+        S.add(`<path d="M47.4 43.4L52.2 53.8L57.6 42.2" fill="none" stroke="${gold}" stroke-width=".9"/>`);
+        bow(S, 51.6, 45.6, crimson, 0.7);
+      },
+      overHead: (S) => {
+        // 角帽（頭にかぶる部分 → 板の厚み → 板の上）と金のタッセル
+        S.shape('<path d="M41.2 25C40.8 21.4 44.6 19.4 52 19.4C59.4 19.4 63.2 21.2 62.8 24.8C58.4 26.4 46 26.6 41.2 25Z"/>', gown, '', 1.6);
+        S.shape('<path d="M33.4 17.6L51 23.2L70.4 16.4V18.2L51 25.2L33.4 19.4Z"/>', '#1a1724', '', 1.4);
+        S.shape('<path d="M33.4 17.6L52.6 11.2L70.4 16.4L51 23.2Z"/>', gown, hl('M38.6 16.6L51.6 12.4', 1.1), 1.6);
+        S.add(`<path d="M52 16.8Q61.4 17.6 69 17L69.6 24.4" fill="none" stroke="${gold}" stroke-width="1.3"/><circle cx="52" cy="16.8" r="1.1" fill="${gold}" stroke-width=".7"/>`);
+        S.shape('<path d="M68.2 24.2H71L71.8 31.6Q69.6 32.6 67.4 31.6Z"/>', gold, '<path d="M68.6 27.4V31.6M69.6 27.4V32M70.6 27.4V31.6" fill="none" stroke="#c99a20" stroke-width=".7"/><path d="M68.1 25.8H71.1" fill="none" stroke-width=".8"/>', 1.2);
+      },
+      hold: (S) => {
+        // 巻いた学位記（左手。赤いひもで結ぶ）
+        const r = 'transform="rotate(-24 30.6 44)"';
+        S.shape(`<rect ${r} x="19.6" y="40.6" width="22" height="6.8" rx="3.4"/>`, '#fff6dc',
+          `<ellipse ${r} cx="21.4" cy="44" rx="1.6" ry="3.2" fill="#f0dca8" stroke-width=".8"/>`
+          + `<rect ${r} x="29.4" y="40.6" width="2.6" height="6.8" fill="${crimson}" stroke="none"/>`
+          + hl('M25 41.6Q29 39.6 34 37.6', 1), 1.6);
+        bow(S, 30.6, 44, crimson, 0.62);
+      },
+      sparkles: [[26, 18, 3.8], [80, 26, 3], [12, 56, 2.6], [87, 50, 2.4], [20, 76, 2.6], [86, 74, 3.2]].map(([x, y, r]) => sparkle(x, y, r, gold)).join('')
+        + [[33, 29], [76, 14], [14, 36], [91, 62], [28, 86], [80, 88]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="${gold}" stroke="${INK}" stroke-width=".5"/>`).join('')
+    });
+  })
+});
+
 const cache = {};
 
 /** すがた id ごとの SVG（相棒の画像の代わりに箱いっぱいに置く）。未知の id は空文字 */

@@ -40,6 +40,8 @@ import {
   equipItem,
   getPublicLooks,
   getMyWords,
+  claimZukanRewards,
+  getMyWeekTitles,
   getMyTickets,
   getGachaRates,
   staffUpsertPrize,
@@ -673,6 +675,19 @@ async function renderHome() {
     document.getElementById('go-battle')?.addEventListener('click', () => {
       window.location.hash = '#/battle';
     });
+    claimZukanRewards().then(list => {
+      if (list.length) showRewardPopup(list.map(r => ({ title: '図鑑コンプリート！', name: r.name, look: { form: { id: r.id, name: r.name } }, note: '着せ替えの「すがた」で着られる' })));
+    }).catch(() => {});
+    getMyWeekTitles().then(list => {
+      if (!list.length) return;
+      const key = 'miacis_week_titles_seen';
+      let seen = '';
+      try { seen = localStorage.getItem(key) || ''; } catch { /* 見られない端末でも毎回出すだけ */ }
+      const week = list[0].week_start;
+      if (seen === week) return;
+      try { localStorage.setItem(key, week); } catch { /* 同上 */ }
+      showRewardPopup(list.map(t => ({ title: '先週 1位！', name: t.name, look: null, note: t.count > 1 ? `${t.count}回目の1位。称号は着せ替えの「称号」で` : '称号は着せ替えの「称号」で付けられる' })));
+    }).catch(() => {});
     getMyRaffle().then(r => {
       const el = document.getElementById('home-raffle');
       if (!el) return;
@@ -1293,6 +1308,34 @@ function showEvolutionModal(prevProg, newProg) {
 /**
  * 単語図鑑画面 (#/zukan)
  */
+/** ごほうびを1つずつ大きく見せる（図鑑コンプリート・週間1位）。桜井「大事なところはストップ」 */
+function showRewardPopup(list) {
+  if (!list.length || document.querySelector('.reward-pop')) return;
+  const [first, ...rest] = list;
+  const el = document.createElement('div');
+  el.className = 'reward-pop';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', first.title);
+  el.innerHTML = `
+    <div class="reward-pop-card">
+      <span class="reward-pop-kicker">${escapeHtml(first.title)}</span>
+      ${first.look ? `<div class="reward-pop-art">${renderMiacis(first.look, 150)}</div>` : '<div class="reward-pop-crown" aria-hidden="true">👑</div>'}
+      <strong>${escapeHtml(first.name)}</strong>
+      <p>${escapeHtml(first.note || '')}</p>
+      <button class="btn-primary" type="button">受け取る</button>
+    </div>`;
+  document.body.appendChild(el);
+  playSfx('win');
+  triggerConfetti();
+  const btn = el.querySelector('button');
+  btn.focus();
+  btn.addEventListener('click', () => {
+    el.remove();
+    if (rest.length) showRewardPopup(rest);
+  });
+}
+
 async function renderZukan() {
   const muteIcon = isMuted() ? '🔇' : '🔊';
 
@@ -1334,6 +1377,7 @@ async function renderZukan() {
   });
 
   try {
+    const newRewards = await claimZukanRewards().catch(() => []);
     const wordsData = await getMyWords();
     const contentEl = document.getElementById('zukan-content');
     if (!contentEl) return;
@@ -1357,29 +1401,37 @@ async function renderZukan() {
     }
 
     const uncollectedCount = Math.max(0, bandStat.total - bandStat.collected);
+    // コンプリートのごほうび（すがた）。目の前に吊るしておく
+    const reward = bandStat.reward;
+    const rewardHtml = reward?.id ? `
+      <div class="zukan-reward${reward.owned ? ' owned' : ''}">
+        <div class="zukan-reward-art">${renderMiacis({ form: { id: reward.id, name: reward.name } }, 84)}</div>
+        <div class="zukan-reward-copy">
+          <span>${reward.owned ? 'コンプリート！ もらった すがた' : 'コンプリートで もらえる すがた'}</span>
+          <strong>${escapeHtml(reward.name)}</strong>
+          <em>${reward.owned ? '着せ替えの「すがた」で着られる' : `あと ${uncollectedCount}語`}</em>
+        </div>
+      </div>` : '';
 
     contentEl.innerHTML = `
       <div class="zukan-progress-card">
         <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px;">
-          <span>${['', 'A1（中学前半）', 'A2（中学）', 'B1（高校）', 'B2（大学受験）', '最難関（学術語）'][state.zukanTab]} 覚えた数</span>
-          <span>${bandStat.collected} / ${bandStat.total} 語 (${percent}%)</span>
+          <span>${['', 'A1 中学前半', 'A2 中学', 'B1 高校', 'B2 大学受験', '最難関 学術語'][state.zukanTab]}</span>
+          <span style="white-space:nowrap;">${bandStat.collected} / ${bandStat.total}語</span>
         </div>
         <div class="evolution-bar-bg">
           <div class="evolution-bar-fill" style="width: ${percent}%;"></div>
         </div>
       </div>
+      ${rewardHtml}
 
       ${bandWords.length ? '<div class="zukan-tools"><label for="word-search" class="form-label">集めた単語を探す</label><input id="word-search" type="search" class="form-input" placeholder="英語・日本語で検索"><button class="btn-sub" id="toggle-meanings" aria-pressed="false">意味を隠して思い出す</button><p id="word-search-status" role="status"></p></div>' : ''}
       ${cardsHtml}
 
-      ${uncollectedCount > 0 ? `
-        <div class="card" style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 12px; margin-top: 12px;">
-          ？ あと ${uncollectedCount} 語が未マスター
-        </div>
-      ` : ''}
 
       <div class="notice-line" style="margin-top: 16px;">サバイバル・トレーニングで正解した単語が ここに残る</div>
     `;
+    if (newRewards.length) showRewardPopup(newRewards.map(r => ({ title: '図鑑コンプリート！', name: r.name, look: { form: { id: r.id, name: r.name } }, note: '着せ替えの「すがた」で着られる' })));
     const search = document.getElementById('word-search');
     search?.addEventListener('input', () => {
       const query = search.value.trim().toLocaleLowerCase();

@@ -279,7 +279,7 @@ test('称号: 10連続・復活からの逆転・100本完走で入手。ガチ�
 
     // 装備はできる（active）が、ガチャの抽選対象（source='gacha'）には入らない
     const titles = (await db.query("select id from public.items where source='achievement' and active")).rows;
-    assert.equal(titles.length, 6);
+    assert.equal(titles.length, 6 + 5 + 11); // 0022: 図鑑のすがた 5・週間1位の称号 11
     await asUser(db, a, () => db.query("select public.equip_item('title', 'title_streak10')"));
     assert.equal((await db.query('select title from public.player_looks where player_id=$1', [a])).rows[0].title, 'title_streak10');
     const owned = (await db.query("select item_id from public.player_items where player_id=$1 order by item_id", [a])).rows.map(x => x.item_id);

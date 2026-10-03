@@ -3,13 +3,13 @@ create extension if not exists pg_cron;
 
 -- Note: pg_cron runs in UTC. All schedules below are converted from JST (UTC+9).
 
--- 1. Weekly closing & tier promotions/demotions
+-- 1. Weekly closing & tier promotions/demotions, then weekly #1 titles (0022: close_week_all)
 -- Schedule: Every Monday at 00:05 JST
 -- UTC Conversion: Sunday 15:05 UTC (5 15 * * 0)
 select cron.schedule(
   'close-week-job',
   '5 15 * * 0',
-  $$select public.close_week((public.jst_week_start() - interval '7 days')::date);$$
+  $$select public.close_week_all((public.jst_week_start() - interval '7 days')::date);$$
 );
 
 -- 2. Purge graduating Grade 6 students

@@ -164,7 +164,7 @@ function renderClosetBody(mainEl, state, callbacks) {
         <button type="button" aria-pressed="${isEquipped}" ${blocked ? 'disabled' : ''} class="closet-item-card ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" style="border-color:${isEquipped ? 'var(--primary)' : rInfo.color};">
           ${isEquipped ? '<span class="equipped-tag">装備中</span>' : ''}
           <div style="font-size:32px; margin-bottom:8px; height:76px; display:flex; align-items:center; justify-content:center;">${visual}</div>
-          <div style="font-size:13px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}</div>
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px; line-height:1.2;">${escapeHtml(item.name)}${item.slot === 'title' && (state.myItems.find(m => m.item_id === item.id)?.count || 0) > 1 ? ` <small class="title-count">×${state.myItems.find(m => m.item_id === item.id).count}</small>` : ''}</div>
           <div style="font-size:11px; color:${rInfo.color}; font-weight:700;">${rInfo.code}</div>
         </button>
       `;

@@ -486,3 +486,24 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .pickup-card { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px 6px; border-radius:14px; background:#ffffffcc; border:1.5px solid #e8c46a; }
 .pickup-card span { font-size:10.5px; font-weight:700; line-height:1.2; text-align:center; min-height:2.4em; display:flex; align-items:center; }
 .pickup-card em { position:absolute; top:4px; right:5px; font-style:normal; font-size:9px; font-weight:900; color:#fff; background:#d9467a; border-radius:6px; padding:0 4px; }
+
+/* 図鑑のごほうび・ポップアップ（2026-10-03・0022） */
+.zukan-reward { display:flex; align-items:center; gap:12px; margin:0 0 14px; padding:10px 14px; border-radius:18px; background:linear-gradient(135deg,#fff4cf,#f1e6ff); border:1.5px solid #e8c46a; }
+.zukan-reward.owned { background:linear-gradient(135deg,#e6f7ea,#f1e6ff); border-color:#7cc49a; }
+.zukan-reward-art { flex:0 0 auto; }
+.zukan-reward-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.zukan-reward-copy span { font-size:11px; font-weight:800; color:#9a6a12; }
+.zukan-reward.owned .zukan-reward-copy span { color:#2f7a4d; }
+.zukan-reward-copy strong { font-size:17px; font-weight:900; line-height:1.25; }
+.zukan-reward-copy em { font-style:normal; font-size:13px; font-weight:800; color:#c2413a; }
+.zukan-reward.owned .zukan-reward-copy em { color:var(--text-muted); font-weight:600; }
+.reward-pop { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; background:#1d153acc; }
+.reward-pop-card { width:min(340px,100%); display:flex; flex-direction:column; align-items:center; gap:8px; padding:24px 18px 18px; border-radius:24px; background:radial-gradient(ellipse at 50% 25%,#fff4cf,#ffffff 70%); border:2px solid #e8c46a; text-align:center; animation:reward-pop-in .35s cubic-bezier(.2,1.4,.4,1); }
+.reward-pop-kicker { font-size:14px; font-weight:900; letter-spacing:.08em; color:#b07a12; }
+.reward-pop-card strong { font-size:22px; font-weight:900; line-height:1.3; }
+.reward-pop-card p { font-size:13px; color:var(--text-muted); }
+.reward-pop-crown { font-size:72px; line-height:1.1; }
+.reward-pop-card .btn-primary { width:100%; margin-top:6px; }
+@keyframes reward-pop-in { from { transform:scale(.7); opacity:0; } }
+@media (prefers-reduced-motion: reduce) { .reward-pop-card { animation:none; } }
+.title-count { font-size:11px; color:#c2413a; font-weight:900; }

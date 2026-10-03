@@ -21,6 +21,9 @@ const INTERNAL_FUNCTIONS = [
   "public.purge_inactive()",
   "public.add_nuts(uuid, int, text, text)",
   "public.setting_num(text, numeric)",
+  "public.award_weekly_titles(date)",
+  "public.close_week_all(date)",
+  "public.zukan_collected(uuid)",
 ];
 
 // 端末から書けてはいけないテーブル
@@ -29,7 +32,7 @@ const TABLES = [
   'content_opens', 'content_quiz_answers', 'writings', 'weekly_results',
   'app_settings', 'card_draws', 'card_collection',
   'nut_ledger', 'items', 'player_items', 'player_looks', 'player_shards',
-  'prizes', 'prize_tickets',
+  'prizes', 'prize_tickets', 'weekly_title_awards',
 ];
 
 test('内部の関数は anon からも authenticated からも実行できない', async () => {

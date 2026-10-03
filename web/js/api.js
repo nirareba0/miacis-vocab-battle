@@ -624,6 +624,22 @@ export async function getGachaRates() {
 /**
  * 覚えた単語一覧 (my_words)
  */
+/** 図鑑を埋めたレベルの すがた を受け取る（何度呼んでもよい）。新しくもらったものを返す（0022） */
+export async function claimZukanRewards() {
+  checkClient();
+  const { data, error } = await supabase.rpc('claim_zukan_rewards');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
+/** 自分が先週もらった 週間1位の称号（0022） */
+export async function getMyWeekTitles() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_week_titles');
+  if (error) throw new Error(translateError(error));
+  return escapeDeep(data || []);
+}
+
 export async function getMyWords() {
   checkClient();
   const { data, error } = await supabase.rpc('my_words');

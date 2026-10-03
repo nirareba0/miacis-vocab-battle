@@ -34,6 +34,10 @@ echo "3/4 DB（テーブル・権限・関数）と単語・定期の仕事"
 # 単語の seed は何度流しても同じ結果になる作りなので、毎回流し直す
 echo "  単語の seed を流し直す"
 "${CLI[@]}" db query --linked -f supabase/seed/words_v2.sql >/dev/null
+# 定期実行（pg_cron）も同じ理由で毎回流す。cron.schedule は同じ名前なら上書きなので何度流してもよい
+# （2026-10-03 に月末抽選の draw-raffle-job が本番に無かった）
+echo "  定期実行（cron.sql）を流し直す"
+"${CLI[@]}" db query --linked -f supabase/cron.sql >/dev/null
 echo "4/4 公開用の anon key を web/js/config.js に入れる（鍵は画面に出さない）"
 KEY="$("${CLI[@]}" projects api-keys --project-ref "$REF" -o json \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const k=JSON.parse(s).find(k=>k.name==="anon");if(!k)process.exit(1);process.stdout.write(k.api_key)})')"
