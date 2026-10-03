@@ -440,7 +440,8 @@ test('選択肢が細かくなる（0019）: 31問目からは、似た単語か
         misspellings = array[w.en || 'xa', w.en || 'xe', w.en || 'xi']
       where band = 1;
     `);
-    await db.exec(`insert into public.words (rank, en, ja, pos, band) select 1000 + g, 'extra_' || g, '追加_' || g, 'noun', 1 from generate_series(1, 30) g`);
+    // 追加の語にも罠を持たせる（持たない語が混ざると、罠が1回も出ない回が数%の確率で起きる）
+    await db.exec(`insert into public.words (rank, en, ja, pos, band, misspellings) select 1000 + g, 'extra_' || g, '追加_' || g, 'noun', 1, array['extra_' || g || 'xa', 'extra_' || g || 'xe', 'extra_' || g || 'xi'] from generate_series(1, 30) g`);
     const a = await player(db, 'A');
     const s = await start(db, a, 'streak');
     let q = s.question;
@@ -449,7 +450,7 @@ test('選択肢が細かくなる（0019）: 31問目からは、似た単語か
       q = (await answerRight(db, a, s.run_id)).question;
     }
     let traps = 0;
-    for (let i = 0; i < 12 && q; i++) {
+    for (let i = 0; i < 30 && q; i++) {
       assert.ok(q.tier >= 2, `31問目以降は tier 2 以上（${q.tier}）`);
       if (q.tier === 3) {
         traps++;
