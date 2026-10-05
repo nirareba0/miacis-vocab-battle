@@ -58,12 +58,14 @@ import {
   staffDrawRaffle,
   getStaffSettings,
   staffSetSetting,
-  getTryoutWords,
   claimDailyQuests,
   claimZukanMilestones,
   getMyStreak,
   getStaffCalendar,
-  staffSetCalendarDay
+  staffSetCalendarDay,
+  claimGuestRun,
+  getChallengeNow,
+  getMyRankWatch
 } from './api.js';
 
 import {
@@ -103,7 +105,14 @@ import {
   DOW_JA,
   jstToday,
   commitTodayLine,
-  shareInfo
+  shareInfo,
+  pickGuestBest,
+  savedGuestBest,
+  saveGuestBest,
+  challengeNowLine,
+  newOvertakes,
+  seenOvertakes,
+  markOvertakesSeen
 } from './logic.js';
 
 import {
@@ -259,16 +268,29 @@ function renderPreparation() {
 /**
  * 認証画面（登録・ログイン）
  */
-function renderAuth(mode = 'register') {
+function renderAuth(mode = 'register', opts = {}) {
+  // 登録前に遊んだ中1レベルの いちばんの記録（0028）。あれば「この記録で登録しよう」
+  const guestBest = savedGuestBest();
+  const record = guestBest && guestBest.correct > 0 ? guestBest : null;
+  const submitLabel = mode === 'register' ? (record ? `${record.correct}連続で 登録` : 'はじめる') : 'ログイン';
   appEl.innerHTML = `
     <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問7秒。間違えたら終わり。</p></div>
 
+    ${record ? `
+    <div class="card tryout has-record" id="tryout-card">
+      <span class="eyebrow">あなたの記録 ・ 中1レベル</span>
+      <div class="tryout-record"><strong>${record.correct}</strong><small>連続</small></div>
+      <p>${record.would_rank ? `登録すると 今週 <strong>${record.would_rank}位</strong>。` : ''}下で登録すると、この記録が残る</p>
+      <p class="challenge-now" id="challenge-now" aria-live="polite"></p>
+      <button class="btn-secondary" id="btn-tryout">もう一回 挑戦 <small>何回でもOK</small></button>
+    </div>` : `
     <div class="card tryout" id="tryout-card">
       <span class="eyebrow">登録の前に</span>
-      <h2>まず、1問。</h2>
-      <p>7秒。合ってたら、続きは登録して</p>
-      <button class="btn-primary" id="btn-tryout">1問やってみる</button>
-    </div>
+      <h2>まず、中1レベルに挑戦。</h2>
+      <p>登録なしで遊べる。何回でもOK。<br>いちばんの記録で 登録しよう</p>
+      <p class="challenge-now" id="challenge-now" aria-live="polite"></p>
+      <button class="btn-primary" id="btn-tryout">挑戦する</button>
+    </div>`}
 
     <div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -319,8 +341,9 @@ function renderAuth(mode = 'register') {
           : ''
       }
 
+      ${mode === 'register' && record ? `<div class="guest-claim-line">📈 中1レベル <strong>${record.correct}連続</strong> を、この登録で記録する</div>` : ''}
       <button type="submit" class="btn-primary" id="btn-auth-submit" style="margin-top: 10px;">
-        ${mode === 'register' ? 'はじめる' : 'ログイン'}
+        ${submitLabel}
       </button>
     </form>
 
@@ -330,7 +353,16 @@ function renderAuth(mode = 'register') {
   `;
 
   // イベント設定
-  document.getElementById('btn-tryout')?.addEventListener('click', startTryout);
+  document.getElementById('btn-tryout')?.addEventListener('click', startGuestChallenge);
+  getChallengeNow().then(n => {
+    const el = document.getElementById('challenge-now');
+    const line = challengeNowLine(n);
+    if (el && line) el.textContent = `🔥 ${line}`;
+  }).catch(() => {});
+  if (opts.focusForm) {
+    document.getElementById('auth-form')?.scrollIntoView({ block: 'start' });
+    setTimeout(() => document.getElementById('auth-nick')?.focus({ preventScroll: true }), 300);
+  }
   document.getElementById('tab-register').addEventListener('click', () => renderAuth('register'));
   document.getElementById('tab-login').addEventListener('click', () => renderAuth('login'));
 
@@ -397,7 +429,7 @@ function renderAuth(mode = 'register') {
         if (!gradeVal || gradeVal < 1 || gradeVal > 6) {
           alertEl.innerHTML = '<div class="alert alert-error">学年を選ぼう</div>';
           submitBtn.disabled = false;
-          submitBtn.textContent = 'はじめる';
+          submitBtn.textContent = submitLabel;
           return;
         }
         const inviteGroup = document.getElementById('invite-group');
@@ -405,7 +437,7 @@ function renderAuth(mode = 'register') {
         if (inviteGroup && !inviteGroup.hidden && !inviteVal) {
           alertEl.innerHTML = '<div class="alert alert-error">ミアキスの合言葉を入れよう</div>';
           submitBtn.disabled = false;
-          submitBtn.textContent = 'はじめる';
+          submitBtn.textContent = submitLabel;
           return;
         }
 
@@ -415,8 +447,16 @@ function renderAuth(mode = 'register') {
         state.player = await getMyPlayer();
         state.isStaff = await isStaffUser();
 
+        // 登録前の記録を、この人の1回にする（0028）。うまくいかなくても登録は済んでいる
+        let claimed = null;
+        const gb = savedGuestBest();
+        if (gb) {
+          claimed = await claimGuestRun(gb.token).catch(() => null);
+          saveGuestBest(null);
+        }
+
         // 登録完了後に「スクショしてね」画面を表示
-        showScreenshotModal(nick, pass, gradeVal);
+        showScreenshotModal(nick, pass, gradeVal, claimed);
       } else {
         await signInPlayer(nick, pass);
         state.session = await getSession();
@@ -428,7 +468,26 @@ function renderAuth(mode = 'register') {
     } catch (err) {
       alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
       submitBtn.disabled = false;
-      submitBtn.textContent = mode === 'register' ? 'はじめる' : 'ログイン';
+      submitBtn.textContent = submitLabel;
+    }
+  });
+}
+
+/**
+ * 登録前に中1レベルのサバイバルを1回まるごと（0028）。サーバーが出題・採点し、記録は登録したときに本人の1回になる
+ * 2026-10-05 本人「登録の前に中1レベルを一回挑戦してみて、その記録を登録しよ？という方式で」。何回でも挑戦していい
+ */
+function startGuestChallenge() {
+  document.body.dataset.screen = 'streak';
+  window.scrollTo(0, 0);
+  renderChallengeView(appEl, 'streak', {
+    guest: true,
+    onGoHome: () => renderAuth('register'),
+    onRegister: () => renderAuth('register', { focusForm: true }),
+    onGuestResult: (result, token) => {
+      const best = pickGuestBest(savedGuestBest(), result, token);
+      saveGuestBest(best);
+      return best;
     }
   });
 }
@@ -436,58 +495,7 @@ function renderAuth(mode = 'register') {
 /**
  * 登録直後の「スクショしてね」モーダル
  */
-/**
- * 登録前の1問。端末だけで完結する（記録は残らない）。桜井「とにかくゲームさせてみて」
- */
-async function startTryout() {
-  const card = document.getElementById('tryout-card');
-  if (!card) return;
-  card.innerHTML = '<div class="loading-state" role="status"><span class="loading-orbit"></span>用意中…</div>';
-  let words;
-  try {
-    words = await getTryoutWords();
-  } catch {
-    card.innerHTML = '<p>いまは出せない。登録して始めよう</p>';
-    return;
-  }
-  if (!words || words.length < 4) { card.innerHTML = '<p>いまは出せない。登録して始めよう</p>'; return; }
-  const pick = [...words].sort(() => Math.random() - 0.5).slice(0, 4);
-  const target = pick[0];
-  const choices = [...pick].sort(() => Math.random() - 0.5);
-  const started = performance.now();
-  const limit = 7000;
-  let done = false;
-  card.innerHTML = `
-    <div class="timer-bar-bg"><div id="tryout-bar" class="timer-bar-fill"></div></div>
-    <div class="word-prompt" style="font-size:clamp(26px,7vw,36px); padding:20px 8px;">${escapeHtml(target.en)}</div>
-    <div class="choices-list">${choices.map((c, i) => `<button class="btn-choice" data-id="${c.id}"><span class="choice-number" aria-hidden="true">${i + 1}</span><span>${escapeHtml(c.ja)}</span></button>`).join('')}</div>
-  `;
-  const bar = document.getElementById('tryout-bar');
-  const iv = setInterval(() => {
-    const left = Math.max(0, limit - (performance.now() - started));
-    if (bar) { bar.style.width = `${(left / limit) * 100}%`; bar.classList.toggle('danger', left / limit < 0.3); }
-  }, 50);
-  const finish = (ok, btn) => {
-    if (done) return;
-    done = true;
-    clearInterval(iv);
-    clearTimeout(to);
-    card.querySelectorAll('.btn-choice').forEach(b => { b.disabled = true; if (b.dataset.id === String(target.id)) b.classList.add('correct'); });
-    if (btn) btn.classList.add(ok ? 'choice-correct' : 'choice-wrong');
-    if (ok) { playSfx('correct'); } else { playSfx('wrong'); vibrate('wrong'); }
-    const msg = document.createElement('div');
-    msg.className = 'tryout-result';
-    msg.innerHTML = ok
-      ? '<strong>正解！</strong><p>この調子で何問続く？ 登録して記録を残そう</p>'
-      : `<strong>${btn ? 'おしい！' : '時間切れ！'}</strong><p>${escapeHtml(target.en)} = ${escapeHtml(target.ja)}。本番は 1問 7秒</p>`;
-    card.append(msg);
-    setTimeout(() => document.getElementById('auth-nick')?.focus({ preventScroll: false }), 900);
-  };
-  const to = setTimeout(() => finish(false, null), limit);
-  card.querySelectorAll('.btn-choice').forEach(b => b.addEventListener('click', () => finish(b.dataset.id === String(target.id), b)));
-}
-
-function showScreenshotModal(nick, pass, gradeVal) {
+function showScreenshotModal(nick, pass, gradeVal, claimed = null) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.id = 'screenshot-modal';
@@ -496,6 +504,7 @@ function showScreenshotModal(nick, pass, gradeVal) {
       <button class="modal-close-btn" id="btn-close-screenshot" aria-label="閉じる">×</button>
       <img src="assets/miacis-logo.png" alt="Miacis Logo" style="width: 64px; height: 64px; object-fit: contain; margin-bottom: 8px;">
       <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 6px;">登録完了！</h2>
+      ${claimed && claimed.correct > 0 ? `<div class="claimed-line">📈 中1レベル <strong>${claimed.correct}連続</strong> を登録した！${claimed.week_rank ? ` 今週 ${claimed.week_rank}位` : ''}</div>` : ''}
       <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
         📸 この画面をスクショしてね。<br>パスワードを忘れるとログインできなくなるよ
       </div>
@@ -672,6 +681,7 @@ async function renderHome() {
     homeContent.innerHTML = `
       <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
       ${dailyToastHtml}
+      <div id="overtake-slot"></div>
       <!-- まずはここ！（2026-10-03 本人「どこにいけばいいかわからなくなってる学生がおおい」）。迷ったらサバイバル、を一番上に -->
       <div class="start-here"><span class="start-here-label">👇 まずはここ！</span>
       <button class="battle-launch streak" id="go-streak"><span class="launch-icon" aria-hidden="true">🔥</span><span><strong>英単語サバイバル</strong><small>1ミスで終わり。何問 生き残る？</small></span><span class="launch-arrow" aria-hidden="true">↗</span></button></div>
@@ -746,6 +756,30 @@ async function renderHome() {
         toast.addEventListener('click', () => { window.location.hash = '#/me'; });
         document.getElementById('home-content')?.prepend(toast);
       }
+    }).catch(() => {});
+
+    // 抜かれたら知らせる（0028）。自分の記録のあとで上に来た人を、まだ見せていなければ1つだけ
+    getMyRankWatch().then(watch => {
+      const slot = document.getElementById('overtake-slot');
+      if (!slot) return;
+      const news = newOvertakes(watch, seenOvertakes());
+      const n = news.find(x => x.band === savedStreakBand()) || news[0];
+      if (!n) return;
+      const name = withStaffTag(n.by.nickname, n.by.is_staff, n.by.staff_label);
+      slot.innerHTML = `
+        <div class="overtake-card" role="status">
+          <button class="overtake-close" id="btn-overtake-close" aria-label="閉じる">×</button>
+          <span class="eyebrow">${LEVEL_NAMES[n.band]} ・ 今週 ${n.rank}位</span>
+          <strong>⚡ ${name}${n.more ? ` ほか${n.more}人` : ''} に抜かれた！</strong>
+          <p>${name} ${n.by.best_streak}連続 ・ あなた ${n.mine}連続。あと${n.by.best_streak + 1 - n.mine}問で 取り返せる</p>
+          <button class="btn-primary" id="btn-overtake-go">取り返す</button>
+        </div>`;
+      document.getElementById('btn-overtake-close').addEventListener('click', () => { markOvertakesSeen(n.keys); slot.innerHTML = ''; });
+      document.getElementById('btn-overtake-go').addEventListener('click', () => {
+        markOvertakesSeen(n.keys);
+        saveStreakBand(n.band);
+        window.location.hash = '#/streak';
+      });
     }).catch(() => {});
 
     // 今週の連続記録: 自分と1位（開くたびに「抜かれた/抜ける」が見える）

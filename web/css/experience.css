@@ -652,3 +652,24 @@ body[data-screen="staff"] .tab-bar .tab-btn { flex:1 1 22%; font-size:12px; min-
 .start-here-label { display:inline-block; margin:0 0 6px 4px; padding:4px 12px; border-radius:999px; background:#c2413a; color:#fff; font-size:13px; font-weight:900; letter-spacing:.04em; }
 .start-here .battle-launch { outline:3px solid #f5ce65; outline-offset:2px; }
 .record-strip[hidden] { display:none; } /* 記録がまだ無い人に空の枠を出さない */
+
+/* 0028 登録前の中1レベル・いま何人挑戦中・抜かれたら知らせる */
+.tryout .challenge-now { margin:-4px 0 12px; color:#c2413a; font-size:13px; font-weight:800; }
+.tryout .challenge-now:empty { display:none; }
+.tryout.has-record { border-color:#f5ce65; background:linear-gradient(180deg,#fff8e1,#fff); }
+.tryout-record { margin:2px 0 4px; color:#c2413a; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+.tryout-record strong { font-size:56px; }
+.tryout-record small { font-size:18px; margin-left:2px; }
+.tryout p strong { color:#c2413a; }
+.tryout .btn-secondary small, #btn-challenge-again small { font-size:11px; font-weight:600; margin-left:4px; opacity:.8; }
+.guest-claim-line { margin:4px 0 0; padding:10px 12px; border-radius:12px; background:#fff3c4; color:#5a3410; font-size:13px; text-align:center; }
+.guest-claim-line strong { color:#c2413a; }
+.guest-best-note { margin:4px 0 0; text-align:center; font-size:13px; color:var(--text-muted); }
+.guest-best-note strong { color:#c2413a; }
+.claimed-line { margin:0 0 12px; padding:8px 10px; border-radius:12px; background:#f5ce65; color:#2a2140; font-size:14px; font-weight:700; }
+.overtake-card { position:relative; display:flex; flex-direction:column; gap:4px; margin-bottom:12px; padding:14px 16px 16px; border-radius:16px; background:#2a2140; color:#fff; }
+.overtake-card .eyebrow { margin:0; color:#e5dbff; }
+.overtake-card strong { font-size:20px; font-weight:900; color:#f5ce65; padding-right:28px; }
+.overtake-card p { margin:0 0 8px; font-size:13px; color:#fff; }
+.overtake-card .btn-primary { margin:0; }
+.overtake-close { position:absolute; top:6px; right:6px; width:36px; height:36px; min-height:0; padding:0; border:0; border-radius:50%; background:transparent; color:#e5dbff; font-size:20px; line-height:1; }

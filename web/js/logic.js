@@ -341,6 +341,15 @@ export function translateError(error) {
   if (msg.includes('revive_not_available')) {
     return '復活はもう使えません';
   }
+  if (msg.includes('guest_busy')) {
+    return 'いま挑戦する人が多すぎる。少し待ってもう一回';
+  }
+  if (msg.includes('already_claimed')) {
+    return 'この記録はもう登録されている';
+  }
+  if (msg.includes('run_expired')) {
+    return 'この記録は1日たったので登録できない。もう一回挑戦しよう';
+  }
   if (msg.includes('month_not_closed')) {
     return 'その月はまだ終わっていない。月が替わってから';
   }
@@ -1107,4 +1116,118 @@ export function nextStageGuide(stages, band, correct) {
   const c = Math.max(0, Number(correct) || 0);
   const reached = c >= need;
   return { band: band + 1, need, left: Math.max(0, need - c), reached, firstOpen: reached && !next.unlocked };
+}
+
+// ==========================================
+// 登録前の中1レベル・いま何人挑戦中・抜かれたら知らせる（0028）
+// ==========================================
+
+const GUEST_BEST_KEY = 'miacis_guest_best';
+/** サーバーは1日で消す。端末側は少し早めに捨てる（登録の直前に「もう登録できない」とならないように） */
+export const GUEST_BEST_TTL_MS = 20 * 60 * 60 * 1000;
+
+/** a は b より良い記録か（連続が多い → 同じなら速い） */
+export function betterRecord(a, b) {
+  if (!a) return false;
+  if (!b) return true;
+  const ac = Number(a.correct) || 0;
+  const bc = Number(b.correct) || 0;
+  if (ac !== bc) return ac > bc;
+  return (Number(a.total_ms) || 0) < (Number(b.total_ms) || 0);
+}
+
+/**
+ * 登録前の回が終わったとき、端末に残す「いちばんの記録」を決める（何回でも挑戦していい。登録するのはいちばんの記録）
+ * @param {object|null} prev いま残っている記録
+ * @param {object} result answer_guest_run / end_guest_run の result
+ * @param {string} token
+ */
+export function pickGuestBest(prev, result, token, now = Date.now()) {
+  const live = prev && now - (Number(prev.at) || 0) < GUEST_BEST_TTL_MS ? prev : null;
+  if (!result || !token || !(Number(result.answered) > 0)) return live;
+  const rec = {
+    token,
+    correct: Number(result.correct) || 0,
+    total_ms: Number(result.total_ms) || 0,
+    would_rank: result.would_rank ?? null,
+    rival: result.rival || null,
+    at: now
+  };
+  return betterRecord(rec, live) || !live ? rec : live;
+}
+
+export function savedGuestBest(now = Date.now()) {
+  try {
+    const v = JSON.parse(localStorage.getItem(GUEST_BEST_KEY) || 'null');
+    if (!v || !v.token || now - (Number(v.at) || 0) >= GUEST_BEST_TTL_MS) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+export function saveGuestBest(rec) {
+  try {
+    if (rec) localStorage.setItem(GUEST_BEST_KEY, JSON.stringify(rec));
+    else localStorage.removeItem(GUEST_BEST_KEY);
+  } catch {}
+}
+
+/** 登録の画面の「いま何人」。だれもいないときは空いている1位を言う */
+export function challengeNowLine(n) {
+  if (!n) return '';
+  const playing = Number(n.playing_now) || 0;
+  const week = Number(n.week_players) || 0;
+  const parts = [];
+  if (playing > 0) parts.push(`いま ${playing}人がプレイ中`);
+  if (week > 0) parts.push(`今週 ${week}人が挑戦中`);
+  if (!parts.length) return '今週の1位は、まだだれもいない';
+  return parts.join(' ・ ');
+}
+
+const OVERTAKE_SEEN_KEY = 'miacis_overtake_seen';
+
+// 自分の記録ごとに1回。相手が差を広げただけでは出し直さない。自分が記録を出し直して、また抜かれたら出す
+function overtakeKey(w, p) {
+  return `${w.band}:${p.nickname}:${w.my_at}`;
+}
+
+/**
+ * my_rank_watch のうち、まだ見せていない「抜かれた」だけを返す（レベルごとに1つ）
+ * @param {Array} watch my_rank_watch の戻り値
+ * @param {string[]} seen 見せ終わったキー
+ * @returns {Array<{band:number, rank:number, mine:number, by:object, more:number, keys:string[]}>}
+ */
+export function newOvertakes(watch, seen = []) {
+  const done = new Set(seen || []);
+  return (Array.isArray(watch) ? watch : [])
+    .map(w => {
+      const fresh = (w.passed_by || []).filter(p => !done.has(overtakeKey(w, p)));
+      if (!fresh.length) return null;
+      return {
+        band: Number(w.band),
+        rank: Number(w.rank),
+        mine: Number(w.best_streak) || 0,
+        by: fresh[0],
+        more: fresh.length - 1,
+        keys: fresh.map(p => overtakeKey(w, p))
+      };
+    })
+    .filter(Boolean);
+}
+
+export function seenOvertakes() {
+  try {
+    const v = JSON.parse(localStorage.getItem(OVERTAKE_SEEN_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+export function markOvertakesSeen(keys) {
+  try {
+    const all = [...seenOvertakes(), ...(keys || [])];
+    localStorage.setItem(OVERTAKE_SEEN_KEY, JSON.stringify(all.slice(-100)));
+  } catch {}
 }

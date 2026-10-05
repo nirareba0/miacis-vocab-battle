@@ -893,3 +893,39 @@ export async function getTryoutWords() {
   if (error) throw new Error(translateError(error));
   return escapeDeep(data || []);
 }
+
+// ==========================================
+// 登録前の中1レベル・いま何人挑戦中・抜かれたら知らせる（0028）
+// ==========================================
+
+/** ログインなしで中1レベルのサバイバルを始める。返る token が回の鍵（run_id の代わり） */
+export function startGuestRun() {
+  return rpc('start_guest_run');
+}
+
+export function answerGuestRun(token, choice, ms) {
+  return rpc('answer_guest_run', { p_token: token, p_choice: choice, p_ms: ms });
+}
+
+export function reviveGuestRun(token) {
+  return rpc('revive_guest_run', { p_token: token });
+}
+
+export function endGuestRun(token) {
+  return rpc('end_guest_run', { p_token: token });
+}
+
+/** 登録した直後に、登録前の記録を自分の1回にする（結果は run_finish と同じ形） */
+export function claimGuestRun(token) {
+  return rpc('claim_guest_run', { p_token: token });
+}
+
+/** { playing_now, week_players } */
+export function getChallengeNow() {
+  return rpc('challenge_now');
+}
+
+/** 今週のレベルごとの自分の順位と、自分の記録のあとで上に来た人 */
+export function getMyRankWatch() {
+  return rpc('my_rank_watch');
+}

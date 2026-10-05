@@ -4,7 +4,7 @@
  * 対戦と違い、1問ずつサーバーに答えを送り、正誤と次の問題を受け取る。
  * 正解・制限時間・記録はサーバーが持つ（ここでは表示と時間の計測だけ）。
  */
-import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages, getMyZukanProgress, claimZukanMilestones, claimDailyQuests, getMyNuts, getGachaRates, getMyStreak } from './api.js';
+import { startRun, answerRun, reviveRun, endRun, getMyRunBests, getRankingStreak, getRankingKnock, pickCard, useFifty, skipQuestion, getMyMeta, getMyStages, getMyZukanProgress, claimZukanMilestones, claimDailyQuests, getMyNuts, getGachaRates, getMyStreak, startGuestRun, answerGuestRun, reviveGuestRun, endGuestRun } from './api.js';
 import { renderMiacis } from './look.js';
 import {
   escapeHtml,
@@ -79,6 +79,8 @@ const run = {
   pendingStage: null, // カードを選ぶ画面に出す STAGE
   mood: '',           // 相棒の表情: happy / ouch / wow
   startedAt: 0,
+  guest: false,       // 登録前の中1レベル（0028）。回の鍵は token。記録は登録したときに本人の1回になる
+  token: null,
   timers: [],
   busy: false,
   callbacks: {}
@@ -108,6 +110,24 @@ function area() {
   return document.getElementById('challenge-area');
 }
 
+// 登録前（guest）とふつうの回で、サーバーに送る先だけを替える。画面と演出は同じ
+function ops() {
+  if (run.guest) {
+    return {
+      start: () => startGuestRun().then(r => ({ ...r, run_id: r.token })),
+      answer: answerGuestRun,
+      revive: reviveGuestRun,
+      end: endGuestRun
+    };
+  }
+  return {
+    start: mode => startRun(mode, mode === 'knock' ? savedKnockBand() : savedStreakBand()),
+    answer: answerRun,
+    revive: reviveRun,
+    end: endRun
+  };
+}
+
 // 不正解・時間切れで画面は揺らさない（2026-10-03 本人「サバイバル中に画面は動かさない」）。手ごたえは色・音・振動で返す
 
 /**
@@ -121,6 +141,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   run.callbacks = callbacks;
   run.nickname = callbacks.nickname || '';
   run.look = callbacks.look || null;
+  run.guest = Boolean(callbacks.guest);
   const conf = MODES[mode];
 
   containerEl.innerHTML = `
@@ -140,9 +161,16 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   document.getElementById('btn-challenge-back').addEventListener('click', () => {
     const id = run.id;
     stopChallenge();
-    if (id) endRun(id).catch(() => {});
+    if (id) ops().end(id).catch(() => {});
     callbacks.onGoHome?.();
   });
+
+  // 登録前は説明の画面を挟まずに始める（登録の画面で「挑戦する」を押している）
+  if (run.guest) {
+    run.stages = null;
+    begin(mode);
+    return;
+  }
 
   let bests = null;
   let meta = null;
@@ -210,11 +238,12 @@ async function begin(mode) {
   a.innerHTML = '<div class="card" style="text-align:center; padding:32px 16px;">用意中…</div>';
   // 始める前の図鑑の数（結果で「図鑑 +◯語」を出すため。届かなくても遊べる）
   run.zukanBefore = null;
-  getMyZukanProgress().then(b => { run.zukanBefore = b; }).catch(() => {});
+  if (!run.guest) getMyZukanProgress().then(b => { run.zukanBefore = b; }).catch(() => {});
   try {
-    const res = await startRun(mode, mode === 'knock' ? savedKnockBand() : savedStreakBand());
+    const res = await ops().start(mode);
     if (run.mode !== mode || !area()) return;
     run.id = res.run_id;
+    run.token = run.guest ? res.token : null;
     run.score = 0;
     run.answered = 0;
     run.reviveUsed = false;
@@ -439,7 +468,7 @@ async function submit(choice, ms, btn) {
 
   let res;
   try {
-    res = await answerRun(run.id, choice, choice === null ? null : ms);
+    res = await ops().answer(run.id, choice, choice === null ? null : ms);
   } catch (err) {
     showError(err);
     return;
@@ -639,7 +668,7 @@ function showRevive() {
     run.busy = 'revive';
     clearTimers();
     try {
-      const res = await reviveRun(run.id);
+      const res = await ops().revive(run.id);
       if (res.state === 'finished') {
         showResult(res.result);
         return;
@@ -659,7 +688,7 @@ async function finish() {
   clearTimers();
   const id = run.id;
   try {
-    const result = await endRun(id);
+    const result = await ops().end(id);
     showResult(result);
   } catch (err) {
     showError(err);
@@ -688,7 +717,7 @@ function reviewHtml(missed) {
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
   return `
     <section class="review-card" aria-labelledby="review-title">
-      <div class="review-head"><h3 id="review-title">振り返り</h3><span>${missed.length}語 ・ 次の回の最初に リベンジ</span></div>
+      <div class="review-head"><h3 id="review-title">振り返り</h3><span>${missed.length}語${run.guest ? ' ・ ここで覚えて次へ' : ' ・ 次の回の最初に リベンジ'}</span></div>
       ${missed.map(m => {
         const two = m.your_text && m.your_text !== m.correct_text;
         const opts = two ? (Math.random() < 0.5 ? [m.correct_text, m.your_text] : [m.your_text, m.correct_text]) : [];
@@ -739,6 +768,10 @@ function showResult(result) {
   run.id = null;
   const a = area();
   if (!a || !result) return;
+  if (result.guest) {
+    showGuestResult(result);
+    return;
+  }
   const mode = run.mode;
   const isNewBest = Boolean(result.new_best);
   const isWeekBest = Boolean(result.new_week_best);
@@ -840,6 +873,65 @@ function showResult(result) {
   document.getElementById('btn-challenge-ranking').addEventListener('click', () => run.callbacks.onGoRanking?.(mode));
   document.getElementById('btn-challenge-home').addEventListener('click', () => run.callbacks.onGoHome?.());
   fillResultNext(result);
+}
+
+/**
+ * 登録前の回の結果（0028）。「この記録で登録しよう」を主役に、何回でも挑戦していいことを添える
+ * 2026-10-05 本人「登録の前に中1レベルを一回挑戦してみて、その記録を登録しよ？という方式で」
+ */
+function showGuestResult(result) {
+  const a = area();
+  if (!a) return;
+  const token = run.token;
+  // 端末に残すのは、ここまでの いちばんの記録（app.js が持つ）
+  const best = run.callbacks.onGuestResult?.(result, token) || null;
+  const isBest = Boolean(best && best.token === token);
+  const depth = Number(result.correct) || 0;
+
+  if (isBest && depth > 0) {
+    playSfx('win');
+    if (result.would_rank === 1) triggerConfetti();
+    vibrate('record');
+  } else {
+    playSfx('lose');
+  }
+
+  const sub = result.end_reason === 'complete' ? `${STAGE_NAMES[1]} の単語を全部クリア`
+    : result.end_reason === 'timeout' ? '時間切れ！ 次は速く'
+    : result.end_reason === 'wrong' ? `おしい！ 次は <em class="num">${depth + 1}</em> を越えろ` : 'おつかれ';
+
+  let rankHtml = '';
+  if (result.would_rank) {
+    const rival = result.rival;
+    const chase = result.would_rank === 1
+      ? '今週の1位。登録して名前を出そう'
+      : rival ? `${withStaffTag(rival.nickname, rival.is_staff, rival.staff_label)}・${rival.correct}連続 まで あと${rival.correct + 1 - depth}問` : '';
+    rankHtml = `<div class="rank-card"><div><span>登録すると 今週</span><strong>${result.would_rank}<small>位</small></strong></div><p>${chase}</p></div>`;
+  }
+
+  const bestNote = best && !isBest
+    ? `<p class="guest-best-note">登録するのは いちばんの記録 <strong>${best.correct}連続</strong></p>`
+    : '';
+  const registerLabel = best && best.correct > 0 ? `${best.correct}連続で 登録する` : '登録して はじめる';
+
+  a.innerHTML = `
+    <div class="result-banner ${isBest && depth > 0 ? 'win' : 'lose'}">
+      ${isBest && depth > 0 ? '<div class="record-badge">この記録、登録できる！</div>' : ''}
+      ${result.end_reason === 'complete' ? '<div class="record-badge">コンプリート！</div>' : ''}
+      <div class="result-big">${depth}<small>連続</small></div>
+      <div class="result-sub">${sub}</div>
+    </div>
+    ${rankHtml}
+    ${bestNote}
+    <button class="btn-primary" id="btn-guest-register" style="margin-top: 12px;">${registerLabel}</button>
+    <button class="btn-secondary" id="btn-challenge-again" style="margin-top: 10px;">もう一回 <small>何回でも挑戦OK</small></button>
+    ${reviewHtml(result.missed)}
+    <button class="btn-sub" id="btn-challenge-home" style="margin-top: 10px;">もどる</button>
+  `;
+  document.getElementById('btn-guest-register').addEventListener('click', () => run.callbacks.onRegister?.());
+  document.getElementById('btn-challenge-again').addEventListener('click', () => begin(run.mode));
+  document.getElementById('btn-challenge-home').addEventListener('click', () => run.callbacks.onGoHome?.());
+  bindReview(a);
 }
 
 /**
