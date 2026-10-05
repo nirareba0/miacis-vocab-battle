@@ -1060,11 +1060,8 @@ export function parseWeekdays(text) {
 }
 
 // ==========================================
-// コミットポイントの「今日 ◯ / 10」（ホーム）
+// コミットポイントの「今日 +◯」（ホーム）
 // ==========================================
-
-/** コミットポイントの1日の上限。サーバーの add_commit（0002）と同じ数。2026-10-03 本人「とりあえず10のまま」 */
-export const COMMIT_DAILY_CAP = 10;
 
 /** 日本時間の今日（YYYY-MM-DD）。points.day と比べる */
 export function jstToday(now = new Date()) {
@@ -1074,12 +1071,12 @@ export function jstToday(now = new Date()) {
 }
 
 /**
- * ホームのコミット欄の「今日 ◯ / 10」。上限で止まっていること、日付が変わってまた入ることが分かるように出す
- * @returns {string} 「今日 7 / 10」／ 上限なら「今日 10 / 10 上限」
+ * ホームのコミット欄の「今日 +◯」。1日の上限は 0029 でなくした（2026-10-05 本人「コミットの上限を撤廃しよう」）
+ * @returns {string} 「今日 +7」
  */
-export function commitTodayLine(today, cap = COMMIT_DAILY_CAP) {
-  const n = Math.min(Math.max(0, Math.floor(Number(today) || 0)), cap);
-  return n >= cap ? `今日 ${n} / ${cap} 上限` : `今日 ${n} / ${cap}`;
+export function commitTodayLine(today) {
+  const n = Math.max(0, Math.floor(Number(today) || 0));
+  return `今日 +${n}`;
 }
 
 // ==========================================

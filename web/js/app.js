@@ -1967,8 +1967,8 @@ async function loadRankingData() {
 
   const tab = state.rankingTab;
   const notices = {
-    learn: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
-    commit: 'コミットポイントは1日10点まで。毎日ちょっとずつが強い',
+    learn: '正解1問で1点。月曜リセット',
+    commit: '来るたび・遊ぶたびに入る。上限なし。月曜リセット',
     streak: state.streakScope === 'all' ? '歴代ベスト。同点は速い順' : '今週ベスト。月曜リセット。同点は速い順',
     knock: '100問完走の今週ベスト。同点は速い順'
   };

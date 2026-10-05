@@ -305,7 +305,7 @@ test('4. submit_match: scoring, win/lose, tie-breaker, learn points, duplicate s
   });
 });
 
-test('5. commit points cap: max 10 per day in JST, caps correctly, resets next day', async () => {
+test('5. commit points: open is once a day, no daily cap (0029), day is JST', async () => {
   const db = await createTestDb().then(withInvite);
   await seedTestWords(db);
 
@@ -336,23 +336,24 @@ test('5. commit points cap: max 10 per day in JST, caps correctly, resets next d
   const res8 = await db.query(`select public.add_commit('${u1}', 'test', 8) as pts;`);
   assert.equal(res8.rows[0].pts, 8);
 
-  // Current commit: 9. Add 3 -> cap is 10, so only +1 is added
+  // Current commit: 9. Add 3 -> no cap (0029), all 3 are added
   const res3 = await db.query(`select public.add_commit('${u1}', 'test', 3) as pts;`);
-  assert.equal(res3.rows[0].pts, 1);
+  assert.equal(res3.rows[0].pts, 3);
+  const res5 = await db.query(`select public.add_commit('${u1}', 'test', 5) as pts;`);
+  assert.equal(res5.rows[0].pts, 5);
+  const today = await db.query(`select sum(amount)::int as n from public.points where player_id = '${u1}' and kind = 'commit' and day = '2026-09-25';`);
+  assert.equal(today.rows[0].n, 17);
 
-  // Current commit: 10. Add 2 -> cap reached, +0 returned, no row inserted
-  const pointsBefore = await db.query(`select count(*) from public.points where player_id = '${u1}' and kind = 'commit';`);
-  const res2 = await db.query(`select public.add_commit('${u1}', 'test', 2) as pts;`);
-  assert.equal(res2.rows[0].pts, 0);
-  const pointsAfter = await db.query(`select count(*) from public.points where player_id = '${u1}' and kind = 'commit';`);
-  assert.equal(pointsBefore.rows[0].count, pointsAfter.rows[0].count);
+  // Zero or negative adds nothing
+  const res0 = await db.query(`select public.add_commit('${u1}', 'test', 0) as pts;`);
+  assert.equal(res0.rows[0].pts, 0);
 
-  // Advance time to next day JST: 2026-09-26 09:00:00+09
+  // Advance time to next day JST: 2026-09-26 09:00:00+09 -> counted on the new day
   await setTestTime(db, '2026-09-26 09:00:00+09');
-
-  // New day: cap is reset, can earn up to 10 points again
   const nextDayPts = await db.query(`select public.add_commit('${u1}', 'test_new_day', 5) as pts;`);
   assert.equal(nextDayPts.rows[0].pts, 5);
+  const day2 = await db.query(`select day::text from public.points where player_id = '${u1}' and reason = 'test_new_day';`);
+  assert.equal(day2.rows[0].day, '2026-09-26');
 });
 
 test('6. submit_writing: 3 prompt types validation, masking, duplicate rejection, and daily point cap', async () => {
