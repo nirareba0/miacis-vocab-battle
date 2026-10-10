@@ -142,3 +142,10 @@ body.stage .deadline strong { color: var(--g-ng); }
 @media (prefers-reduced-motion: reduce) {
   .g-sheet, .g-votes { animation: none; transition: none; }
 }
+
+/* はじめに: 中高生かそれ以外か */
+.g-label { font-weight: 900; margin: 6px 0 0; }
+.g-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.g-pick { min-height: 56px; border-radius: 16px; border: 3px solid #e3e6f0; background: #fff; color: var(--g-ink); font: inherit; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 0 #d5d8e4; }
+.g-pick.on { border-color: var(--g-blue); background: #eef2ff; color: var(--g-blue-deep); box-shadow: 0 4px 0 var(--g-blue); }
+.g-guest { color: var(--g-muted); font-size: 15px; }

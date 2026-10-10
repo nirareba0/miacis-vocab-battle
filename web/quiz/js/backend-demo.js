@@ -81,13 +81,14 @@ function sortAttempts(list) {
 
 const isPast = (z) => Boolean(z.closes_at) && new Date(z.closes_at).getTime() <= now();
 const inTime = (z) => (a) => a.finished_at && (!z.closes_at || a.finished_at <= new Date(z.closes_at).getTime());
+const isStudent = (s, userId) => userId !== ME || s.students?.[ME] === true;
 
 // 締め切って1位にクーポン（本番の quiz_close_internal と同じ）。お試しでは LINE には送らない
 function closeInternal(s, z) {
   if (z.status !== 'open') fail('quiz_not_open');
   z.status = 'closed';
   z.closed_at = new Date().toISOString();
-  const [w] = sortAttempts(s.attempts.filter((a) => a.quiz_id === z.id).filter(inTime(z)));
+  const [w] = sortAttempts(s.attempts.filter((a) => a.quiz_id === z.id && isStudent(s, a.user_id)).filter(inTime(z)));
   if (!w) return { winner: null };
   const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const code = Array.from({ length: 6 }, () => A[Math.floor(Math.random() * A.length)]).join('');
@@ -124,13 +125,20 @@ function record(s, a, choice, elapsed) {
 
 export async function ensureSession() { load(); }
 
-export async function me() {
-  const nick = load().players[ME];
-  return nick ? { nickname: nick } : null;
+export async function me({ raw = false } = {}) {
+  const s = load();
+  const nick = s.players[ME];
+  const st = s.students?.[ME];
+  const r = { nickname: nick ?? null, is_student: st ?? null };
+  if (raw) return r;
+  return nick && st !== undefined && st !== null ? r : null;
 }
 
-export async function register(nickname) {
+export async function register(nickname, isStudent) {
   const s = load();
+  if (isStudent === null || isStudent === undefined) fail('no_student_choice');
+  s.students ||= {};
+  s.students[ME] = Boolean(isStudent);
   const nick = String(nickname ?? '').replace(/\s+/g, ' ').trim();
   if (nick.length < 1 || nick.length > 12) fail('bad_nickname');
   if (Object.entries(s.players).some(([id, n]) => id !== ME && n && n.toLowerCase() === nick.toLowerCase())) fail('nickname_taken');
@@ -150,7 +158,7 @@ export async function listQuizzes() {
       return {
         id: z.id, title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, status: z.status,
         opened_at: z.opened_at, closed_at: z.closed_at, closes_at: z.closes_at ?? null, total: z.question_ids.length,
-        players: s.attempts.filter((a) => a.quiz_id === z.id).filter(inTime(z)).length,
+        players: s.attempts.filter((a) => a.quiz_id === z.id && isStudent(s, a.user_id)).filter(inTime(z)).length,
         my_correct: mine?.correct ?? null, my_finished: Boolean(mine?.finished_at), my_started: Boolean(mine)
       };
     });
@@ -158,7 +166,7 @@ export async function listQuizzes() {
 
 export async function startAttempt(quizId) {
   const s = load();
-  if (!s.players[ME]) fail('no_nickname');
+  if (!s.players[ME] || s.students?.[ME] === undefined) fail('no_nickname');
   const z = s.quizzes.find((q) => q.id === quizId);
   if (!z || z.status === 'draft') fail('quiz_not_found');
   let a = s.attempts.find((x) => x.quiz_id === quizId && x.user_id === ME);
@@ -214,7 +222,7 @@ export async function answer(attemptId, choice) {
   // この問題の正解率と早押しトップ5（本番の quiz_answer と同じ）
   const all = s.attempts.filter((x) => x.quiz_id === a.quiz_id)
     .flatMap((x) => x.answers.filter((y) => y.question_id === q.id).map((y) => ({ ...y, user_id: x.user_id })));
-  const fastest = all.filter((y) => y.is_correct).sort((x, y) => x.elapsed_ms - y.elapsed_ms || x.answered_at - y.answered_at)
+  const fastest = all.filter((y) => y.is_correct && isStudent(s, y.user_id)).sort((x, y) => x.elapsed_ms - y.elapsed_ms || x.answered_at - y.answered_at)
     .slice(0, 5).map((y) => ({ nickname: s.players[y.user_id], ms: y.elapsed_ms, is_me: y.user_id === ME }));
   const board = { answered: all.length, correct_rate: Math.round(100 * all.filter((y) => y.is_correct).length / Math.max(all.length, 1)), fastest };
   const b = s.breaks.find((x) => x.quiz_id === a.quiz_id && x.after_position === position + 1);
@@ -230,7 +238,7 @@ export async function answer(attemptId, choice) {
 export async function ranking(quizId) {
   const s = load();
   const z = s.quizzes.find((q) => q.id === quizId);
-  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId).filter(inTime(z))).slice(0, 100).map((a, i) => ({
+  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId && isStudent(s, a.user_id)).filter(inTime(z))).slice(0, 100).map((a, i) => ({
     rank: i + 1, nickname: s.players[a.user_id], correct: a.correct, total_ms: a.total_ms, is_me: a.user_id === ME
   }));
 }

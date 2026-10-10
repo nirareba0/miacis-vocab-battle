@@ -29,17 +29,17 @@ async function playAll(quizId, { wrong = false } = {}) {
 test('名前が無いと挑戦できない。見本の参加者と同じ名前は使えない', async () => {
   const [z] = await api.listQuizzes();
   await assert.rejects(api.startAttempt(z.id), /no_nickname/);
-  await assert.rejects(api.register('みお'), /nickname_taken/);
-  await api.register('そら');
+  await assert.rejects(api.register('みお', true), /nickname_taken/);
+  await api.register('そら', true);
 });
 
 test('答える前に正解は渡らず、全問正解で1位。締め切るとクーポンが届き、使用済みにできる', async () => {
-  await api.register('そら');
+  await api.register('そら', true);
   const [z] = await api.listQuizzes();
   const q = await api.nextQuestion((await api.startAttempt(z.id)).attempt_id);
   assert.ok(!('answer' in q));
   store.clear();
-  await api.register('そら');
+  await api.register('そら', true);
   const [z2] = await api.listQuizzes();
   const done = await playAll(z2.id);
   assert.equal(done.correct, done.total);
@@ -56,7 +56,7 @@ test('答える前に正解は渡らず、全問正解で1位。締め切ると�
 });
 
 test('全部まちがえたら1位にならず、クーポンは見本の1位へ', async () => {
-  await api.register('そら');
+  await api.register('そら', true);
   const [z] = await api.listQuizzes();
   await playAll(z.id, { wrong: true });
   const r = await api.closeQuiz(z.id);

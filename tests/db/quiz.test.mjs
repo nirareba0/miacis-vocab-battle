@@ -26,7 +26,7 @@ const rejects = (p, code) => assert.rejects(p, (e) => e.message.includes(code));
 
 async function login(sub, nickname) {
   const r = await anon1('select public.quiz_line_login($1)', [`line-${sub}`]);
-  if (nickname) await anon1('select public.quiz_register($1, $2)', [r.token, nickname]);
+  if (nickname) await anon1('select public.quiz_register($1, $2, true)', [r.token, nickname]);
   return r.token;
 }
 
@@ -70,7 +70,7 @@ test('LINE でログインするとセッションが返る。同じ LINE なら
   const first = await anon1('select public.quiz_line_login($1)', ['line-U-new']);
   assert.equal(first.nickname, null);
   assert.match(first.token, /^[0-9a-f]{64}$/);
-  await anon1('select public.quiz_register($1, $2)', [first.token, 'はると']);
+  await anon1('select public.quiz_register($1, $2, true)', [first.token, 'はると']);
   const again = await anon1('select public.quiz_line_login($1)', ['line-U-new']);
   assert.equal(again.nickname, 'はると');
   assert.notEqual(again.token, first.token);
@@ -84,10 +84,10 @@ test('LINE でログインするとセッションが返る。同じ LINE なら
 
 test('名前は他の人と重ならない（大文字小文字は同じ扱い）・1〜12文字', async () => {
   const t = await login('U-x');
-  await rejects(anon1('select public.quiz_register($1, $2)', [t, 'ren']), 'nickname_taken');
-  await rejects(anon1('select public.quiz_register($1, $2)', [t, '   ']), 'bad_nickname');
-  await rejects(anon1('select public.quiz_register($1, $2)', [t, '1234567890123']), 'bad_nickname');
-  assert.equal((await anon1('select public.quiz_register($1, $2)', [t, '  みお  '])).nickname, 'みお');
+  await rejects(anon1('select public.quiz_register($1, $2, true)', [t, 'ren']), 'nickname_taken');
+  await rejects(anon1('select public.quiz_register($1, $2, true)', [t, '   ']), 'bad_nickname');
+  await rejects(anon1('select public.quiz_register($1, $2, true)', [t, '1234567890123']), 'bad_nickname');
+  assert.equal((await anon1('select public.quiz_register($1, $2, true)', [t, '  みお  '])).nickname, 'みお');
 });
 
 test('名前が無いと挑戦できない', async () => {

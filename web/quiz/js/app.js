@@ -99,10 +99,18 @@ async function home() {
 // ---------------------------------------------------------------- 名前
 
 async function nameScreen(next) {
-  const who = await api.me();
+  const who = await api.me({ raw: true });
+  let student = who?.is_student ?? null;
   render(`<section class="g-card g-name">
-    <h1 class="g-title">ランキングに出る名前</h1>
+    <h1 class="g-title">はじめに</h1>
     <form id="name-form" class="stack">
+      <p class="g-label">あなたは？</p>
+      <div class="g-choice" role="radiogroup">
+        <button type="button" class="g-pick ${student === true ? 'on' : ''}" data-s="1" role="radio" aria-checked="${student === true}">中高生</button>
+        <button type="button" class="g-pick ${student === false ? 'on' : ''}" data-s="0" role="radio" aria-checked="${student === false}">それ以外</button>
+      </div>
+      <p class="hint" id="s-hint">${student === false ? 'それ以外の人も遊べる。ランキングと1位のプレゼントは中高生だけ' : 'ランキングと1位のプレゼントは中高生だけ'}</p>
+      <p class="g-label">ランキングに出る名前</p>
       <input id="nick" name="nick" maxlength="12" autocomplete="nickname" required
         value="${h(who?.nickname ?? '')}" placeholder="例: そら" aria-describedby="nick-hint">
       <p id="nick-hint" class="hint">1〜12文字。LINE の名前は出ない。本名は書かない</p>
@@ -112,15 +120,27 @@ async function nameScreen(next) {
   </section>
   <a class="g-back" href="#/">ホーム</a>`, { stage: true });
   const input = document.getElementById('nick');
-  input.focus();
+  document.querySelectorAll('.g-pick').forEach((b) => b.addEventListener('click', () => {
+    student = b.dataset.s === '1';
+    document.getElementById('name-err').textContent = '';
+    document.querySelectorAll('.g-pick').forEach((x) => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-checked', String(x === b));
+    });
+    document.getElementById('s-hint').textContent = student
+      ? 'ランキングと1位のプレゼントは中高生だけ'
+      : 'それ以外の人も遊べる。ランキングと1位のプレゼントは中高生だけ';
+  }));
   document.getElementById('name-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const err = document.getElementById('name-err');
+    if (student === null) { err.textContent = '中高生か、それ以外かを選んでね'; return; }
     try {
-      await api.register(normalizeNickname(input.value));
+      await api.register(normalizeNickname(input.value), student);
       // 挑戦から来たときは URL が同じなので hashchange が起きない
       if (location.hash === next) route(); else location.hash = next || '#/';
     } catch (e) {
-      document.getElementById('name-err').textContent = translateError(e);
+      err.textContent = translateError(e);
     }
   });
 }
@@ -290,7 +310,13 @@ async function rank(quizId, just) {
   if (!z) throw new Error('quiz_not_found');
   const answers = z.my_started ? await api.myAnswers(quizId) : [];
   const sum = rankSummary(rows);
-  const mine = rows.find((r) => r.is_me);
+  const who = await api.me({ raw: true });
+  const guest = who?.is_student === false;
+  // 中高生以外はランキングに入らないので、自分の記録は挑戦の記録から作る
+  const mine = rows.find((r) => r.is_me) ?? (guest && answers.length ? {
+    correct: answers.filter((a) => a.correct).length,
+    total_ms: answers.reduce((x, a) => x + a.ms, 0)
+  } : null);
   const open = z.status === 'open';
 
   const record = answers.length ? `<div class="g-record">
@@ -303,10 +329,11 @@ async function rank(quizId, just) {
       <p class="g-badge">${!just ? 'きみの記録' : mine.correct === z.total ? 'PERFECT' : 'FINISH'}</p>
       <p class="g-score"><strong>${mine.correct}</strong><span>/ ${z.total}</span></p>
       <p class="g-total">合計 ${formatMs2(mine.total_ms)}</p>
-      <p class="g-rank">${open ? 'いま ' : ''}<strong>${sum.rank}位</strong> / ${sum.total}人</p>
+      ${guest ? '<p class="g-rank g-guest">ランキングは中高生だけ。参加ありがとう！</p>'
+        : `<p class="g-rank">${open ? 'いま ' : ''}<strong>${sum.rank}位</strong> / ${sum.total}人</p>`}
       ${record}
-      ${open && z.prize ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}</p>` : ''}
-      ${!open && sum.rank === 1 ? '<p class="g-win">1位！ クーポンはホームに届いている</p>' : ''}
+      ${open && z.prize && !guest ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}</p>` : ''}
+      ${!open && !guest && sum?.rank === 1 ? '<p class="g-win">1位！ クーポンはホームに届いている</p>' : ''}
     </section>` : '';
 
   render(`

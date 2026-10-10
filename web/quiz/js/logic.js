@@ -8,6 +8,7 @@ const ERRORS = {
   not_signed_in: 'もう一度ひらき直してね',
   line_login_failed: 'LINE のログインがうまくいかなかった。もう一度ひらいてね',
   no_nickname: '先に名前を決めよう',
+  no_student_choice: '中高生か、それ以外かを選んでね',
   bad_nickname: '名前は1〜12文字',
   nickname_taken: 'その名前はもう使われている',
   quiz_not_found: 'このクイズは見つからない',

@@ -10,7 +10,7 @@ const staff = async (sql, params = []) => asUser(db, STAFF, async () => (await d
 
 async function login(sub, nickname) {
   const r = await anon1('select public.quiz_line_login($1)', [`line-${sub}`]);
-  await anon1('select public.quiz_register($1, $2)', [r.token, nickname]);
+  await anon1('select public.quiz_register($1, $2, true)', [r.token, nickname]);
   return r.token;
 }
 

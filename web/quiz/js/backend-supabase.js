@@ -72,12 +72,15 @@ export async function ensureSession() {
   sessionStorage.removeItem('quiz-relogin');
 }
 
-export async function me() {
+/** 名前と「中高生かどうか」がそろっていれば返す。raw なら途中でも返す */
+export async function me({ raw = false } = {}) {
   const r = await call('quiz_me', { p_token: getToken() });
-  return r.nickname ? r : null;
+  if (raw) return r;
+  return r.nickname && r.is_student !== null && r.is_student !== undefined ? r : null;
 }
 
-export const register = (nickname) => call('quiz_register', { p_token: getToken(), p_nickname: nickname });
+export const register = (nickname, isStudent) =>
+  call('quiz_register', { p_token: getToken(), p_nickname: nickname, p_is_student: isStudent });
 export const listQuizzes = () => call('quiz_list', { p_token: getToken() });
 export const startAttempt = (setId) => call('quiz_start', { p_token: getToken(), p_set: setId });
 export const nextQuestion = (attemptId) => call('quiz_next', { p_token: getToken(), p_attempt: attemptId });
