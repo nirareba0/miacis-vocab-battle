@@ -219,7 +219,7 @@ export async function answer(attemptId, choice) {
   const board = { answered: all.length, correct_rate: Math.round(100 * all.filter((y) => y.is_correct).length / Math.max(all.length, 1)), fastest };
   const b = s.breaks.find((x) => x.quiz_id === a.quiz_id && x.after_position === position + 1);
   const speed = q.kind === 'speed';
-  const votes = speed ? [0, 1, 2, 3].map((k) => all.filter((y) => y.choice === k).length) : null;
+  const votes = order.map((o) => all.filter((y) => y.choice === o).length);
   return {
     correct: ok, timed_out: timedOut, answer: speed ? null : order.indexOf(q.answer), elapsed_ms: elapsed, done: Boolean(a.finished_at),
     position, board, kind: q.kind ?? 'quiz', choice, votes,

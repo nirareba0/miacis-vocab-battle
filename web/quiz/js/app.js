@@ -1,10 +1,13 @@
 /**
  * app.js - 遊ぶ画面。#/ ホーム ／ #/play/<id> 挑戦 ／ #/rank/<id> 結果とランキング
- * 挑戦中は「生放送のクイズ番組」風（body.stage）: 第◯問・4枚のタイル・答えるたびに正解と早押しトップ5（秒）・お知らせ（CM）
+ *
+ * 挑戦中（body.stage）は「生放送のクイズ番組」と、シンプルなゲームの作りを合わせる。
+ *   番組から: 1〜4 の番号ボタン（キーパッド）、100分の1秒の時計、正解発表で「何番に何人」、早押しの順位
+ *   シンプルなゲームから: 1画面1つ、大きな押しやすいボタン、上に進み具合、答えたら下から結果が出てボタン1つで次へ
  */
 import { api } from './backend.js';
 import {
-  translateError, formatMs, formatMs2, escapeHtml as h, rankSummary, timerRatio, normalizeNickname,
+  translateError, formatMs2, escapeHtml as h, rankSummary, timerRatio, normalizeNickname,
   formatDeadline, remainingLabel
 } from './logic.js';
 
@@ -37,6 +40,11 @@ const deadlineLine = (z) => {
   const left = z.status === 'open' ? remainingLabel(z.closes_at) : null;
   return `<p class="deadline">${h(formatDeadline(z.closes_at))} 締め切り${left ? ` · <strong>${left}</strong>` : ''}</p>`;
 };
+
+// 進み具合（問題の数だけの区切り）
+const progress = (pos, total, done = false) => `<div class="g-progress" aria-label="${pos + 1} / ${total}">
+  ${Array.from({ length: total }, (_, i) => `<span class="${i < pos || (done && i === pos) ? 'done' : i === pos ? 'now' : ''}"></span>`).join('')}
+</div>`;
 
 // ---------------------------------------------------------------- ホーム
 
@@ -92,17 +100,17 @@ async function home() {
 
 async function nameScreen(next) {
   const who = await api.me();
-  render(`<section class="card">
-    <h1 class="title">ランキングに出る名前</h1>
+  render(`<section class="g-card g-name">
+    <h1 class="g-title">ランキングに出る名前</h1>
     <form id="name-form" class="stack">
       <input id="nick" name="nick" maxlength="12" autocomplete="nickname" required
         value="${h(who?.nickname ?? '')}" placeholder="例: そら" aria-describedby="nick-hint">
       <p id="nick-hint" class="hint">1〜12文字。LINE の名前は出ない。本名は書かない</p>
       <p class="err" id="name-err" role="alert"></p>
-      <button class="btn primary big" type="submit">決定</button>
+      <button class="g-btn" type="submit">決定</button>
     </form>
-    <a class="back" href="#/">ホーム</a>
-  </section>`);
+  </section>
+  <a class="g-back" href="#/">ホーム</a>`, { stage: true });
   const input = document.getElementById('nick');
   input.focus();
   document.getElementById('name-form').addEventListener('submit', async (ev) => {
@@ -125,16 +133,16 @@ async function play(quizId) {
   if (!z) throw new Error('quiz_not_found');
   if (z.my_finished || z.status !== 'open') { location.hash = `#/rank/${quizId}`; return; }
 
-  render(`<section class="opening">
-    <p class="opening-kicker">MIACIS QUIZ</p>
-    <h1 class="opening-title">${h(z.title)}</h1>
-    <p class="opening-rule">全${z.total}問 · 1問${z.time_limit_sec}秒 · 1回だけ</p>
-    ${z.prize ? `<p class="opening-prize">1位 🏆 ${h(z.prize)}</p>` : ''}
+  render(`<section class="g-card g-opening">
+    <p class="g-kicker">MIACIS QUIZ</p>
+    <h1 class="g-title">${h(z.title)}</h1>
+    <div class="g-rules"><span>全${z.total}問</span><span>1問${z.time_limit_sec}秒</span><span>1回だけ</span></div>
+    ${z.prize ? `<p class="g-prize">1位 🏆 ${h(z.prize)}</p>` : ''}
     ${deadlineLine(z)}
-    <p class="opening-hint">正解の数で勝負。同じ数なら速い人が上</p>
-    <button class="btn gold big" id="go">${z.my_started ? '続きから' : 'スタート'}</button>
-    <a class="back" href="#/">ホーム</a>
-  </section>`, { stage: true });
+    <p class="hint">正解の数で勝負。同じ数なら速い人が上</p>
+    <button class="g-btn" id="go">${z.my_started ? '続きから' : 'スタート'}</button>
+  </section>
+  <a class="g-back" href="#/">ホーム</a>`, { stage: true });
   document.getElementById('go').addEventListener('click', async () => {
     try {
       const s = await api.startAttempt(quizId);
@@ -147,103 +155,104 @@ async function runAttempt(quizId, s) {
   for (;;) {
     const q = await api.nextQuestion(s.attempt_id);
     if (q.done) { location.hash = `#/rank/${quizId}?just=1`; return; }
-    const r = await showQuestion(s, q);
-    await showReveal(q, r);
+    const r = await playQuestion(s, q);
     if (r.break) await showBreak(r.break);
   }
 }
 
-function showQuestion(s, q) {
+/** 1問。押したら同じ画面で「何番に何人」と正解を出し、下から結果。「次へ」で戻る */
+function playQuestion(s, q) {
   return new Promise((resolve, reject) => {
     const img = api.imageUrl(q.image_path);
-    render(`<section class="show">
-      <div class="show-head">
-        <span class="q-no">第<strong>${q.position + 1}</strong>問</span>
-        <span class="q-of">${q.position + 1} / ${q.total}</span>
-        <span class="clock" id="secs" aria-label="残り秒数">${(q.remaining_ms / 1000).toFixed(1)}</span>
+    const speed = q.kind === 'speed';
+    render(`<section class="g-play">
+      ${progress(q.position, q.total)}
+      <div class="g-head">
+        <span class="g-qno">第${q.position + 1}問</span>
+        ${speed ? '<span class="g-tag">早押し</span>' : ''}
+        <span class="g-clock" id="clock">${(q.remaining_ms / 1000).toFixed(2)}</span>
       </div>
-      <div class="timer" aria-hidden="true"><div class="timer-fill" id="bar"></div></div>
-      <div class="q-panel"><h1 class="question">${h(q.body)}</h1></div>
-      ${q.kind === 'speed' ? '<p class="speed-banner">早押し！ どれを押してもOK</p>' : ''}
-      ${img ? `<img class="q-img" src="${h(img)}" alt="">` : ''}
-      <div class="tiles">
-        ${q.choices.map((c, i) => `<button class="tile t${i}" data-i="${i}"><span class="num">${NUMS[i]}</span><span class="txt">${h(c)}</span></button>`).join('')}
+      <div class="g-timer"><div id="bar"></div></div>
+      <div class="g-card g-q">
+        <h1>${h(q.body)}</h1>
+        ${img ? `<img src="${h(img)}" alt="">` : ''}
       </div>
+      ${speed ? '<p class="g-note">どれを押してもOK。速さで勝負</p>' : ''}
+      <div class="g-keys">
+        ${q.choices.map((c, i) => `<button class="g-key k${i}" data-i="${i}">
+          <span class="g-num">${NUMS[i]}</span><span class="g-txt">${h(c)}</span>
+          <span class="g-votes" aria-hidden="true"></span><span class="g-count"></span>
+        </button>`).join('')}
+      </div>
+      <div id="sheet"></div>
     </section>`, { stage: true });
 
     const started = performance.now();
     const bar = document.getElementById('bar');
-    const secs = document.getElementById('secs');
+    const clock = document.getElementById('clock');
+    const keys = [...document.querySelectorAll('.g-key')];
     let sent = false;
+
+    const reveal = (r) => {
+      // 発表のときは画像をたたみ、正解のボタンが結果の上に見えるようにする
+      document.querySelector('.g-play').classList.add('revealed');
+      window.scrollTo(0, 0);
+      const total = Math.max(1, (r.votes ?? []).reduce((x, y) => x + y, 0));
+      keys.forEach((k, i) => {
+        const n = r.votes?.[i] ?? 0;
+        k.querySelector('.g-votes').style.width = `${Math.round((100 * n) / total)}%`;
+        k.querySelector('.g-count').textContent = `${n}人`;
+        k.classList.add('shown');
+        if (!speed && i === r.answer) k.classList.add('right');
+        if (!speed && i === r.choice && !r.correct) k.classList.add('wrong');
+      });
+      const verdict = speed
+        ? (r.correct ? ['ok', '押した！'] : ['to', '時間切れ'])
+        : r.correct ? ['ok', '正解！'] : r.timed_out ? ['to', '時間切れ'] : ['ng', 'ざんねん'];
+      const top = (r.board?.fastest ?? []).slice(0, 3).map((f, i) => `<li class="${f.is_me ? 'is-me' : ''}">
+        <b>${i + 1}</b><span>${h(f.nickname)}</span><em>${formatMs2(f.ms)}</em></li>`).join('');
+      document.getElementById('sheet').innerHTML = `<div class="g-sheet ${verdict[0]}" role="status">
+        <div class="g-verdict">
+          <strong>${verdict[1]}</strong>
+          <span>${r.correct ? formatMs2(r.elapsed_ms) : speed ? '' : `正解は ${NUMS[r.answer]}`}</span>
+        </div>
+        <p class="g-sub">${speed ? `${r.board?.answered ?? 0}人が回答` : `正解率 ${r.board?.correct_rate ?? 0}%`} · この問題の早押し</p>
+        ${top ? `<ol class="g-top">${top}</ol>` : ''}
+        <button class="g-btn" id="next">${r.done ? '結果を見る' : '次へ'}</button>
+      </div>`;
+      document.getElementById('next').addEventListener('click', () => resolve(r));
+    };
 
     const send = async (choice) => {
       if (sent) return;
       sent = true;
       stopTimers();
-      document.querySelectorAll('.tile').forEach((b, i) => {
+      keys.forEach((b, i) => {
         b.disabled = true;
         b.classList.toggle('locked', i === choice);
         b.classList.toggle('dim', i !== choice);
       });
       try {
         const r = await api.answer(s.attempt_id, choice);
-        resolve({ ...r, choice });
+        clock.textContent = (r.elapsed_ms / 1000).toFixed(2);
+        clock.classList.add('stop');
+        reveal({ ...r, choice });
       } catch (e) { reject(e); }
     };
 
-    document.querySelectorAll('.tile').forEach((b) => {
-      b.addEventListener('click', () => send(Number(b.dataset.i)));
-    });
+    keys.forEach((b) => b.addEventListener('click', () => send(Number(b.dataset.i))));
 
     const tick = () => {
       const left = q.remaining_ms - (performance.now() - started);
       bar.style.transform = `scaleX(${timerRatio(left, q.time_limit_sec)})`;
-      secs.textContent = Math.max(0, left / 1000).toFixed(1);
-      secs.classList.toggle('hurry', left < 3000);
-      bar.classList.toggle('hurry', left < 3000);
+      clock.textContent = Math.max(0, left / 1000).toFixed(2);
+      const hurry = left < 3000;
+      clock.classList.toggle('hurry', hurry);
+      bar.classList.toggle('hurry', hurry);
       if (left <= 0) { send(null); return; }
       timerHandle = requestAnimationFrame(tick);
     };
     timerHandle = requestAnimationFrame(tick);
-  });
-}
-
-/** 正解の発表と、この問題の早押しトップ5。早押し（正解なし）は「みんなの答え」 */
-function showReveal(q, r) {
-  return new Promise((resolve) => {
-    const speed = r.kind === 'speed';
-    const verdict = speed
-      ? (r.correct ? '<p class="verdict ok">押した！</p>' : '<p class="verdict ng">時間切れ</p>')
-      : r.correct ? '<p class="verdict ok">正解！</p>' : r.timed_out
-        ? '<p class="verdict ng">時間切れ</p>' : '<p class="verdict ng">ざんねん</p>';
-    const top = (r.board?.fastest ?? []).map((f, i) => `<li class="${f.is_me ? 'is-me' : ''}">
-      <span class="pos">${i + 1}</span><span class="name">${h(f.nickname)}</span><span class="ms">${formatMs2(f.ms)}</span></li>`).join('');
-    const votes = r.votes ?? [0, 0, 0, 0];
-    const sum = Math.max(1, votes.reduce((x, y) => x + y, 0));
-    const head = speed
-      ? `<p class="answer-label">みんなの答え</p>
-        <div class="votes">${q.choices.map((c, i) => `<div class="vote t${i} ${r.choice === i ? 'mine' : ''}">
-          <span class="vote-bar" style="width:${Math.round(100 * votes[i] / sum)}%"></span>
-          <span class="vote-txt">${h(c)}</span><span class="vote-n">${Math.round(100 * votes[i] / sum)}%</span></div>`).join('')}</div>`
-      : `<p class="answer-label">正解は</p>
-        <div class="answer-tile t${r.answer}"><span class="num">${NUMS[r.answer]}</span><span class="txt">${h(q.choices[r.answer])}</span></div>`;
-    render(`<section class="show reveal">
-      <div class="show-head">
-        <span class="q-no">第<strong>${q.position + 1}</strong>問</span>
-        <span class="q-of">${q.position + 1} / ${q.total}</span>
-      </div>
-      ${head}
-      ${verdict}
-      <p class="my-time">${r.correct ? `あなた <strong>${formatMs2(r.elapsed_ms)}</strong>` : '記録なし'}</p>
-      <div class="board">
-        <div class="board-head"><span>早押しトップ5</span><span>${speed ? `${r.board?.answered ?? 0}人` : `正解率 ${r.board?.correct_rate ?? 0}%`}</span></div>
-        ${top ? `<ol class="fastest">${top}</ol>` : '<p class="empty small">まだだれもいない</p>'}
-      </div>
-      <button class="btn gold big" id="next">${r.done ? '結果へ' : '次の問題'}</button>
-    </section>`, { stage: true });
-    const go = () => { clearTimeout(t); resolve(); };
-    const t = setTimeout(go, 6000);
-    document.getElementById('next').addEventListener('click', go);
   });
 }
 
@@ -252,13 +261,13 @@ function showBreak(b) {
   return new Promise((resolve) => {
     const img = api.imageUrl(b.image_path);
     let left = b.seconds;
-    render(`<section class="cm">
-      <p class="cm-kicker">ここで お知らせ</p>
-      ${img ? `<img class="cm-img" src="${h(img)}" alt="">` : ''}
-      <h1 class="cm-title">${h(b.title)}</h1>
-      ${b.body ? `<p class="cm-body">${h(b.body)}</p>` : ''}
-      ${b.link_url ? `<a class="btn cm-link" href="${h(b.link_url)}" target="_blank" rel="noopener">くわしく</a>` : ''}
-      <button class="btn gold big" id="resume" disabled>つづきまで <span id="cm-left">${left}</span></button>
+    render(`<section class="g-card g-cm">
+      <p class="g-cm-head"><span class="g-cm-mark">CM</span>ここで お知らせ</p>
+      ${img ? `<img src="${h(img)}" alt="">` : ''}
+      <h1 class="g-title">${h(b.title)}</h1>
+      ${b.body ? `<p class="g-cm-body">${h(b.body)}</p>` : ''}
+      ${b.link_url ? `<a class="g-link" href="${h(b.link_url)}" target="_blank" rel="noopener">くわしく</a>` : ''}
+      <button class="g-btn" id="resume" disabled>つづきまで <span id="cm-left">${left}</span></button>
     </section>`, { stage: true });
     const btn = document.getElementById('resume');
     waitHandle = setInterval(() => {
@@ -284,41 +293,38 @@ async function rank(quizId, just) {
   const mine = rows.find((r) => r.is_me);
   const open = z.status === 'open';
 
-  const record = answers.length ? `<div class="record" aria-label="1問ごとの記録">
-      ${answers.map((a) => `<div class="rec ${a.correct ? 'ok' : a.timed_out ? 'to' : 'ng'}">
-        <span class="rec-no">第${a.position + 1}問</span>
-        <span class="rec-mark">${a.correct ? '○' : '×'}</span>
-        <span class="rec-ms">${a.correct ? formatMs2(a.ms) : a.timed_out ? '時間切れ' : '—'}</span>
+  const record = answers.length ? `<div class="g-record">
+      ${answers.map((a) => `<div class="${a.correct ? 'ok' : a.timed_out ? 'to' : 'ng'}">
+        <b>Q${a.position + 1}</b><span>${a.correct ? '○' : '×'}</span><em>${a.correct ? formatMs2(a.ms) : a.timed_out ? '時間切れ' : '—'}</em>
       </div>`).join('')}
     </div>` : '';
 
-  const head = mine ? `<section class="card center result">
-      <p class="meta">${!just ? 'きみの記録' : mine.correct === z.total ? 'PERFECT' : 'FINISH'}</p>
-      <p class="score"><strong>${mine.correct}</strong> / ${z.total}</p>
-      <p class="time">合計 ${formatMs(mine.total_ms)}</p>
-      <p class="rank-line">${open ? 'いま' : ''} <strong>${sum.rank}位</strong> / ${sum.total}人${sum.beaten > 0 ? ` · ${sum.beaten}人を上回った` : ''}</p>
-      ${open && z.prize ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}。公式LINE に届く</p>` : ''}
-      ${!open && sum.rank === 1 ? '<p class="win">1位！ クーポンはホームと公式LINE に届いている</p>' : ''}
+  const head = mine ? `<section class="g-card g-result">
+      <p class="g-badge">${!just ? 'きみの記録' : mine.correct === z.total ? 'PERFECT' : 'FINISH'}</p>
+      <p class="g-score"><strong>${mine.correct}</strong><span>/ ${z.total}</span></p>
+      <p class="g-total">合計 ${formatMs2(mine.total_ms)}</p>
+      <p class="g-rank">${open ? 'いま ' : ''}<strong>${sum.rank}位</strong> / ${sum.total}人</p>
       ${record}
+      ${open && z.prize ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}</p>` : ''}
+      ${!open && sum.rank === 1 ? '<p class="g-win">1位！ クーポンはホームに届いている</p>' : ''}
     </section>` : '';
 
   render(`
-    <header class="top"><a class="back" href="#/">← ホーム</a></header>
     ${head}
-    <section class="card">
-      <h2 class="title">${h(z.title)}</h2>
+    <section class="g-card g-board">
+      <h2>${h(z.title)}</h2>
       ${deadlineLine(z)}
-      <p class="meta">${open ? '受付中 · 締め切りの時点の1位にクーポン' : '締め切り'}</p>
-      ${rows.length ? `<ol class="ranking">${rows.map((r) => `
-        <li class="${r.is_me ? 'is-me' : ''} ${r.rank === 1 ? 'first' : ''}">
-          <span class="pos">${r.rank === 1 ? '👑' : r.rank}</span>
-          <span class="name">${h(r.nickname)}</span>
-          <span class="pts">${r.correct}問</span>
-          <span class="ms">${formatMs(r.total_ms)}</span>
+      ${rows.length ? `<ol class="g-ranking">${rows.map((r) => `
+        <li class="${r.is_me ? 'is-me' : ''}">
+          <b>${r.rank === 1 ? '👑' : r.rank}</b>
+          <span>${h(r.nickname)}</span>
+          <strong>${r.correct}問</strong>
+          <em>${formatMs2(r.total_ms)}</em>
         </li>`).join('')}</ol>` : '<p class="empty">まだだれも終えていない</p>'}
     </section>
-    ${open && !z.my_finished ? `<a class="btn primary big" href="#/play/${z.id}">挑戦</a>` : ''}
-  `);
+    ${open && !z.my_finished ? `<a class="g-btn" href="#/play/${z.id}">挑戦</a>` : ''}
+    <a class="g-back" href="#/">ホーム</a>
+  `, { stage: true });
 }
 
 // ---------------------------------------------------------------- ルーター

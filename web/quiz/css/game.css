@@ -1,0 +1,144 @@
+/*
+ * game.css - 挑戦中（body.stage）の見た目
+ * 番組（スタジオの青・番号ボタン・100分の1秒・何番に何人）× シンプルなゲーム（白いカード・大きな角丸ボタン・下から結果・ボタン1つで次へ）
+ */
+body.stage {
+  --g-blue: #1640d6;
+  --g-blue-deep: #0b2595;
+  --g-ink: #141622;
+  --g-muted: #6b6f86;
+  --g-yellow: #ffd23f;
+  --g-yellow-deep: #d9a400;
+  --g-ok: #16a660;
+  --g-ng: #e5374f;
+  --k0: #e5374f;
+  --k1: #2a6ff0;
+  --k2: #16a660;
+  --k3: #f0b400;
+  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "BIZ UDPGothic", system-ui, sans-serif;
+  background: radial-gradient(120% 70% at 50% 0%, #2a5cff 0%, var(--g-blue) 45%, var(--g-blue-deep) 100%) fixed;
+  color: #fff;
+}
+html:has(body.stage) { background: #0b2595; }
+body.stage main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+body.stage .demo-bar { background: rgba(255, 255, 255, .14); color: #fff; }
+body.stage .hint { color: var(--g-muted); }
+body.stage .deadline { color: var(--g-muted); }
+body.stage .deadline strong { color: var(--g-ng); }
+
+/* 白いカードと大きなボタン（シンプルなゲームの型: 下に厚みのある角丸） */
+.g-card { background: #fff; color: var(--g-ink); border-radius: 22px; padding: 20px 18px; box-shadow: 0 6px 0 rgba(0, 0, 0, .18); margin-bottom: 14px; }
+.g-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 58px; margin-top: 16px; border: 0; border-radius: 18px;
+  background: var(--g-yellow); color: #2a1a00; font: inherit; font-size: 19px; font-weight: 900; letter-spacing: .04em; text-decoration: none;
+  box-shadow: 0 5px 0 var(--g-yellow-deep); cursor: pointer; transition: transform .06s, box-shadow .06s; }
+.g-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--g-yellow-deep); }
+.g-btn:disabled { background: #e8e9f0; color: #9a9db0; box-shadow: 0 5px 0 #c9cbd6; cursor: default; }
+.g-back { display: block; text-align: center; margin-top: 14px; color: rgba(255, 255, 255, .8); font-size: 14px; text-decoration: none; }
+.g-title { font-size: 24px; line-height: 1.35; font-weight: 900; margin: 6px 0 12px; }
+.g-kicker { font-size: 12px; font-weight: 900; letter-spacing: .35em; color: var(--g-blue); }
+
+/* はじまり */
+.g-opening { text-align: center; margin-top: 28px; padding: 28px 20px 22px; }
+.g-rules { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.g-rules span { background: #eef2ff; color: var(--g-blue-deep); font-weight: 800; border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.g-prize { margin: 14px 0 4px; background: #fff6d6; color: #7a5300; border-radius: 14px; padding: 10px; font-weight: 900; }
+.g-name { margin-top: 28px; }
+.g-name input { font-size: 20px; text-align: center; }
+
+/* 1問 */
+.g-progress { display: flex; gap: 6px; margin: 4px 0 12px; }
+.g-progress span { flex: 1; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .25); }
+.g-progress .done { background: #fff; }
+.g-progress .now { background: var(--g-yellow); }
+.g-head { display: flex; align-items: center; gap: 8px; }
+.g-qno { font-size: 20px; font-weight: 900; letter-spacing: .04em; }
+.g-tag { font-size: 12px; font-weight: 900; color: #2a1a00; background: var(--g-yellow); border-radius: 999px; padding: 3px 10px; }
+.g-clock { margin-left: auto; font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, .28); color: var(--g-yellow); border-radius: 12px; padding: 2px 12px; min-width: 5ch; text-align: right; }
+.g-clock.hurry { color: #ff8a9a; }
+.g-clock.stop { color: #fff; }
+.g-timer { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .2); overflow: hidden; margin: 10px 0 12px; }
+.g-timer div { height: 100%; background: var(--g-yellow); transform-origin: left center; }
+.g-timer div.hurry { background: #ff8a9a; }
+.g-q { padding: 18px; }
+.g-q h1 { font-size: 22px; line-height: 1.45; font-weight: 900; margin: 0; overflow-wrap: anywhere; }
+.g-q img { display: block; width: 100%; max-height: 26dvh; object-fit: cover; border-radius: 14px; margin-top: 12px; }
+.g-note { text-align: center; font-weight: 800; margin: -4px 0 10px; color: var(--g-yellow); }
+
+/* 番号ボタン（キーパッド） */
+.g-keys { display: grid; gap: 10px; }
+.g-key { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 14px 8px 8px; border: 3px solid transparent; border-radius: 18px;
+  background: #fff; color: var(--g-ink); font: inherit; font-size: 18px; font-weight: 800; text-align: left; cursor: pointer;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, .22); transition: transform .06s, box-shadow .06s, opacity .2s; }
+.g-key:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .22); }
+.g-key:disabled { cursor: default; }
+.g-num { position: relative; z-index: 1; flex: none; width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: #fff; font-size: 24px; font-weight: 900; }
+.k0 .g-num { background: var(--k0); } .k1 .g-num { background: var(--k1); } .k2 .g-num { background: var(--k2); } .k3 .g-num { background: var(--k3); }
+.g-txt { position: relative; z-index: 1; flex: 1; overflow-wrap: anywhere; }
+.g-votes { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(22, 64, 214, .12); transition: width .6s ease-out; }
+.g-count { position: relative; z-index: 1; font-size: 15px; font-weight: 900; color: var(--g-muted); font-variant-numeric: tabular-nums; }
+.g-key.dim { opacity: .5; }
+.g-key.locked { background: var(--g-yellow); border-color: #fff; opacity: 1; }
+.g-key.shown { opacity: 1; }
+.g-key.right { border-color: var(--g-ok); box-shadow: 0 0 0 3px rgba(22, 166, 96, .35), 0 5px 0 rgba(0, 0, 0, .22); }
+.g-key.right::after { content: "正解"; position: relative; z-index: 1; font-size: 13px; font-weight: 900; color: #fff; background: var(--g-ok); border-radius: 999px; padding: 3px 8px; }
+.g-key.wrong { border-color: var(--g-ng); }
+.g-key.locked .g-votes { background: rgba(255, 255, 255, .35); }
+
+/* 下から出る結果（シンプルなゲームの型） */
+.g-play { padding-bottom: 320px; }
+.g-play.revealed .g-q img, .g-play.revealed .g-note { display: none; }
+.g-play.revealed .g-q { padding: 12px 16px; }
+.g-play.revealed .g-q h1 { font-size: 17px; }
+.g-play.revealed .g-key { min-height: 52px; }
+.g-play.revealed .g-num { width: 38px; height: 38px; font-size: 20px; }
+.g-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; max-width: 560px; margin: 0 auto; background: #fff; color: var(--g-ink);
+  border-radius: 24px 24px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 30px rgba(0, 0, 0, .3); animation: up .25s ease-out; }
+@keyframes up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.g-verdict { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.g-verdict strong { font-size: 32px; font-weight: 900; letter-spacing: .04em; }
+.g-verdict span { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.g-sheet.ok .g-verdict strong { color: var(--g-ok); }
+.g-sheet.ng .g-verdict strong { color: var(--g-ng); }
+.g-sheet.to .g-verdict strong { color: var(--g-muted); }
+.g-sub { color: var(--g-muted); font-size: 13px; font-weight: 700; margin: 4px 0 8px; }
+.g-top { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.g-top li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #f3f5fb; font-weight: 800; }
+.g-top li.is-me { background: #fff1bf; }
+.g-top b { color: var(--g-blue); }
+.g-top em { font-style: normal; font-variant-numeric: tabular-nums; }
+.g-sheet .g-btn { margin-top: 12px; }
+
+/* CM */
+.g-cm { margin-top: 20px; text-align: center; }
+.g-cm-head { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 900; color: var(--g-muted); font-size: 14px; }
+.g-cm-mark { background: var(--g-ng); color: #fff; border-radius: 6px; padding: 2px 8px; letter-spacing: .1em; }
+.g-cm img { display: block; width: 100%; max-height: 34dvh; object-fit: contain; border-radius: 14px; margin: 14px 0 4px; }
+.g-cm-body { color: var(--g-muted); line-height: 1.6; }
+.g-link { display: inline-block; margin-top: 10px; color: var(--g-blue); font-weight: 800; }
+
+/* 結果 */
+.g-result { text-align: center; margin-top: 16px; }
+.g-badge { display: inline-block; background: var(--g-yellow); color: #2a1a00; font-weight: 900; letter-spacing: .2em; border-radius: 999px; padding: 4px 14px; font-size: 13px; }
+.g-score { margin: 6px 0 0; }
+.g-score strong { font-size: 76px; font-weight: 900; line-height: 1; }
+.g-score span { font-size: 26px; font-weight: 900; color: var(--g-muted); margin-left: 4px; }
+.g-total { color: var(--g-muted); font-weight: 800; font-variant-numeric: tabular-nums; }
+.g-rank { font-size: 18px; font-weight: 800; margin-top: 8px; }
+.g-rank strong { font-size: 30px; color: var(--g-blue); }
+.g-record { display: flex; gap: 6px; justify-content: center; margin: 14px 0 6px; flex-wrap: wrap; }
+.g-record div { flex: 1; min-width: 56px; max-width: 80px; border-radius: 12px; padding: 6px 2px; display: grid; gap: 1px; color: #fff; font-variant-numeric: tabular-nums; }
+.g-record .ok { background: var(--g-ok); } .g-record .ng { background: var(--g-ng); } .g-record .to { background: #9a9db0; }
+.g-record b { font-size: 11px; opacity: .9; } .g-record span { font-size: 20px; font-weight: 900; line-height: 1.1; } .g-record em { font-style: normal; font-size: 11px; font-weight: 800; }
+.g-win { font-weight: 900; color: #7a5300; background: #fff6d6; border-radius: 12px; padding: 8px; margin-top: 10px; }
+.g-board h2 { font-size: 18px; font-weight: 900; margin: 0 0 4px; }
+.g-ranking { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+.g-ranking li { display: grid; grid-template-columns: 32px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #f3f5fb; font-weight: 800; }
+.g-ranking li.is-me { background: #fff1bf; }
+.g-ranking b { text-align: center; color: var(--g-blue); }
+.g-ranking span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-ranking em { font-style: normal; color: var(--g-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-sheet, .g-votes { animation: none; transition: none; }
+}
