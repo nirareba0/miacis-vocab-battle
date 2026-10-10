@@ -3,7 +3,7 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 // 公式LINE から開いたときの LINE ログイン（LIFF。クイズと同じ LINE ログインのチャネル 2011955776 の、英単語バトル用の入口）。
 // 空のあいだは LINE ログインを出さない（ニックネーム＋あいことばだけ）
-export const LINE_LIFF_ID = '';
+export const LINE_LIFF_ID = '2011955776-LdJ7AVnz';
 
 export function isConfigured() {
   return (
