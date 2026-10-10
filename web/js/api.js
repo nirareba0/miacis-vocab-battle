@@ -2,7 +2,7 @@
  * api.js - Supabase クライアント初期化と RPC / データ取得の薄いラッパー
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, LINE_LIFF_ID, isConfigured } from './config.js';
 import { nicknameToEmail, normalizeNickname, translateError, escapeDeep } from './logic.js';
 
 export { isConfigured, translateError };
@@ -51,7 +51,8 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   if (!passphrase || passphrase.length < 6) {
     throw new Error('パスワードは6文字以上で入力してください');
   }
-  if (!grade || grade < 1 || grade > 6) {
+  // 学年が null ならおとな（それ以外）
+  if (grade !== null && (!grade || grade < 1 || grade > 6)) {
     throw new Error('学年を選択してください');
   }
   // 合言葉の事前検査（合言葉が設定されているときだけ効く。一致しなければ Auth ユーザーを作成しない）
@@ -125,6 +126,87 @@ export async function signInPlayer(nickname, passphrase) {
     throw new Error(translateError(error));
   }
   return escapeDeep(data);
+}
+
+// ==========================================
+// 公式LINE から開いた人の LINE ログイン（0036）
+// ==========================================
+
+const LIFF_SDK = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+
+/** LINE ログインを使うか: LIFF が用意できていて、LINE の中か LIFF のリンク（liff.state）か ?line で開いたとき */
+export function lineEntry() {
+  if (!LINE_LIFF_ID) return false;
+  const q = new URLSearchParams(location.search);
+  return / Line\//i.test(navigator.userAgent) || q.has('liff.state') || q.has('line');
+}
+
+function loadLiff() {
+  if (window.liff) return Promise.resolve(window.liff);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = LIFF_SDK;
+    s.onload = () => resolve(window.liff);
+    s.onerror = () => reject(new Error('Failed to fetch'));
+    document.head.appendChild(s);
+  });
+}
+
+/** LINE の ID トークン。LINE にログインしていなければ LINE のログイン画面へ移る（戻ってくるまで進まない） */
+export async function lineIdToken() {
+  const liff = await loadLiff();
+  await liff.init({ liffId: LINE_LIFF_ID });
+  if (!liff.isLoggedIn()) {
+    liff.login({ redirectUri: location.href });
+    await new Promise(() => {});
+  }
+  return liff.getIDToken();
+}
+
+/** ID トークンが古いとき、一度だけ LINE にログインし直す */
+async function lineRelogin() {
+  if (sessionStorage.getItem('vocab-line-relogin')) return false;
+  sessionStorage.setItem('vocab-line-relogin', '1');
+  const liff = await loadLiff();
+  liff.logout();
+  liff.login({ redirectUri: location.href });
+  await new Promise(() => {});
+}
+
+async function lineCall(body) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/line-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) await lineRelogin();
+  if (!res.ok) throw new Error(translateError({ message: data.error || 'line_login_failed' }));
+  sessionStorage.removeItem('vocab-line-relogin');
+  if (data.session) {
+    const { error } = await supabase.auth.setSession(data.session);
+    if (error) throw new Error(translateError(error));
+  }
+  return data.status;
+}
+
+/** つながっている人ならログインして 'linked'、まだなら 'new' */
+export function lineSignIn(idToken) {
+  checkClient();
+  return lineCall({ action: 'session', id_token: idToken });
+}
+
+/** はじめての人: 名前と学年（null ならおとな）で始める。ログインまで済ませる */
+export function lineSignUp(idToken, nickname, grade) {
+  checkClient();
+  const nick = normalizeNickname(nickname);
+  if (nick.length < 1 || nick.length > 10) throw new Error('ニックネームは1〜10文字で入力してください');
+  return lineCall({ action: 'create', id_token: idToken, nickname: nick, grade });
+}
+
+/** 前から遊んでいる人: ログインしたまま、この LINE とつなぐ */
+export function lineLink(idToken) {
+  return rpc('line_link', { p_id_token: idToken });
 }
 
 /**
@@ -230,12 +312,13 @@ export async function submitMatch(matchId, answers) {
 /**
  * 学習ランキング（自分の段のみ）
  */
-export async function getRankingLearn(tier) {
+export async function getRankingLearn(tier, adult = false) {
   checkClient();
   const { data, error } = await supabase
     .from('ranking_learn_week')
     .select('*')
     .eq('tier', tier)
+    .eq('is_adult', adult)
     .order('rank', { ascending: true })
     .order('nickname', { ascending: true });
   if (error) throw new Error(translateError(error));
@@ -245,11 +328,12 @@ export async function getRankingLearn(tier) {
 /**
  * コミットランキング（全体）
  */
-export async function getRankingCommit() {
+export async function getRankingCommit(adult = false) {
   checkClient();
   const { data, error } = await supabase
     .from('ranking_commit_week')
     .select('*')
+    .eq('is_adult', adult)
     .order('rank', { ascending: true })
     .order('nickname', { ascending: true });
   if (error) throw new Error(translateError(error));
@@ -810,11 +894,12 @@ export function getMyRunBests() {
 }
 
 /** @param {'week'|'all'} scope  @param {number} [band] ステージ（1=A1 … 5=最難関）。省略すると全ステージ */
-export async function getRankingStreak(scope = 'week', band) {
+export async function getRankingStreak(scope = 'week', band, adult = false) {
   checkClient();
   let query = supabase
     .from(scope === 'all' ? 'ranking_streak_all' : 'ranking_streak_week')
-    .select('*');
+    .select('*')
+    .eq('is_adult', adult);
   if (band) query = query.eq('band', band);
   const { data, error } = await query
     .order('rank', { ascending: true })
@@ -824,12 +909,13 @@ export async function getRankingStreak(scope = 'week', band) {
   return escapeDeep(data || []);
 }
 
-export async function getRankingKnock(band) {
+export async function getRankingKnock(band, adult = false) {
   checkClient();
   const { data, error } = await supabase
     .from('ranking_knock_week')
     .select('*')
     .eq('band', band)
+    .eq('is_adult', adult)
     .order('rank', { ascending: true })
     .order('nickname', { ascending: true })
     .limit(50);

@@ -20,6 +20,9 @@ export async function createTestDb() {
       if not exists (select from pg_roles where rolname = 'authenticated') then
         create role authenticated;
       end if;
+      if not exists (select from pg_roles where rolname = 'service_role') then
+        create role service_role;
+      end if;
     end
     $$;
 
@@ -33,7 +36,7 @@ export async function createTestDb() {
       select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
     $$ language sql stable;
 
-    grant usage on schema public to anon, authenticated;
+    grant usage on schema public to anon, authenticated, service_role;
     grant usage on schema auth to anon, authenticated;
 
     -- 本物の Supabase と同じ既定の権限。public に作ったテーブル・関数・シーケンスは
@@ -110,6 +113,16 @@ export async function asAnon(db, fn) {
       reset role;
       reset "request.jwt.claim.sub";
     `);
+  }
+}
+
+/** Edge Function（service_role の鍵）として */
+export async function asService(db, fn) {
+  await db.exec('set role service_role;');
+  try {
+    return await fn();
+  } finally {
+    await db.exec('reset role;');
   }
 }
 

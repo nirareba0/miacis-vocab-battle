@@ -248,6 +248,19 @@ export function translateError(error) {
   if (!error) return 'うまくいかなかった。もう一度';
   const msg = typeof error === 'string' ? error : error.message || '';
 
+  // LINE ログイン（0036）
+  if (msg.includes('line_already_linked')) {
+    return 'この LINE は、もう別の名前とつながっている。LINE で開き直すと入れる';
+  }
+  if (msg.includes('account_already_linked')) {
+    return 'この名前は、もう別の LINE とつながっている';
+  }
+  if (msg.includes('line_login_failed')) {
+    return 'LINE で確かめられなかった。公式LINE から開き直そう';
+  }
+  if (msg.includes('session_failed') || msg.includes('create_failed')) {
+    return 'LINE で入れなかった。少し待ってから開き直そう';
+  }
   if (msg.includes('nickname_taken')) {
     return 'その名前はもう使われている。自分の名前なら「ログイン」タブから';
   }

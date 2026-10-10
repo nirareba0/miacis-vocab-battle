@@ -5,6 +5,11 @@ import {
   isConfigured,
   signUpPlayer,
   inviteRequired,
+  lineEntry,
+  lineIdToken,
+  lineSignIn,
+  lineSignUp,
+  lineLink,
   signInPlayer,
   signOutPlayer,
   getSession,
@@ -162,12 +167,23 @@ const state = {
   },
   flags: { rank_mode_enabled: false }, // 段（ランク）の表示。利用者が集まったら解禁
   rankingTab: 'streak', // 'learn' | 'commit' | 'streak' | 'knock'
+  rankingAdult: null, // ランキングの 中高生（false）／おとな（true）。null なら自分の区分（0036）
+  line: null, // 公式LINE から開いて、まだ英単語バトルとつながっていない人の { idToken }（0036）
   streakScope: 'week', // 'week' | 'all'
   zukanTab: 1 // band 1..5
 };
 
 // DOM 要素
 const appEl = document.getElementById('app-container');
+
+/** おとな（中高生以外。0036）。景品・称号・抽選は中高生だけで、ランキングは別に出る */
+const isAdult = () => state.player?.account_type === 'adult';
+
+async function loadSignedIn() {
+  state.session = await getSession();
+  state.player = await getMyPlayer();
+  state.isStaff = await isStaffUser();
+}
 
 /**
  * 初期化
@@ -195,6 +211,18 @@ async function init() {
     }
   } catch (err) {
     console.error('初期化エラー:', err);
+  }
+
+  // 公式LINE から開いた: つながっていればそのまま入る。まだなら「はじめて／前から遊んでる」を出す（0036）
+  if (!state.player && lineEntry()) {
+    try {
+      const idToken = await lineIdToken();
+      if (await lineSignIn(idToken) === 'linked') await loadSignedIn();
+      else state.line = { idToken };
+    } catch (err) {
+      console.error('LINE ログイン:', err);
+      state.lineError = err.message;
+    }
   }
 
   window.addEventListener('hashchange', () => {
@@ -269,14 +297,22 @@ function renderPreparation() {
  * 認証画面（登録・ログイン）
  */
 function renderAuth(mode = 'register', opts = {}) {
+  if (state.line && mode === 'register') return renderLineStart();
+  if (state.line && mode === 'line-new') return renderLineRegister();
+  const linking = Boolean(state.line) && mode === 'login';
   // 登録前に遊んだ中1レベルの いちばんの記録（0028）。あれば「この記録で登録しよう」
   const guestBest = savedGuestBest();
   const record = guestBest && guestBest.correct > 0 ? guestBest : null;
-  const submitLabel = mode === 'register' ? (record ? `${record.correct}連続で 登録` : 'はじめる') : 'ログイン';
+  const submitLabel = mode === 'register' ? (record ? `${record.correct}連続で 登録` : 'はじめる') : linking ? 'この LINE とつなぐ' : 'ログイン';
   appEl.innerHTML = `
-    <div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問7秒。間違えたら終わり。</p></div>
+    ${AUTH_HERO}
+    ${state.lineError ? `<div class="alert alert-error">${escapeHtml(state.lineError)}</div>` : ''}
 
-    ${record ? `
+    ${linking ? `
+    <div class="card line-start">
+      <h2>今のアカウントとつなぐ</h2>
+      <p>いつものニックネームとパスワードを入れてね。つないだら、次からは LINE で開くだけで入れる。記録・ポイント・相棒はそのまま</p>
+    </div>` : record ? `
     <div class="card tryout has-record" id="tryout-card">
       <span class="eyebrow">あなたの記録 ・ 中1レベル</span>
       <div class="tryout-record"><strong>${record.correct}</strong><small>連続</small></div>
@@ -292,10 +328,10 @@ function renderAuth(mode = 'register', opts = {}) {
       <button class="btn-primary" id="btn-tryout">挑戦する</button>
     </div>`}
 
-    <div class="tab-bar">
+    ${linking ? '' : `<div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
       <button id="tab-login" class="tab-btn ${mode === 'login' ? 'active' : ''}">ログイン</button>
-    </div>
+    </div>`}
 
     <div id="auth-alert"></div>
 
@@ -316,18 +352,7 @@ function renderAuth(mode = 'register', opts = {}) {
       ${
         mode === 'register'
           ? `
-        <div class="form-group">
-          <label class="form-label">学年</label>
-          <div class="grade-grid" role="group" aria-label="学年（必須）">
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="1">中1</button>
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="2">中2</button>
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="3">中3</button>
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="4">高1</button>
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="5">高2</button>
-            <button type="button" class="grade-btn" aria-pressed="false" data-grade="6">高3</button>
-          </div>
-          <input type="hidden" id="auth-grade" value="">
-        </div>
+        ${whoFieldsHtml()}
 
         <div class="form-group" id="invite-group" hidden>
           <label class="form-label" for="auth-invite">ミアキスの合言葉（館内に貼ってあるよ）</label>
@@ -346,6 +371,7 @@ function renderAuth(mode = 'register', opts = {}) {
         ${submitLabel}
       </button>
     </form>
+    ${linking ? '<button class="btn-secondary" id="btn-line-back" style="margin-top: 12px;">戻る</button>' : ''}
 
     <footer class="app-footer">
       <p><a href="credits.html">単語データの出典（クレジット）</a></p>
@@ -353,6 +379,7 @@ function renderAuth(mode = 'register', opts = {}) {
   `;
 
   // イベント設定
+  document.getElementById('btn-line-back')?.addEventListener('click', () => renderAuth('register'));
   document.getElementById('btn-tryout')?.addEventListener('click', startGuestChallenge);
   getChallengeNow().then(n => {
     const el = document.getElementById('challenge-now');
@@ -363,8 +390,8 @@ function renderAuth(mode = 'register', opts = {}) {
     document.getElementById('auth-form')?.scrollIntoView({ block: 'start' });
     setTimeout(() => document.getElementById('auth-nick')?.focus({ preventScroll: true }), 300);
   }
-  document.getElementById('tab-register').addEventListener('click', () => renderAuth('register'));
-  document.getElementById('tab-login').addEventListener('click', () => renderAuth('login'));
+  document.getElementById('tab-register')?.addEventListener('click', () => renderAuth('register'));
+  document.getElementById('tab-login')?.addEventListener('click', () => renderAuth('login'));
 
   const passInput = document.getElementById('auth-pass');
   const passToggle = document.getElementById('pass-toggle');
@@ -378,18 +405,7 @@ function renderAuth(mode = 'register', opts = {}) {
     }
   });
 
-  if (mode === 'register') {
-    const gradeBtns = document.querySelectorAll('.grade-btn');
-    const gradeInput = document.getElementById('auth-grade');
-    gradeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        gradeBtns.forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
-        btn.setAttribute('aria-pressed', 'true');
-        btn.classList.add('selected');
-        gradeInput.value = btn.dataset.grade;
-      });
-    });
-  }
+  const readGrade = mode === 'register' ? bindWhoFields() : null;
 
   const form = document.getElementById('auth-form');
 
@@ -425,8 +441,8 @@ function renderAuth(mode = 'register', opts = {}) {
 
     try {
       if (mode === 'register') {
-        const gradeVal = parseInt(document.getElementById('auth-grade').value, 10);
-        if (!gradeVal || gradeVal < 1 || gradeVal > 6) {
+        const gradeVal = readGrade();
+        if (gradeVal === 0) {
           alertEl.innerHTML = '<div class="alert alert-error">学年を選ぼう</div>';
           submitBtn.disabled = false;
           submitBtn.textContent = submitLabel;
@@ -443,25 +459,24 @@ function renderAuth(mode = 'register', opts = {}) {
 
         await signUpPlayer(nick, pass, gradeVal, inviteVal);
 
-        state.session = await getSession();
-        state.player = await getMyPlayer();
-        state.isStaff = await isStaffUser();
-
-        // 登録前の記録を、この人の1回にする（0028）。うまくいかなくても登録は済んでいる
-        let claimed = null;
-        const gb = savedGuestBest();
-        if (gb) {
-          claimed = await claimGuestRun(gb.token).catch(() => null);
-          saveGuestBest(null);
-        }
+        await loadSignedIn();
+        const claimed = await claimSavedGuest();
 
         // 登録完了後に「スクショしてね」画面を表示
         showScreenshotModal(nick, pass, gradeVal, claimed);
       } else {
         await signInPlayer(nick, pass);
-        state.session = await getSession();
-        state.player = await getMyPlayer();
-        state.isStaff = await isStaffUser();
+        if (linking) {
+          // この LINE とつなぐ。つなげなかったらログインも戻す（次に LINE で開いたとき同じ画面に戻れるように）
+          try {
+            await lineLink(state.line.idToken);
+          } catch (err) {
+            await signOutPlayer();
+            throw err;
+          }
+          state.line = null;
+        }
+        await loadSignedIn();
         window.location.hash = '#/home';
         render();
       }
@@ -469,6 +484,134 @@ function renderAuth(mode = 'register', opts = {}) {
       alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
       submitBtn.disabled = false;
       submitBtn.textContent = submitLabel;
+    }
+  });
+}
+
+/** 登録前の記録を、この人の1回にする（0028）。うまくいかなくても登録は済んでいる */
+async function claimSavedGuest() {
+  const gb = savedGuestBest();
+  if (!gb) return null;
+  const claimed = await claimGuestRun(gb.token).catch(() => null);
+  saveGuestBest(null);
+  return claimed;
+}
+
+const AUTH_HERO = '<div class="auth-hero"><span class="eyebrow">ミアキス英単語サバイバル</span><img src="assets/miacis-avatar.png" alt="ミアキスくん" width="160" height="160"><h1>Miacisで<br>いちばん続くのは、誰だ。</h1><p>1問7秒。間違えたら終わり。</p></div>';
+
+const GRADES = [[1, '中1'], [2, '中2'], [3, '中3'], [4, '高1'], [5, '高2'], [6, '高3']];
+
+/** 「中高生／それ以外」と学年（0036）。それ以外を選ぶと学年は出ない */
+function whoFieldsHtml() {
+  return `
+    <div class="form-group">
+      <label class="form-label">あなたは？</label>
+      <div class="who-grid" role="group" aria-label="中高生か、それ以外か">
+        <button type="button" class="grade-btn who-btn selected" aria-pressed="true" data-who="student">中高生</button>
+        <button type="button" class="grade-btn who-btn" aria-pressed="false" data-who="adult">それ以外</button>
+      </div>
+    </div>
+    <div class="form-group" id="grade-group">
+      <label class="form-label">学年</label>
+      <div class="grade-grid" role="group" aria-label="学年（必須）">
+        ${GRADES.map(([g, label]) => `<button type="button" class="grade-btn" aria-pressed="false" data-grade="${g}">${label}</button>`).join('')}
+      </div>
+      <input type="hidden" id="auth-grade" value="">
+    </div>`;
+}
+
+/** ボタンをつなぐ。返す関数は 学年（1〜6）・null（それ以外）・0（学年をまだ選んでいない） */
+function bindWhoFields() {
+  const gradeInput = document.getElementById('auth-grade');
+  let adult = false;
+  const pick = (btns, btn) => btns.forEach(b => {
+    b.classList.toggle('selected', b === btn);
+    b.setAttribute('aria-pressed', String(b === btn));
+  });
+  const whoBtns = document.querySelectorAll('.who-btn');
+  whoBtns.forEach(btn => btn.addEventListener('click', () => {
+    pick(whoBtns, btn);
+    adult = btn.dataset.who === 'adult';
+    document.getElementById('grade-group').hidden = adult;
+  }));
+  const gradeBtns = document.querySelectorAll('.grade-grid .grade-btn');
+  gradeBtns.forEach(btn => btn.addEventListener('click', () => {
+    pick(gradeBtns, btn);
+    gradeInput.value = btn.dataset.grade;
+  }));
+  return () => (adult ? null : parseInt(gradeInput.value, 10) || 0);
+}
+
+/** 公式LINE から開いて、まだつながっていない人（0036）: はじめてか、前から遊んでいるか */
+function renderLineStart() {
+  appEl.innerHTML = `
+    ${AUTH_HERO}
+    <div class="card line-start">
+      <span class="line-ok">✓ LINE でつながった</span>
+      <h2>英単語バトルは はじめて？</h2>
+      <button class="btn-primary" id="btn-line-new">はじめて遊ぶ</button>
+      <button class="btn-secondary" id="btn-line-old">前から遊んでる</button>
+      <p>前から遊んでる人は、今のニックネームとパスワードで1回だけつなぐ。次からは開くだけ</p>
+    </div>
+    <footer class="app-footer">
+      <p><a href="credits.html">単語データの出典（クレジット）</a></p>
+    </footer>
+  `;
+  document.getElementById('btn-line-new').addEventListener('click', () => renderAuth('line-new'));
+  document.getElementById('btn-line-old').addEventListener('click', () => renderAuth('login'));
+}
+
+/** はじめて LINE で遊ぶ人: 中高生／それ以外・学年・名前だけで始める（パスワードと合言葉は要らない） */
+function renderLineRegister() {
+  appEl.innerHTML = `
+    <div class="card line-start">
+      <h2>はじめに</h2>
+      <div id="auth-alert"></div>
+      <form id="line-form">
+        ${whoFieldsHtml()}
+        <div class="form-group">
+          <label class="form-label" for="auth-nick">ランキングに出る名前</label>
+          <input class="form-input" id="auth-nick" type="text" maxlength="10" placeholder="例: そら" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="notice-line" style="text-align: left; margin-bottom: 16px;">
+          1〜10文字。LINE の名前は出ない。本名は書かない。<br>景品・称号・抽選は中高生だけ。それ以外の人も遊べる
+        </div>
+        <button type="submit" class="btn-primary" id="btn-auth-submit">はじめる</button>
+      </form>
+      <button class="btn-secondary" id="btn-line-back" style="margin-top: 12px;">戻る</button>
+    </div>
+  `;
+  const readGrade = bindWhoFields();
+  document.getElementById('btn-line-back').addEventListener('click', () => renderAuth('register'));
+  const alertEl = document.getElementById('auth-alert');
+  const submitBtn = document.getElementById('btn-auth-submit');
+  document.getElementById('line-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    alertEl.innerHTML = '';
+    const nick = document.getElementById('auth-nick').value.trim();
+    const gradeVal = readGrade();
+    if (!nick) {
+      alertEl.innerHTML = '<div class="alert alert-error">名前を入れよう</div>';
+      return;
+    }
+    if (gradeVal === 0) {
+      alertEl.innerHTML = '<div class="alert alert-error">学年を選ぼう</div>';
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = '処理中...';
+    try {
+      await lineSignUp(state.line.idToken, nick, gradeVal);
+      state.line = null;
+      await loadSignedIn();
+      await claimSavedGuest();
+      window.location.hash = '#/home';
+      render();
+    } catch (err) {
+      const msg = /もう使われている/.test(err.message) ? 'その名前はもう使われている。前から遊んでいるなら「戻る」→「前から遊んでる」' : err.message;
+      alertEl.innerHTML = `<div class="alert alert-error">${escapeHtml(msg)}</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'はじめる';
     }
   });
 }
@@ -519,7 +662,7 @@ function showScreenshotModal(nick, pass, gradeVal, claimed = null) {
         </div>
         <div class="screenshot-row">
           <div class="screenshot-label">学年</div>
-          <div class="screenshot-val">${gradeToLabel(gradeVal)}</div>
+          <div class="screenshot-val">${gradeVal ? gradeToLabel(gradeVal) : 'それ以外'}</div>
         </div>
       </div>
       <button class="btn-primary" id="btn-screenshot-ok" style="font-size: 18px;">スクショした！</button>
@@ -679,7 +822,7 @@ async function renderHome() {
     }
 
     homeContent.innerHTML = `
-      <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
+      <div class="home-greeting"><h2>${escapeHtml(state.player.nickname)}</h2>${state.player.account_type === 'staff' ? '<span class="level-pill">スタッフ</span>' : isAdult() ? '<span class="level-pill">おとな</span>' : state.flags.rank_mode_enabled ? `<span class="level-pill">${tierToLabel(summary.tier)}</span>` : ''}</div>
       ${dailyToastHtml}
       <div id="overtake-slot"></div>
       <!-- まずはここ！（2026-10-03 本人「どこにいけばいいかわからなくなってる学生がおおい」）。迷ったらサバイバル、を一番上に -->
@@ -783,7 +926,7 @@ async function renderHome() {
     }).catch(() => {});
 
     // 今週の連続記録: 自分と1位（開くたびに「抜かれた/抜ける」が見える）
-    Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week', savedStreakBand()).catch(() => [])]).then(([bests, rows]) => {
+    Promise.all([getMyRunBests().catch(() => null), getRankingStreak('week', savedStreakBand(), isAdult()).catch(() => [])]).then(([bests, rows]) => {
       const strip = document.getElementById('record-strip');
       if (!strip) return;
       const mineRow = rows.find(r => isMyRow(r, state.player.nickname));
@@ -925,6 +1068,7 @@ function renderChallenge(mode) {
   const look = Object.fromEntries(['hat', 'face', 'neck', 'background', 'aura', 'title', 'form'].map(k => [k, itemMap[state.myLooks?.[k]] || null]));
   renderChallengeView(appEl, mode, {
     nickname: state.player.nickname,
+    adult: isAdult(),
     look,
     onGoHome: () => {
       window.location.hash = '#/home';
@@ -1923,6 +2067,10 @@ async function renderRanking() {
       <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット</button>
     </div>
 
+    <div class="band-chips ranking-group" id="ranking-group" role="group" aria-label="中高生／おとな">
+      <button class="band-chip" data-group="student">中高生</button>
+      <button class="band-chip" data-group="adult">おとな</button>
+    </div>
     <div class="band-chips" id="ranking-bands"></div>
     <div class="notice-line" id="ranking-notice"></div>
 
@@ -1947,6 +2095,12 @@ async function renderRanking() {
   document.getElementById('btn-back-home').addEventListener('click', () => {
     window.location.hash = '#/home';
   });
+
+  if (state.rankingAdult === null) state.rankingAdult = isAdult();
+  document.querySelectorAll('#ranking-group [data-group]').forEach(b => b.addEventListener('click', () => {
+    state.rankingAdult = b.dataset.group === 'adult';
+    loadRankingData();
+  }));
 
   if (!state.flags.rank_mode_enabled && state.rankingTab === 'learn') state.rankingTab = 'streak';
   for (const tab of ['learn', 'commit', 'streak', 'knock']) {
@@ -1983,9 +2137,11 @@ async function loadRankingData() {
       : '';
     bands.hidden = !bands.innerHTML;
   }
+  document.querySelectorAll('#ranking-group [data-group]').forEach(b =>
+    b.setAttribute('aria-pressed', String((b.dataset.group === 'adult') === state.rankingAdult)));
   const notice = document.getElementById('ranking-notice');
   if (notice) {
-    notice.innerHTML = notices[tab];
+    notice.innerHTML = state.rankingAdult ? `${notices[tab]}。おとなは参考の記録（景品・称号・抽選は中高生だけ）` : notices[tab];
     document.querySelectorAll('#ranking-bands [data-streak-band]').forEach(b => b.addEventListener('click', () => {
       saveStreakBand(parseInt(b.dataset.streakBand, 10));
       loadRankingData();
@@ -2000,13 +2156,13 @@ async function loadRankingData() {
     });
   }
   const reward = document.getElementById('ranking-reward');
-  if (reward) reward.hidden = tab === 'streak' || tab === 'knock';
+  if (reward) reward.hidden = tab === 'streak' || tab === 'knock' || state.rankingAdult;
 
   const fetchRows = {
-    learn: () => getRankingLearn(state.player.tier),
-    commit: () => getRankingCommit(),
-    streak: () => getRankingStreak(state.streakScope, savedStreakBand()),
-    knock: () => getRankingKnock(savedKnockBand())
+    learn: () => getRankingLearn(state.player.tier, state.rankingAdult),
+    commit: () => getRankingCommit(state.rankingAdult),
+    streak: () => getRankingStreak(state.streakScope, savedStreakBand(), state.rankingAdult),
+    knock: () => getRankingKnock(savedKnockBand(), state.rankingAdult)
   }[tab];
 
   try {

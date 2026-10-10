@@ -69,6 +69,7 @@ const run = {
   revenge: { asked: 0, won: 0 },  // リベンジ（前の回のつまずき）の出題数と正解数（0023）。成功の通知はプレイ中に出さない（2026-10-03 本人「邪魔」）。結果で数だけ出す
   zukanBefore: null,  // 始める前の図鑑（結果で「+◯語」を出す）
   nickname: '',
+  adult: false, // おとな（0036）は、おとなの順位と比べる
   rankUp: null,       // 次の問題の画面で見せる「◯位に浮上」
   milestone: null,    // 100本ノックの 10本ごとの区切り
   look: null,         // 相棒の着せ替え（HUD の小さなミアキス用）
@@ -140,6 +141,7 @@ export async function renderChallengeView(containerEl, mode, callbacks = {}) {
   run.mode = mode;
   run.callbacks = callbacks;
   run.nickname = callbacks.nickname || '';
+  run.adult = Boolean(callbacks.adult);
   run.look = callbacks.look || null;
   run.guest = Boolean(callbacks.guest);
   const conf = MODES[mode];
@@ -265,7 +267,7 @@ async function begin(mode) {
       showQuestion(res.question);
     }
     // 他の人の今週ベスト（いまの順位の計算用）。遅れて届いても次の問題から効く
-    const fetchBoard = mode === 'streak' ? getRankingStreak('week', res.band) : getRankingKnock(res.band);
+    const fetchBoard = mode === 'streak' ? getRankingStreak('week', res.band, run.adult) : getRankingKnock(res.band, run.adult);
     fetchBoard.then(rows => {
       if (run.id !== res.run_id) return;
       run.board = (rows || [])

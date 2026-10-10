@@ -343,6 +343,28 @@ button:active {
 }
 
 /* 学年ボタン選択グリッド */
+/* 中高生／それ以外（0036） */
+.who-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.line-start { text-align: center; }
+.line-start h2 { margin: 12px 0 8px; }
+.line-start form { text-align: left; }
+.line-start p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-top: 10px; }
+.line-start .btn-secondary { margin-top: 10px; }
+.line-ok {
+  display: inline-block;
+  background: #e7f8ee;
+  color: #138a46;
+  font-weight: 800;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
 .grade-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
