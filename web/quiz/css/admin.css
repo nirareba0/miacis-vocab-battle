@@ -1,0 +1,51 @@
+.admin { max-width: 760px; }
+.admin label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.admin .ok-label { color: var(--ok); }
+.hidden { display: none !important; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row.wrap { flex-wrap: wrap; margin-top: 10px; }
+.row input { flex: 1; min-width: 0; }
+.linkish { background: none; border: 0; padding: 6px 4px; font: inherit; font-size: 14px; color: var(--primary); cursor: pointer; text-decoration: underline; }
+.linkish.danger, .btn.danger { color: var(--ng); }
+.btn.danger { border-color: #f3c2cb; }
+button.me { font: inherit; font-size: 14px; cursor: pointer; }
+.top span { display: flex; gap: 8px; }
+
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; }
+.tabs button { flex: none; font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.flash { position: sticky; top: 8px; z-index: 5; min-height: 0; margin: 0; }
+.flash.ok, .flash.ng { padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; font-weight: 700; }
+.flash.ok { background: #e3f6ec; color: var(--ok); }
+.flash.ng { background: #fde8ec; color: var(--ng); }
+
+details.card summary { cursor: pointer; font-weight: 700; }
+details.card[open] summary { margin-bottom: 8px; }
+details.card textarea, details.card label { margin-top: 8px; }
+details.card .btn { margin-top: 10px; }
+
+.img-field { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.thumb { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; background: #eceaf4; flex: none; }
+.thumb.none { display: inline-block; }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.list-head .sub { margin: 10px 0; }
+.list-head select { width: auto; }
+.q-list, .pick, .coupon-list { list-style: none; margin: 0; padding: 0; }
+.q-list li { display: grid; grid-template-columns: 72px 1fr auto; gap: 12px; align-items: start; background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.q-body { font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.q-choices { font-size: 13px; color: var(--muted); margin: 4px 0; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.ok-mark { color: var(--ok); font-weight: 700; }
+.q-actions { display: grid; gap: 2px; justify-items: end; }
+
+.admin-quiz .url { word-break: break-all; font-size: 12px; }
+.builder { margin-top: 12px; background: #faf9fe; box-shadow: inset 0 0 0 1px var(--line); }
+.pick li label { display: grid; grid-template-columns: 22px 26px 1fr auto; gap: 8px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 400; font-size: 15px; cursor: pointer; }
+.pick input { width: 20px; height: 20px; }
+.order { font-weight: 800; color: var(--primary); text-align: center; }
+
+.coupon-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.coupon-list li.used { opacity: .6; }
+.coupon-list .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 20px; font-weight: 800; letter-spacing: .12em; }
+.coupon-list small { color: var(--muted); }
+.login { margin-top: 40px; }

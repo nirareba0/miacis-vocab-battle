@@ -10,6 +10,8 @@
 |---|---|
 | `supabase/migrations/` | DB のスキーマ・RLS・サーバー側の関数（番号順に適用する素の SQL） |
 | `supabase/cron.sql` | pg_cron の登録だけ（本番にだけ適用。テストでは読まない） |
+| `supabase/quiz-prod.sql` | クイズ（0030）の http 拡張と画像の置き場（本番にだけ適用） |
+| `web/quiz/` | Miacis クイズ（遊ぶ画面 `index.html` は公式LINE から LINE ログインで、管理 `admin.html` はスタッフのログインで）。仕様は AIOS `specs/quiz-app-20261010.md`。手元で見るときは localhost で `?demo` |
 | `supabase/seed/` | 単語などの投入 SQL（`tools/` のスクリプトが生成する） |
 | `web/` | GitHub Pages にそのまま出す画面。ビルドなし・素の ES Modules |
 | `tests/db/` | PGlite で migrations を流して関数と権限を検査する（`npm test`） |

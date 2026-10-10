@@ -38,6 +38,9 @@ echo "  単語の seed を流し直す"
 # （2026-10-03 に月末抽選の draw-raffle-job が本番に無かった）
 echo "  定期実行（cron.sql）を流し直す"
 "${CLI[@]}" db query --linked -f supabase/cron.sql >/dev/null
+# クイズ（0030）の http 拡張と画像の置き場。これも何度流してもよい
+echo "  クイズの設定（quiz-prod.sql）を流し直す"
+"${CLI[@]}" db query --linked -f supabase/quiz-prod.sql >/dev/null
 echo "4/4 公開用の anon key を web/js/config.js に入れる（鍵は画面に出さない）"
 KEY="$("${CLI[@]}" projects api-keys --project-ref "$REF" -o json \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const k=JSON.parse(s).find(k=>k.name==="anon");if(!k)process.exit(1);process.stdout.write(k.api_key)})')"
