@@ -116,8 +116,9 @@ function questionForm() {
         <img id="q-preview" class="thumb ${img ? '' : 'hidden'}" src="${h(img ?? '')}" alt="">
         <button type="button" class="linkish ${img ? '' : 'hidden'}" id="q-img-clear">画像を外す</button>
       </div>
-      <label class="ok-label">正解<input name="correct" maxlength="80" required value="${h(correct)}"></label>
-      ${wrong.map((w, i) => `<label>まちがい ${i + 1}<input name="wrong${i}" maxlength="80" required value="${h(w)}"></label>`).join('')}
+      <label class="check"><input type="checkbox" name="speed" id="q-speed" ${q?.kind === 'speed' ? 'checked' : ''}> 正解なし（早押しだけ。選択肢はこの順で出る）</label>
+      <label class="ok-label"><span data-l="0">${q?.kind === 'speed' ? '選択肢 1' : '正解'}</span><input name="correct" maxlength="80" required value="${h(correct)}"></label>
+      ${wrong.map((w, i) => `<label><span data-l="${i + 1}">${q?.kind === 'speed' ? `選択肢 ${i + 2}` : `まちがい ${i + 1}`}</span><input name="wrong${i}" maxlength="80" required value="${h(w)}"></label>`).join('')}
       <label>タグ（任意・あとで探す用）<input name="tag" maxlength="30" list="tags" value="${h(q?.tag ?? '')}"></label>
       <p class="hint">選択肢の並びは、遊ぶ人ごとにまぜて出す</p>
       <div class="row">
@@ -155,7 +156,9 @@ function drawQuestions() {
         ${q.image_path ? `<img class="thumb" src="${h(api.imageUrl(q.image_path))}" alt="">` : '<span class="thumb none"></span>'}
         <div class="q-text">
           <p class="q-body">${h(q.body)}</p>
-          <p class="q-choices"><span class="ok-mark">○ ${h(q.choices[q.answer])}</span> ${q.choices.filter((_, i) => i !== q.answer).map((c) => `<span>× ${h(c)}</span>`).join(' ')}</p>
+          <p class="q-choices">${q.kind === 'speed'
+            ? `<span class="chip on">早押し</span> ${q.choices.map((c, i) => `<span>${i + 1}. ${h(c)}</span>`).join(' ')}`
+            : `<span class="ok-mark">○ ${h(q.choices[q.answer])}</span> ${q.choices.filter((_, i) => i !== q.answer).map((c) => `<span>× ${h(c)}</span>`).join(' ')}`}</p>
           ${q.tag ? `<span class="chip">${h(q.tag)}</span>` : ''}
         </div>
         <div class="q-actions">
@@ -180,6 +183,13 @@ function drawQuestions() {
       flash('画像を入れた');
     } catch (e) { fail(e); }
   });
+  document.getElementById('q-speed').addEventListener('change', (ev) => {
+    const sp = ev.target.checked;
+    document.querySelectorAll('#q-form [data-l]').forEach((el) => {
+      const n = Number(el.dataset.l);
+      el.textContent = sp ? `選択肢 ${n + 1}` : n === 0 ? '正解' : `まちがい ${n}`;
+    });
+  });
   clear.addEventListener('click', () => { imagePath = null; preview.classList.add('hidden'); clear.classList.add('hidden'); });
   document.getElementById('q-cancel')?.addEventListener('click', () => { state.editingQuestion = null; draw(); });
   document.getElementById('q-form').addEventListener('submit', async (ev) => {
@@ -188,7 +198,8 @@ function drawQuestions() {
     try {
       const q = buildQuestion({
         body: f.get('body'), correct: f.get('correct'),
-        wrong: [f.get('wrong0'), f.get('wrong1'), f.get('wrong2')], tag: f.get('tag'), image_path: imagePath
+        wrong: [f.get('wrong0'), f.get('wrong1'), f.get('wrong2')], tag: f.get('tag'), image_path: imagePath,
+        kind: f.get('speed') ? 'speed' : 'quiz'
       });
       const editing = state.editingQuestion;
       await api.saveQuestion({ ...q, id: editing?.id });

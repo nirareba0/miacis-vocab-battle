@@ -52,3 +52,5 @@ details.card .btn { margin-top: 10px; }
 .grow { flex: 1; }
 .deadline-form { align-items: flex-end; margin-top: 8px; }
 .chips { display: grid; gap: 4px; justify-items: end; }
+.admin label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; }
+.admin label.check input { width: 20px; height: 20px; }

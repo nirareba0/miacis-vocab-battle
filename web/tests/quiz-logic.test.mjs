@@ -13,7 +13,7 @@ test('まとめて貼り付け: カンマとタブ、6列目のタグ、行ご�
   ].join('\n');
   const { questions, errors } = parseBulk(text, '既定');
   assert.equal(questions.length, 2);
-  assert.deepEqual(questions[0], { body: '1日は何時間？', choices: ['24時間', '12時間', '36時間', '48時間'], answer: 0, tag: '既定', image_path: null });
+  assert.deepEqual(questions[0], { body: '1日は何時間？', choices: ['24時間', '12時間', '36時間', '48時間'], answer: 0, tag: '既定', image_path: null, kind: 'quiz' });
   assert.equal(questions[1].tag, 'くらし');
   assert.deepEqual(errors.map((e) => e.line), [5, 6]);
 });

@@ -164,6 +164,7 @@ function showQuestion(s, q) {
       </div>
       <div class="timer" aria-hidden="true"><div class="timer-fill" id="bar"></div></div>
       <div class="q-panel"><h1 class="question">${h(q.body)}</h1></div>
+      ${q.kind === 'speed' ? '<p class="speed-banner">早押し！ どれを押してもOK</p>' : ''}
       ${img ? `<img class="q-img" src="${h(img)}" alt="">` : ''}
       <div class="tiles">
         ${q.choices.map((c, i) => `<button class="tile t${i}" data-i="${i}"><span class="num">${NUMS[i]}</span><span class="txt">${h(c)}</span></button>`).join('')}
@@ -207,25 +208,36 @@ function showQuestion(s, q) {
   });
 }
 
-/** 正解の発表と、この問題の早押しトップ5 */
+/** 正解の発表と、この問題の早押しトップ5。早押し（正解なし）は「みんなの答え」 */
 function showReveal(q, r) {
   return new Promise((resolve) => {
-    const verdict = r.correct ? '<p class="verdict ok">正解！</p>' : r.timed_out
-      ? '<p class="verdict ng">時間切れ</p>' : '<p class="verdict ng">ざんねん</p>';
+    const speed = r.kind === 'speed';
+    const verdict = speed
+      ? (r.correct ? '<p class="verdict ok">押した！</p>' : '<p class="verdict ng">時間切れ</p>')
+      : r.correct ? '<p class="verdict ok">正解！</p>' : r.timed_out
+        ? '<p class="verdict ng">時間切れ</p>' : '<p class="verdict ng">ざんねん</p>';
     const top = (r.board?.fastest ?? []).map((f, i) => `<li class="${f.is_me ? 'is-me' : ''}">
       <span class="pos">${i + 1}</span><span class="name">${h(f.nickname)}</span><span class="ms">${formatMs2(f.ms)}</span></li>`).join('');
+    const votes = r.votes ?? [0, 0, 0, 0];
+    const sum = Math.max(1, votes.reduce((x, y) => x + y, 0));
+    const head = speed
+      ? `<p class="answer-label">みんなの答え</p>
+        <div class="votes">${q.choices.map((c, i) => `<div class="vote t${i} ${r.choice === i ? 'mine' : ''}">
+          <span class="vote-bar" style="width:${Math.round(100 * votes[i] / sum)}%"></span>
+          <span class="vote-txt">${h(c)}</span><span class="vote-n">${Math.round(100 * votes[i] / sum)}%</span></div>`).join('')}</div>`
+      : `<p class="answer-label">正解は</p>
+        <div class="answer-tile t${r.answer}"><span class="num">${NUMS[r.answer]}</span><span class="txt">${h(q.choices[r.answer])}</span></div>`;
     render(`<section class="show reveal">
       <div class="show-head">
         <span class="q-no">第<strong>${q.position + 1}</strong>問</span>
         <span class="q-of">${q.position + 1} / ${q.total}</span>
       </div>
-      <p class="answer-label">正解は</p>
-      <div class="answer-tile t${r.answer}"><span class="num">${NUMS[r.answer]}</span><span class="txt">${h(q.choices[r.answer])}</span></div>
+      ${head}
       ${verdict}
       <p class="my-time">${r.correct ? `あなた <strong>${formatMs2(r.elapsed_ms)}</strong>` : '記録なし'}</p>
       <div class="board">
-        <div class="board-head"><span>早押しトップ5</span><span>正解率 ${r.board?.correct_rate ?? 0}%</span></div>
-        ${top ? `<ol class="fastest">${top}</ol>` : '<p class="empty small">まだ正解者がいない</p>'}
+        <div class="board-head"><span>早押しトップ5</span><span>${speed ? `${r.board?.answered ?? 0}人` : `正解率 ${r.board?.correct_rate ?? 0}%`}</span></div>
+        ${top ? `<ol class="fastest">${top}</ol>` : '<p class="empty small">まだだれもいない</p>'}
       </div>
       <button class="btn gold big" id="next">${r.done ? '結果へ' : '次の問題'}</button>
     </section>`, { stage: true });

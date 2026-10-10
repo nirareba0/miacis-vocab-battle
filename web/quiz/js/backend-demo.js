@@ -109,7 +109,7 @@ function questionAt(s, a) {
 function record(s, a, choice, elapsed) {
   const z = s.quizzes.find((q) => q.id === a.quiz_id);
   const q = questionAt(s, a);
-  const ok = choice !== null && choice === q.answer;
+  const ok = choice !== null && (q.kind === 'speed' || choice === q.answer);
   a.answers.push({ question_id: q.id, choice, is_correct: ok, elapsed_ms: elapsed, answered_at: now() });
   a.position += 1;
   a.served_at = null;
@@ -187,10 +187,10 @@ export async function nextQuestion(attemptId) {
   }
   if ((z.status !== 'open' || isPast(z)) && !a.served_at) fail('quiz_closed');
   const q = questionAt(s, a);
-  if (!a.served_at) { a.served_at = now(); a.order = shuffle(); }
+  if (!a.served_at) { a.served_at = now(); a.order = q.kind === 'speed' ? [0, 1, 2, 3] : shuffle(); }
   save(s);
   return {
-    done: false, position: a.position, total, body: q.body, image_path: q.image_path,
+    done: false, position: a.position, total, body: q.body, image_path: q.image_path, kind: q.kind ?? 'quiz',
     choices: a.order.map((o) => q.choices[o]), time_limit_sec: z.time_limit_sec,
     remaining_ms: Math.max(0, limit - (now() - a.served_at))
   };
@@ -218,9 +218,11 @@ export async function answer(attemptId, choice) {
     .slice(0, 5).map((y) => ({ nickname: s.players[y.user_id], ms: y.elapsed_ms, is_me: y.user_id === ME }));
   const board = { answered: all.length, correct_rate: Math.round(100 * all.filter((y) => y.is_correct).length / Math.max(all.length, 1)), fastest };
   const b = s.breaks.find((x) => x.quiz_id === a.quiz_id && x.after_position === position + 1);
+  const speed = q.kind === 'speed';
+  const votes = speed ? [0, 1, 2, 3].map((k) => all.filter((y) => y.choice === k).length) : null;
   return {
-    correct: ok, timed_out: timedOut, answer: order.indexOf(q.answer), elapsed_ms: elapsed, done: Boolean(a.finished_at),
-    position, board,
+    correct: ok, timed_out: timedOut, answer: speed ? null : order.indexOf(q.answer), elapsed_ms: elapsed, done: Boolean(a.finished_at),
+    position, board, kind: q.kind ?? 'quiz', choice, votes,
     break: b ? { title: b.title, body: b.body, image_path: b.image_path, link_url: b.link_url, seconds: b.seconds } : null
   };
 }
@@ -267,7 +269,7 @@ export async function saveQuestion(q) {
   const s = load();
   if (q.id) {
     const cur = s.questions.find((x) => x.id === q.id);
-    Object.assign(cur, { body: q.body, choices: q.choices, answer: q.answer, tag: q.tag, image_path: q.image_path });
+    Object.assign(cur, { body: q.body, choices: q.choices, answer: q.answer, tag: q.tag, image_path: q.image_path, kind: q.kind ?? 'quiz' });
     save(s);
     return cur;
   }

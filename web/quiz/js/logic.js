@@ -57,18 +57,18 @@ export function escapeHtml(s) {
 }
 
 /** 問題1つの入力を検査して、保存する形（正解を choices[0] に置く）にする */
-export function buildQuestion({ body, correct, wrong = [], tag = '', image_path = null }) {
+export function buildQuestion({ body, correct, wrong = [], tag = '', image_path = null, kind = 'quiz' }) {
   const b = String(body ?? '').trim();
   const c = String(correct ?? '').trim();
   const w = wrong.map((x) => String(x ?? '').trim());
   if (!b) throw new Error('問題文が空');
   if (b.length > 300) throw new Error('問題文は300文字まで');
-  if (!c) throw new Error('正解が空');
-  if (w.length !== 3 || w.some((x) => !x)) throw new Error('まちがいの選択肢が3つ要る');
+  if (!c) throw new Error(kind === 'speed' ? '選択肢1が空' : '正解が空');
+  if (w.length !== 3 || w.some((x) => !x)) throw new Error(kind === 'speed' ? '選択肢が4つ要る' : 'まちがいの選択肢が3つ要る');
   const all = [c, ...w];
   if (new Set(all).size !== 4) throw new Error('選択肢が重なっている');
   const t = String(tag ?? '').trim();
-  return { body: b, choices: all, answer: 0, tag: t || null, image_path: image_path || null };
+  return { body: b, choices: all, answer: 0, tag: t || null, image_path: image_path || null, kind: kind === 'speed' ? 'speed' : 'quiz' };
 }
 
 /**

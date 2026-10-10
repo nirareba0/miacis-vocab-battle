@@ -127,7 +127,7 @@ export async function listQuestions() {
 
 export async function saveQuestion(q) {
   const row = { body: q.body, choices: q.choices, answer: q.answer, tag: q.tag, image_path: q.image_path,
-    updated_at: new Date().toISOString() };
+    kind: q.kind ?? 'quiz', updated_at: new Date().toISOString() };
   if (q.id) return check(await sb.from('quiz_questions').update(row).eq('id', q.id).select().single());
   return check(await sb.from('quiz_questions').insert(row).select().single());
 }
