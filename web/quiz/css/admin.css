@@ -49,3 +49,6 @@ details.card .btn { margin-top: 10px; }
 .coupon-list .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 20px; font-weight: 800; letter-spacing: .12em; }
 .coupon-list small { color: var(--muted); }
 .login { margin-top: 40px; }
+.grow { flex: 1; }
+.deadline-form { align-items: flex-end; margin-top: 8px; }
+.chips { display: grid; gap: 4px; justify-items: end; }

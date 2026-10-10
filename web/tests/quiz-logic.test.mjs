@@ -37,3 +37,21 @@ test('表示の小物', () => {
   assert.equal(translateError(new Error('ERROR: nickname_taken')), 'その名前はもう使われている');
   assert.match(translateError(new Error('violates foreign key constraint')), /消せない/);
 });
+
+import { formatMs2, formatDeadline, remainingLabel, defaultDeadlineInput, deadlineInputToIso, isoToDeadlineInput } from '../quiz/js/logic.js';
+
+test('締め切りと秒の表示（日本時間）', () => {
+  const now = new Date('2026-10-10T03:00:00Z'); // JST 12:00
+  assert.equal(formatMs2(1234), '1.23秒');
+  assert.equal(formatDeadline('2026-10-10T06:00:00Z', now), '15:00');
+  assert.equal(formatDeadline('2026-10-12T06:30:00Z', now), '10/12 15:30');
+  assert.equal(remainingLabel('2026-10-10T06:00:00Z', now), 'あと3時間');
+  assert.equal(remainingLabel('2026-10-10T04:05:00Z', now), 'あと1時間5分');
+  assert.equal(remainingLabel('2026-10-10T03:11:30Z', now), 'あと12分');
+  assert.equal(remainingLabel('2026-10-10T02:00:00Z', now), null);
+  assert.equal(defaultDeadlineInput(now), '2026-10-10T15:00');
+  assert.equal(defaultDeadlineInput(new Date('2026-10-10T07:00:00Z')), '2026-10-11T15:00');
+  assert.equal(deadlineInputToIso('2026-10-10T15:00'), '2026-10-10T06:00:00.000Z');
+  assert.equal(isoToDeadlineInput('2026-10-10T06:00:00Z'), '2026-10-10T15:00');
+  assert.throws(() => deadlineInputToIso('15:00'), /おかしい/);
+});

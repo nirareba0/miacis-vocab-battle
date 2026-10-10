@@ -84,6 +84,7 @@ export const nextQuestion = (attemptId) => call('quiz_next', { p_token: getToken
 export const answer = (attemptId, choice) => call('quiz_answer', { p_token: getToken(), p_attempt: attemptId, p_choice: choice });
 export const ranking = (setId) => call('quiz_ranking', { p_set: setId, p_token: getToken() });
 export const myCoupons = () => call('quiz_my_coupons', { p_token: getToken() });
+export const myAnswers = (setId) => call('quiz_my_answers', { p_token: getToken(), p_set: setId });
 
 export function imageUrl(path) {
   if (!path) return null;
@@ -154,7 +155,7 @@ export async function listAdminQuizzes() {
 }
 
 export async function saveQuiz(z) {
-  const row = { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url };
+  const row = { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url, closes_at: z.closes_at };
   if (z.id) return check(await sb.from('quiz_sets').update(row).eq('id', z.id).select().single());
   return check(await sb.from('quiz_sets').insert(row).select().single());
 }
@@ -167,3 +168,18 @@ export async function deleteQuiz(setId) {
 }
 export const useCoupon = (code) => call('quiz_use_coupon', { p_code: code });
 export const adminCoupons = () => call('quiz_admin_coupons');
+
+// お知らせ（CM）。after_position は「◯問目のあと」（1 始まり）
+export async function listBreaks(setId) {
+  return check(await sb.from('quiz_breaks').select('*').eq('set_id', setId).order('after_position'));
+}
+export async function saveBreak(b) {
+  const row = { set_id: b.quiz_id, after_position: b.after_position, title: b.title, body: b.body,
+    image_path: b.image_path, link_url: b.link_url, seconds: b.seconds };
+  const res = b.id ? await sb.from('quiz_breaks').update(row).eq('id', b.id) : await sb.from('quiz_breaks').insert(row);
+  if (res.error?.code === '23505') throw new Error('break_taken');
+  check(res);
+}
+export async function deleteBreak(id) {
+  check(await sb.from('quiz_breaks').delete().eq('id', id));
+}

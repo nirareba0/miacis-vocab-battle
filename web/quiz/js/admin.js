@@ -1,11 +1,15 @@
 /**
- * admin.js - 管理画面。問題のストック（画像つき・まとめて貼り付け）、クイズを組んで公開・締め切り、クーポンの使用済み
+ * admin.js - 管理画面。問題のストック（画像つき・まとめて貼り付け）、クイズを組んで公開・締め切り（時刻で自動）、
+ * お知らせ（CM）を挟む位置、クーポンの使用済み
  */
 import { api } from './backend.js';
-import { translateError, escapeHtml as h, buildQuestion, parseBulk, formatMs } from './logic.js';
+import {
+  translateError, escapeHtml as h, buildQuestion, parseBulk, formatMs,
+  formatDeadline, defaultDeadlineInput, deadlineInputToIso, isoToDeadlineInput
+} from './logic.js';
 
 const root = document.getElementById('admin');
-const state = { tab: 'questions', questions: [], quizzes: [], editingQuestion: null, editingQuiz: null, tagFilter: '' };
+const state = { tab: 'questions', questions: [], quizzes: [], editingQuestion: null, editingQuiz: null, editingBreaks: null, tagFilter: '' };
 
 const playUrl = (quizId) => api.shareUrl(quizId);
 
@@ -260,22 +264,30 @@ function quizItem(z) {
   return `<article class="quiz-card admin-quiz">
     <div class="quiz-head">
       <span class="chip ${z.status === 'open' ? 'on' : ''}">${status}</span>
-      <span class="meta">${z.question_ids.length}問 · 1問${z.time_limit_sec}秒${z.prize ? ` · 1位 🎟 ${h(z.prize)}` : ''}${z.coupon_url ? ' · クーポン URL あり' : ' · クーポン URL なし'}</span>
+      <span class="meta">${z.question_ids.length}問 · 1問${z.time_limit_sec}秒${z.prize ? ` · 1位 🏆 ${h(z.prize)}` : ''}${z.coupon_url ? ' · クーポン URL あり' : ' · クーポン URL なし'}</span>
     </div>
     <h2>${h(z.title)}</h2>
+    ${z.status === 'closed' ? (z.closes_at ? `<p class="deadline">${h(formatDeadline(z.closes_at))} 締め切り</p>` : '') : `
+    <form class="row deadline-form" data-deadline="${z.id}">
+      <label class="grow">締め切り（この時刻に自動で閉じ、1位にクーポンと LINE）<input type="datetime-local" name="closes_at" value="${h(isoToDeadlineInput(z.closes_at))}"></label>
+      <button class="btn">変える</button>
+    </form>`}
     <div class="row wrap">
       ${z.status === 'draft' ? `
         <button class="btn" data-pick="${z.id}">問題を選ぶ</button>
+        <button class="btn" data-breaks="${z.id}">お知らせ（CM）</button>
         <button class="btn primary" data-open="${z.id}" ${z.question_ids.length ? '' : 'disabled'}>公開</button>
         <button class="linkish danger" data-delquiz="${z.id}">消す</button>` : ''}
       ${z.status === 'open' ? `
         <button class="btn" data-copy="${z.id}">リンクをコピー</button>
         <button class="btn" data-rank="${z.id}">ランキング</button>
+        <button class="btn" data-breaks="${z.id}">お知らせ（CM）</button>
         <button class="btn danger" data-close="${z.id}">締め切る</button>` : ''}
       ${z.status === 'closed' ? `<button class="btn" data-rank="${z.id}">結果</button>` : ''}
     </div>
     ${z.status === 'open' ? `<p class="hint url">${h(playUrl(z.id))}</p>` : ''}
     <div id="rank-${z.id}"></div>
+    ${state.editingBreaks === z.id ? `<div class="card builder" id="breaks-${z.id}"><p class="empty">読み込み中…</p></div>` : ''}
     ${editing ? quizBuilder(z) : ''}
   </article>`;
 }
@@ -289,9 +301,10 @@ function drawQuizzes() {
         <label>1問の制限時間（秒）<input name="limit" type="number" min="5" max="120" value="15" required></label>
         <label>1位のごほうび<input name="prize" maxlength="80" value="購買で使えるクーポン"></label>
         <label>公式LINEのクーポンの URL（1位の人にだけ見える・任意）<input name="coupon_url" type="url" maxlength="500" placeholder="https://"></label>
+        <label>締め切り（この時刻までに終えた人で順位を決める）<input name="closes_at" type="datetime-local" value="${defaultDeadlineInput()}"></label>
         <button class="btn primary">下書きを作る</button>
       </form>
-      <p class="hint">作ったら「問題を選ぶ」→「公開」。公開したらリンクを公式LINEで送る（開くと LINE でログインして参加）。締め切ると1位にクーポンが出る</p>
+      <p class="hint">作ったら「問題を選ぶ」→「お知らせ（CM）」（任意）→「公開」。公開したらリンクを公式LINEで送る（開くと LINE でログインして参加）。締め切りの時刻に自動で閉じ、1位にクーポンが出て公式LINE で知らせる</p>
     </section>
     ${state.quizzes.map(quizItem).join('') || '<p class="empty">まだクイズが無い</p>'}`;
 
@@ -301,7 +314,8 @@ function drawQuizzes() {
     try {
       const url = f.get('coupon_url').trim();
       if (url && !/^https:\/\//.test(url)) throw new Error('クーポンの URL は https:// で始まるものだけ');
-      const z = await api.saveQuiz({ title: f.get('title').trim(), time_limit_sec: Number(f.get('limit')), prize: f.get('prize').trim() || null, coupon_url: url || null });
+      const z = await api.saveQuiz({ title: f.get('title').trim(), time_limit_sec: Number(f.get('limit')), prize: f.get('prize').trim() || null,
+        coupon_url: url || null, closes_at: deadlineInputToIso(f.get('closes_at')) });
       state.editingQuiz = z.id;
       await load();
       draw();
@@ -322,13 +336,25 @@ function drawQuizzes() {
     try { await navigator.clipboard.writeText(playUrl(id)); flash('リンクをコピーした'); } catch { flash('コピーできなかった。下のリンクを長押しでコピー', 'ng'); }
   });
   on('rank', (id) => showRanking(id));
+  on('breaks', (id) => { state.editingBreaks = state.editingBreaks === id ? null : id; draw(); });
+  document.querySelectorAll('[data-deadline]').forEach((form) => form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const z = state.quizzes.find((q) => q.id === form.dataset.deadline);
+    try {
+      await api.saveQuiz({ ...z, closes_at: deadlineInputToIso(new FormData(form).get('closes_at')) });
+      await load();
+      draw();
+      flash('締め切りを変えた');
+    } catch (e) { fail(e); }
+  }));
+  if (state.editingBreaks) drawBreaks(state.quizzes.find((q) => q.id === state.editingBreaks));
   on('close', async (id, b) => {
     if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = '締め切って1位にクーポンを出す'; return; }
     try {
       const r = await api.closeQuiz(id);
       await load();
       draw();
-      flash(r.winner ? `締め切った。1位 ${r.winner} にクーポン ${r.code}` : '締め切った。終えた人がいないのでクーポンは無し');
+      flash(r.winner ? `締め切った。1位 ${r.winner} にクーポン ${r.code}（${PUSH[r.push] ?? r.push ?? ''}）` : '締め切った。終えた人がいないのでクーポンは無し');
       showRanking(id);
     } catch (e) { fail(e); }
   });
@@ -361,6 +387,67 @@ function drawQuizzes() {
       } catch (e) { fail(e); }
     });
   }
+}
+
+const PUSH = { sent: 'LINE で送った', no_token: 'LINE は未設定', demo: 'お試し', error: 'LINE に送れず' };
+
+// お知らせ（CM）: 「◯問目のあと」に告知を挟む。1問のあとに1つまで
+async function drawBreaks(z) {
+  const box = document.getElementById(`breaks-${z.id}`);
+  if (!box) return;
+  try {
+    const list = await api.listBreaks(z.id);
+    const n = Math.max(z.question_ids.length, 1);
+    box.innerHTML = `
+      <h3 class="title">お知らせ（CM）</h3>
+      <p class="hint">「◯問目のあと」に告知を出す。決めた秒数は見てもらってから、つづきへ進む（制限時間は止まっている）</p>
+      <ul class="q-list">${list.map((b) => `<li>
+        ${b.image_path ? `<img class="thumb" src="${h(api.imageUrl(b.image_path))}" alt="">` : '<span class="thumb none"></span>'}
+        <div class="q-text"><p class="q-body">${b.after_position}問目のあと · ${h(b.title)}</p>
+          <p class="q-choices">${h(b.body ?? '')} · ${b.seconds}秒${b.link_url ? ' · リンクあり' : ''}</p></div>
+        <div class="q-actions"><button class="linkish danger" data-delbreak="${b.id}">消す</button></div>
+      </li>`).join('') || '<p class="empty">まだ無い</p>'}</ul>
+      <form id="break-form" class="stack">
+        <label>何問目のあと<select name="after">${Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}問目のあと</option>`).join('')}</select></label>
+        <label>見出し<input name="title" maxlength="40" required placeholder="例: 土曜はボードゲーム会"></label>
+        <label>本文（任意）<textarea name="body" rows="2" maxlength="300"></textarea></label>
+        <div class="img-field">
+          <label class="btn" for="break-img">画像を選ぶ</label>
+          <input id="break-img" type="file" accept="image/*" hidden>
+          <img id="break-preview" class="thumb hidden" alt="">
+        </div>
+        <label>リンク（任意・https://）<input name="link" type="url" maxlength="500"></label>
+        <label>見せる秒数<input name="seconds" type="number" min="3" max="30" value="6"></label>
+        <button class="btn primary">お知らせを入れる</button>
+      </form>`;
+    let imagePath = null;
+    document.getElementById('break-img').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      try {
+        imagePath = await api.uploadImage(await shrinkImage(file));
+        const img = document.getElementById('break-preview');
+        img.src = api.imageUrl(imagePath);
+        img.classList.remove('hidden');
+      } catch (e) { fail(e); }
+    });
+    document.getElementById('break-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.target);
+      const link = f.get('link').trim();
+      try {
+        if (link && !/^https:\/\//.test(link)) throw new Error('リンクは https:// で始まるものだけ');
+        await api.saveBreak({ quiz_id: z.id, after_position: Number(f.get('after')), title: f.get('title').trim(),
+          body: f.get('body').trim() || null, image_path: imagePath, link_url: link || null, seconds: Number(f.get('seconds')) });
+        flash('お知らせを入れた');
+        drawBreaks(z);
+      } catch (e) { fail(e); }
+    });
+    box.querySelectorAll('[data-delbreak]').forEach((b) => b.addEventListener('click', async () => {
+      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = '本当に消す'; return; }
+      try { await api.deleteBreak(b.dataset.delbreak); drawBreaks(z); } catch (e) { fail(e); }
+    }));
+  } catch (e) { fail(e); }
 }
 
 async function showRanking(id) {
@@ -408,7 +495,8 @@ async function drawCouponList() {
     document.getElementById('coupon-list').innerHTML = list.map((c) => `<li class="${c.used_at ? 'used' : ''}">
       <span class="code">${h(c.code)}</span>
       <span>${h(c.nickname ?? '')}<br><small>${h(c.quiz_title ?? '')} · ${h(c.prize ?? '')}</small></span>
-      <span class="chip ${c.used_at ? '' : 'on'}">${c.used_at ? '使用済み' : '未使用'}</span>
+      <span class="chips"><span class="chip ${c.used_at ? '' : 'on'}">${c.used_at ? '使用済み' : '未使用'}</span>
+        ${c.push_status ? `<span class="chip">${h(PUSH[c.push_status] ?? 'LINE に送れず')}</span>` : ''}</span>
     </li>`).join('') || '<li class="empty">まだクーポンは出ていない</li>';
   } catch (e) { fail(e); }
 }

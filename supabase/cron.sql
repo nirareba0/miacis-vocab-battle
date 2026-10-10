@@ -45,3 +45,11 @@ select cron.schedule(
   '5 15 * * *',
   $$select public.draw_monthly_raffle_if_due();$$
 );
+
+-- Miacis クイズ（0031）: 締め切り時刻を過ぎた公開中のクイズを閉じ、1位にクーポンを出して LINE で知らせる
+-- Schedule: 毎分（締め切りから最大1分で閉じる）
+select cron.schedule(
+  'quiz-close-due-job',
+  '* * * * *',
+  $$select public.quiz_close_due();$$
+);

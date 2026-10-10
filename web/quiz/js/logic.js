@@ -22,6 +22,7 @@ const ERRORS = {
   quiz_not_open: '公開中のクイズではない',
   coupon_not_found: 'そのコードのクーポンは無い',
   coupon_used: 'そのクーポンは使用済み',
+  break_taken: 'その問題のあとには、もうお知らせが入っている',
   'Invalid login credentials': 'メールアドレスかパスワードが違う',
   'Failed to fetch': '通信できなかった。電波のいい所でもう一度'
 };
@@ -110,4 +111,61 @@ export function rankSummary(rows) {
 export function timerRatio(remainingMs, limitSec) {
   const r = remainingMs / (limitSec * 1000);
   return Math.min(1, Math.max(0, r));
+}
+
+/** 1234 → "1.23秒"（1問ごとの早押しの表示） */
+export function formatMs2(ms) {
+  const s = Math.max(0, Number(ms) || 0) / 1000;
+  return `${s.toFixed(2)}秒`;
+}
+
+const two = (n) => String(n).padStart(2, '0');
+
+/** 締め切りの時刻。同じ日なら "15:00"、別の日なら "10/12 15:00"（日本時間） */
+export function formatDeadline(iso, now = new Date()) {
+  if (!iso) return '';
+  const jst = (d) => new Date(new Date(d).getTime() + 9 * 3600 * 1000);
+  const d = jst(iso);
+  const n = jst(now);
+  const hm = `${d.getUTCHours()}:${two(d.getUTCMinutes())}`;
+  const sameDay = d.getUTCFullYear() === n.getUTCFullYear() && d.getUTCMonth() === n.getUTCMonth() && d.getUTCDate() === n.getUTCDate();
+  return sameDay ? hm : `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${hm}`;
+}
+
+/** 締め切りまでの残り。"あと1時間5分" / "あと12分" / "あと1分" / 過ぎたら null */
+export function remainingLabel(iso, now = new Date()) {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - new Date(now).getTime();
+  if (ms <= 0) return null;
+  const min = Math.ceil(ms / 60000);
+  if (min < 60) return `あと${min}分`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `あと${h}時間${m}分` : `あと${h}時間`;
+}
+
+/** 締め切りの入力（datetime-local）の初期値: きょうの 15:00。15:00 を過ぎていたらあしたの 15:00（日本時間） */
+export function defaultDeadlineInput(now = new Date(), hour = 15) {
+  const jst = new Date(new Date(now).getTime() + 9 * 3600 * 1000);
+  let y = jst.getUTCFullYear(), mo = jst.getUTCMonth(), d = jst.getUTCDate();
+  if (jst.getUTCHours() >= hour) {
+    const t = new Date(Date.UTC(y, mo, d + 1));
+    y = t.getUTCFullYear(); mo = t.getUTCMonth(); d = t.getUTCDate();
+  }
+  return `${y}-${two(mo + 1)}-${two(d)}T${two(hour)}:00`;
+}
+
+/** datetime-local の値（日本時間とみなす）→ ISO */
+export function deadlineInputToIso(value) {
+  if (!value) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!m) throw new Error('締め切りの日時がおかしい');
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 9, +m[5])).toISOString();
+}
+
+/** ISO → datetime-local の値（日本時間） */
+export function isoToDeadlineInput(iso) {
+  if (!iso) return '';
+  const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())}T${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
 }

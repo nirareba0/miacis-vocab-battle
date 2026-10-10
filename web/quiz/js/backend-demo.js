@@ -39,25 +39,30 @@ function seed() {
   fakes.forEach(([nick, correct, ms], i) => {
     const id = `fake${i}`;
     players[id] = nick;
+    // 1問ごとの記録（早押しトップ5に出す）。正解は前から correct 問、時間は合計を5で割ってばらす
+    const answers = qs.map((q, k) => ({ question_id: q.id, choice: k < correct ? 0 : 1, is_correct: k < correct,
+      elapsed_ms: Math.round(ms / 5 * (0.6 + 0.2 * ((k + i) % 4))), answered_at: t - (i + 1) * 3600000 }));
     attempts.push({ id: uid(), quiz_id: quizId, user_id: id, position: 5, served_at: null, order: null,
-      correct, total_ms: ms, finished_at: t - (i + 1) * 3600000, answers: [] });
+      correct, total_ms: answers.reduce((x, y) => x + y.elapsed_ms, 0), finished_at: t - (i + 1) * 3600000, answers });
   });
   return {
     players,
     questions: qs,
     quizzes: [{ id: quizId, title: '見本: Miacis ウォームアップ', time_limit_sec: 15, prize: '購買で使えるクーポン',
-      coupon_url: 'https://example.com/line-coupon',
+      coupon_url: 'https://example.com/line-coupon', closes_at: new Date(t + 3 * 3600000).toISOString(),
       status: 'open', opened_at: new Date(t - 86400000).toISOString(), closed_at: null,
       created_at: new Date(t - 86400000).toISOString(), question_ids: qs.map((q) => q.id) }],
     attempts,
-    coupons: []
+    coupons: [],
+    breaks: [{ id: uid(), quiz_id: quizId, after_position: 2, title: '土曜はボードゲーム会', body: '14:00から Miacis の2階で。だれでも参加OK',
+      image_path: sampleImage('🎲', '#e5753a'), link_url: null, seconds: 5 }]
   };
 }
 
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.quizzes) return s;
+    if (s && s.quizzes) { s.breaks ||= []; return s; }
   } catch { /* 壊れていたら作り直す */ }
   const s = seed();
   save(s);
@@ -74,6 +79,28 @@ function sortAttempts(list) {
     .sort((a, b) => b.correct - a.correct || a.total_ms - b.total_ms || a.finished_at - b.finished_at);
 }
 
+const isPast = (z) => Boolean(z.closes_at) && new Date(z.closes_at).getTime() <= now();
+const inTime = (z) => (a) => a.finished_at && (!z.closes_at || a.finished_at <= new Date(z.closes_at).getTime());
+
+// 締め切って1位にクーポン（本番の quiz_close_internal と同じ）。お試しでは LINE には送らない
+function closeInternal(s, z) {
+  if (z.status !== 'open') fail('quiz_not_open');
+  z.status = 'closed';
+  z.closed_at = new Date().toISOString();
+  const [w] = sortAttempts(s.attempts.filter((a) => a.quiz_id === z.id).filter(inTime(z)));
+  if (!w) return { winner: null };
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const code = Array.from({ length: 6 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+  s.coupons.push({ code, quiz_id: z.id, user_id: w.user_id, prize: z.prize, coupon_url: z.coupon_url ?? null,
+    issued_at: new Date().toISOString(), used_at: null, push_status: 'demo' });
+  return { winner: s.players[w.user_id], code, prize: z.prize, push: 'demo' };
+}
+
+// 締め切り時刻を過ぎたものを閉じる（本番は pg_cron が毎分）
+function closeDue(s) {
+  s.quizzes.filter((z) => z.status === 'open' && isPast(z)).forEach((z) => closeInternal(s, z));
+}
+
 function questionAt(s, a) {
   const z = s.quizzes.find((q) => q.id === a.quiz_id);
   return s.questions.find((q) => q.id === z.question_ids[a.position]);
@@ -83,7 +110,7 @@ function record(s, a, choice, elapsed) {
   const z = s.quizzes.find((q) => q.id === a.quiz_id);
   const q = questionAt(s, a);
   const ok = choice !== null && choice === q.answer;
-  a.answers.push({ question_id: q.id, choice, is_correct: ok, elapsed_ms: elapsed });
+  a.answers.push({ question_id: q.id, choice, is_correct: ok, elapsed_ms: elapsed, answered_at: now() });
   a.position += 1;
   a.served_at = null;
   a.order = null;
@@ -114,14 +141,16 @@ export async function register(nickname) {
 
 export async function listQuizzes() {
   const s = load();
+  closeDue(s);
+  save(s);
   return s.quizzes.filter((z) => z.status !== 'draft')
     .sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1) || String(b.opened_at).localeCompare(String(a.opened_at)))
     .map((z) => {
       const mine = s.attempts.find((a) => a.quiz_id === z.id && a.user_id === ME);
       return {
         id: z.id, title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, status: z.status,
-        opened_at: z.opened_at, closed_at: z.closed_at, total: z.question_ids.length,
-        players: s.attempts.filter((a) => a.quiz_id === z.id && a.finished_at).length,
+        opened_at: z.opened_at, closed_at: z.closed_at, closes_at: z.closes_at ?? null, total: z.question_ids.length,
+        players: s.attempts.filter((a) => a.quiz_id === z.id).filter(inTime(z)).length,
         my_correct: mine?.correct ?? null, my_finished: Boolean(mine?.finished_at), my_started: Boolean(mine)
       };
     });
@@ -134,7 +163,7 @@ export async function startAttempt(quizId) {
   if (!z || z.status === 'draft') fail('quiz_not_found');
   let a = s.attempts.find((x) => x.quiz_id === quizId && x.user_id === ME);
   if (a?.finished_at) fail('already_played');
-  if (z.status !== 'open') fail('quiz_closed');
+  if (z.status !== 'open' || isPast(z)) fail('quiz_closed');
   if (!z.question_ids.length) fail('quiz_empty');
   if (!a) {
     a = { id: uid(), quiz_id: quizId, user_id: ME, position: 0, served_at: null, order: null,
@@ -156,7 +185,7 @@ export async function nextQuestion(attemptId) {
     save(s);
     return { done: true, correct: a.correct, total, total_ms: a.total_ms };
   }
-  if (z.status !== 'open' && !a.served_at) fail('quiz_closed');
+  if ((z.status !== 'open' || isPast(z)) && !a.served_at) fail('quiz_closed');
   const q = questionAt(s, a);
   if (!a.served_at) { a.served_at = now(); a.order = shuffle(); }
   save(s);
@@ -179,14 +208,27 @@ export async function answer(attemptId, choice) {
   elapsed = timedOut ? limit : Math.min(elapsed, limit);
   const order = a.order;
   const q = questionAt(s, a);
+  const position = a.position;
   const ok = record(s, a, timedOut ? null : order[choice], elapsed);
   save(s);
-  return { correct: ok, timed_out: timedOut, answer: order.indexOf(q.answer), elapsed_ms: elapsed, done: Boolean(a.finished_at) };
+  // この問題の正解率と早押しトップ5（本番の quiz_answer と同じ）
+  const all = s.attempts.filter((x) => x.quiz_id === a.quiz_id)
+    .flatMap((x) => x.answers.filter((y) => y.question_id === q.id).map((y) => ({ ...y, user_id: x.user_id })));
+  const fastest = all.filter((y) => y.is_correct).sort((x, y) => x.elapsed_ms - y.elapsed_ms || x.answered_at - y.answered_at)
+    .slice(0, 5).map((y) => ({ nickname: s.players[y.user_id], ms: y.elapsed_ms, is_me: y.user_id === ME }));
+  const board = { answered: all.length, correct_rate: Math.round(100 * all.filter((y) => y.is_correct).length / Math.max(all.length, 1)), fastest };
+  const b = s.breaks.find((x) => x.quiz_id === a.quiz_id && x.after_position === position + 1);
+  return {
+    correct: ok, timed_out: timedOut, answer: order.indexOf(q.answer), elapsed_ms: elapsed, done: Boolean(a.finished_at),
+    position, board,
+    break: b ? { title: b.title, body: b.body, image_path: b.image_path, link_url: b.link_url, seconds: b.seconds } : null
+  };
 }
 
 export async function ranking(quizId) {
   const s = load();
-  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId)).slice(0, 100).map((a, i) => ({
+  const z = s.quizzes.find((q) => q.id === quizId);
+  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId).filter(inTime(z))).slice(0, 100).map((a, i) => ({
     rank: i + 1, nickname: s.players[a.user_id], correct: a.correct, total_ms: a.total_ms, is_me: a.user_id === ME
   }));
 }
@@ -197,6 +239,12 @@ export async function myCoupons() {
     code: c.code, prize: c.prize, coupon_url: c.coupon_url ?? null, quiz_title: s.quizzes.find((z) => z.id === c.quiz_id)?.title,
     issued_at: c.issued_at, used_at: c.used_at
   }));
+}
+
+export async function myAnswers(quizId) {
+  const s = load();
+  const a = s.attempts.find((x) => x.quiz_id === quizId && x.user_id === ME);
+  return (a?.answers ?? []).map((y, i) => ({ position: i, correct: y.is_correct, ms: y.elapsed_ms, timed_out: y.choice === null }));
 }
 
 export function shareUrl(quizId) {
@@ -262,11 +310,11 @@ export async function saveQuiz(z) {
   const s = load();
   if (z.id) {
     const cur = s.quizzes.find((x) => x.id === z.id);
-    Object.assign(cur, { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url ?? null });
+    Object.assign(cur, { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url ?? null, closes_at: z.closes_at ?? null });
     save(s);
     return cur;
   }
-  const row = { id: uid(), title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url ?? null, status: 'draft',
+  const row = { id: uid(), title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url ?? null, closes_at: z.closes_at ?? null, status: 'draft',
     opened_at: null, closed_at: null, created_at: new Date().toISOString(), question_ids: [] };
   s.quizzes.push(row);
   save(s);
@@ -293,18 +341,9 @@ export async function openQuiz(quizId) {
 
 export async function closeQuiz(quizId) {
   const s = load();
-  const z = s.quizzes.find((q) => q.id === quizId);
-  if (z.status !== 'open') fail('quiz_not_open');
-  z.status = 'closed';
-  z.closed_at = new Date().toISOString();
-  const [w] = sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId));
-  if (!w) { save(s); return { winner: null }; }
-  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  const code = Array.from({ length: 6 }, () => A[Math.floor(Math.random() * A.length)]).join('');
-  s.coupons.push({ code, quiz_id: quizId, user_id: w.user_id, prize: z.prize, coupon_url: z.coupon_url ?? null,
-    issued_at: new Date().toISOString(), used_at: null });
+  const r = closeInternal(s, s.quizzes.find((q) => q.id === quizId));
   save(s);
-  return { winner: s.players[w.user_id], code, prize: z.prize };
+  return r;
 }
 
 export async function deleteQuiz(quizId) {
@@ -327,8 +366,26 @@ export async function adminCoupons() {
   const s = load();
   return [...s.coupons].reverse().map((c) => ({
     code: c.code, prize: c.prize, quiz_title: s.quizzes.find((z) => z.id === c.quiz_id)?.title,
-    nickname: s.players[c.user_id], issued_at: c.issued_at, used_at: c.used_at
+    nickname: s.players[c.user_id], issued_at: c.issued_at, used_at: c.used_at, push_status: c.push_status ?? null
   }));
+}
+
+export async function listBreaks(quizId) {
+  return load().breaks.filter((b) => b.quiz_id === quizId).sort((a, b) => a.after_position - b.after_position);
+}
+
+export async function saveBreak(b) {
+  const s = load();
+  if (s.breaks.some((x) => x.quiz_id === b.quiz_id && x.after_position === b.after_position && x.id !== b.id)) fail('break_taken');
+  if (b.id) Object.assign(s.breaks.find((x) => x.id === b.id), b);
+  else s.breaks.push({ ...b, id: uid() });
+  save(s);
+}
+
+export async function deleteBreak(id) {
+  const s = load();
+  s.breaks = s.breaks.filter((b) => b.id !== id);
+  save(s);
 }
 
 /** お試しの中身を最初の状態に戻す */
