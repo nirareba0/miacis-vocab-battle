@@ -8,7 +8,7 @@ import { GRACE_MS } from './logic.js';
 
 export const isDemo = true;
 
-const KEY = 'miacis-quiz-demo-v2';
+const KEY = 'miacis-quiz-demo-v3';
 const ME = 'me';
 const now = () => Date.now();
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
@@ -50,6 +50,7 @@ function seed() {
     questions: qs,
     quizzes: [{ id: quizId, title: '見本: Miacis ウォームアップ', time_limit_sec: 15, prize: '購買で使えるクーポン',
       coupon_url: 'https://example.com/line-coupon', closes_at: new Date(t + 3 * 3600000).toISOString(),
+      end_title: 'あした 15:00〜 BINGO大会！', end_body: 'ディズニーチケットのほかにも、景品いろいろ。', end_image_path: sampleImage('🎁', '#ef8a2e'),
       status: 'open', opened_at: new Date(t - 86400000).toISOString(), closed_at: null,
       created_at: new Date(t - 86400000).toISOString(), question_ids: qs.map((q) => q.id) }],
     attempts,
@@ -158,6 +159,7 @@ export async function listQuizzes() {
       return {
         id: z.id, title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, status: z.status,
         opened_at: z.opened_at, closed_at: z.closed_at, closes_at: z.closes_at ?? null, total: z.question_ids.length,
+        end_title: z.end_title ?? null, end_body: z.end_body ?? null, end_image_path: z.end_image_path ?? null, end_link_url: z.end_link_url ?? null,
         players: s.attempts.filter((a) => a.quiz_id === z.id && isStudent(s, a.user_id)).filter(inTime(z)).length,
         my_correct: mine?.correct ?? null, my_finished: Boolean(mine?.finished_at), my_started: Boolean(mine)
       };
@@ -235,10 +237,11 @@ export async function answer(attemptId, choice) {
   };
 }
 
-export async function ranking(quizId) {
+export async function ranking(quizId, student = true) {
   const s = load();
   const z = s.quizzes.find((q) => q.id === quizId);
-  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId && isStudent(s, a.user_id)).filter(inTime(z))).slice(0, 100).map((a, i) => ({
+  const inGroup = (id) => (student ? isStudent(s, id) : id === ME && s.students?.[ME] === false);
+  return sortAttempts(s.attempts.filter((a) => a.quiz_id === quizId && inGroup(a.user_id)).filter(inTime(z))).slice(0, 100).map((a, i) => ({
     rank: i + 1, nickname: s.players[a.user_id], correct: a.correct, total_ms: a.total_ms, is_me: a.user_id === ME
   }));
 }
@@ -321,6 +324,7 @@ export async function saveQuiz(z) {
   if (z.id) {
     const cur = s.quizzes.find((x) => x.id === z.id);
     Object.assign(cur, { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url ?? null, closes_at: z.closes_at ?? null });
+    for (const k of ['end_title', 'end_body', 'end_image_path', 'end_link_url']) if (z[k] !== undefined) cur[k] = z[k];
     save(s);
     return cur;
   }

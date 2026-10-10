@@ -304,19 +304,38 @@ function showBreak(b) {
 
 // ---------------------------------------------------------------- 結果・ランキング
 
+const rankingList = (rows) => rows.length ? `<ol class="g-ranking">${rows.map((r) => `
+  <li class="${r.is_me ? 'is-me' : ''}">
+    <b>${r.rank === 1 ? '👑' : r.rank}</b>
+    <span>${h(r.nickname)}</span>
+    <strong>${r.correct}問</strong>
+    <em>${formatMs2(r.total_ms)}</em>
+  </li>`).join('')}</ol>` : '<p class="empty">まだだれも終えていない</p>';
+
+/** 結果の画面の最後のお知らせ（例: あしたの BINGO 大会） */
+const finale = (z) => {
+  if (!z.end_title && !z.end_body) return '';
+  const img = api.imageUrl(z.end_image_path);
+  return `<section class="g-card g-finale">
+    <p class="g-finale-kicker">お知らせ</p>
+    ${img ? `<img src="${h(img)}" alt="">` : ''}
+    ${z.end_title ? `<h2>${h(z.end_title)}</h2>` : ''}
+    ${z.end_body ? `<p>${h(z.end_body)}</p>` : ''}
+    ${z.end_link_url ? `<a class="g-link" href="${h(z.end_link_url)}" target="_blank" rel="noopener">くわしく</a>` : ''}
+  </section>`;
+};
+
 async function rank(quizId, just) {
-  const [list, rows] = await Promise.all([api.listQuizzes(), api.ranking(quizId)]);
+  const [list, students, adults, who] = await Promise.all([
+    api.listQuizzes(), api.ranking(quizId, true), api.ranking(quizId, false), api.me({ raw: true })
+  ]);
   const z = list.find((q) => q.id === quizId);
   if (!z) throw new Error('quiz_not_found');
   const answers = z.my_started ? await api.myAnswers(quizId) : [];
-  const sum = rankSummary(rows);
-  const who = await api.me({ raw: true });
   const guest = who?.is_student === false;
-  // 中高生以外はランキングに入らないので、自分の記録は挑戦の記録から作る
-  const mine = rows.find((r) => r.is_me) ?? (guest && answers.length ? {
-    correct: answers.filter((a) => a.correct).length,
-    total_ms: answers.reduce((x, a) => x + a.ms, 0)
-  } : null);
+  const rows = guest ? adults : students;
+  const sum = rankSummary(rows);
+  const mine = rows.find((r) => r.is_me);
   const open = z.status === 'open';
 
   const record = answers.length ? `<div class="g-record">
@@ -329,29 +348,38 @@ async function rank(quizId, just) {
       <p class="g-badge">${!just ? 'きみの記録' : mine.correct === z.total ? 'PERFECT' : 'FINISH'}</p>
       <p class="g-score"><strong>${mine.correct}</strong><span>/ ${z.total}</span></p>
       <p class="g-total">合計 ${formatMs2(mine.total_ms)}</p>
-      ${guest ? '<p class="g-rank g-guest">ランキングは中高生だけ。参加ありがとう！</p>'
-        : `<p class="g-rank">${open ? 'いま ' : ''}<strong>${sum.rank}位</strong> / ${sum.total}人</p>`}
+      <p class="g-rank">${guest ? 'おとなの部 ' : open ? 'いま ' : ''}<strong>${sum.rank}位</strong> / ${sum.total}人</p>
       ${record}
-      ${open && z.prize && !guest ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}</p>` : ''}
-      ${!open && !guest && sum?.rank === 1 ? '<p class="g-win">1位！ クーポンはホームに届いている</p>' : ''}
+      ${guest ? '<p class="hint">プレゼントは中高生ランキングの1位だけ。参加ありがとう！</p>'
+        : open && z.prize ? `<p class="hint">${z.closes_at ? `${h(formatDeadline(z.closes_at))} の締め切りで` : '締め切りで'}1位なら 🏆 ${h(z.prize)}</p>` : ''}
+      ${!open && !guest && sum.rank === 1 ? '<p class="g-win">1位！ クーポンはホームに届いている</p>' : ''}
     </section>` : '';
 
   render(`
     ${head}
+    ${finale(z)}
     <section class="g-card g-board">
       <h2>${h(z.title)}</h2>
       ${deadlineLine(z)}
-      ${rows.length ? `<ol class="g-ranking">${rows.map((r) => `
-        <li class="${r.is_me ? 'is-me' : ''}">
-          <b>${r.rank === 1 ? '👑' : r.rank}</b>
-          <span>${h(r.nickname)}</span>
-          <strong>${r.correct}問</strong>
-          <em>${formatMs2(r.total_ms)}</em>
-        </li>`).join('')}</ol>` : '<p class="empty">まだだれも終えていない</p>'}
+      <div class="g-tabs" role="tablist">
+        <button role="tab" data-t="s" aria-selected="${!guest}">中高生 ${students.length}人</button>
+        <button role="tab" data-t="a" aria-selected="${guest}">おとな ${adults.length}人</button>
+      </div>
+      <div id="rank-s" ${guest ? 'hidden' : ''}>${rankingList(students)}</div>
+      <div id="rank-a" ${guest ? '' : 'hidden'}>
+        <p class="hint">おとなの部は参考の記録。プレゼントは中高生ランキングの1位だけ</p>
+        ${rankingList(adults)}
+      </div>
     </section>
     ${open && !z.my_finished ? `<a class="g-btn" href="#/play/${z.id}">挑戦</a>` : ''}
     <a class="g-back" href="#/">ホーム</a>
   `, { stage: true });
+
+  document.querySelectorAll('.g-tabs [data-t]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.g-tabs [data-t]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    document.getElementById('rank-s').hidden = b.dataset.t !== 's';
+    document.getElementById('rank-a').hidden = b.dataset.t !== 'a';
+  }));
 }
 
 // ---------------------------------------------------------------- ルーター

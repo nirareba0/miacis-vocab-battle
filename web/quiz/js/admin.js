@@ -297,6 +297,13 @@ function quizItem(z) {
       ${z.status === 'closed' ? `<button class="btn" data-rank="${z.id}">結果</button>` : ''}
     </div>
     ${z.status === 'open' ? `<p class="hint url">${h(playUrl(z.id))}</p>` : ''}
+    <form class="stack finale-form" data-finale="${z.id}">
+      <p class="hint">結果の画面の最後のお知らせ（任意。例: あした 15:00〜 BINGO大会）</p>
+      <input name="end_title" maxlength="60" placeholder="見出し" value="${h(z.end_title ?? '')}" aria-label="最後のお知らせの見出し">
+      <textarea name="end_body" rows="2" maxlength="300" placeholder="本文" aria-label="最後のお知らせの本文">${h(z.end_body ?? '')}</textarea>
+      <input name="end_link_url" type="url" maxlength="500" placeholder="リンク（任意・https://）" value="${h(z.end_link_url ?? '')}" aria-label="最後のお知らせのリンク">
+      <button class="btn">お知らせを保存</button>
+    </form>
     <div id="rank-${z.id}"></div>
     ${state.editingBreaks === z.id ? `<div class="card builder" id="breaks-${z.id}"><p class="empty">読み込み中…</p></div>` : ''}
     ${editing ? quizBuilder(z) : ''}
@@ -356,6 +363,19 @@ function drawQuizzes() {
       await load();
       draw();
       flash('締め切りを変えた');
+    } catch (e) { fail(e); }
+  }));
+  document.querySelectorAll('[data-finale]').forEach((form) => form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const z = state.quizzes.find((q) => q.id === form.dataset.finale);
+    const f = new FormData(form);
+    const link = f.get('end_link_url').trim();
+    try {
+      if (link && !/^https:\/\//.test(link)) throw new Error('リンクは https:// で始まるものだけ');
+      await api.saveQuiz({ ...z, end_title: f.get('end_title').trim() || null, end_body: f.get('end_body').trim() || null, end_link_url: link || null });
+      await load();
+      draw();
+      flash('最後のお知らせを保存した');
     } catch (e) { fail(e); }
   }));
   if (state.editingBreaks) drawBreaks(state.quizzes.find((q) => q.id === state.editingBreaks));
@@ -468,7 +488,8 @@ async function showRanking(id) {
     const rows = await api.ranking(id);
     box.innerHTML = rows.length ? `<ol class="ranking">${rows.map((r) => `
       <li class="${r.rank === 1 ? 'first' : ''}"><span class="pos">${r.rank === 1 ? '👑' : r.rank}</span>
-      <span class="name">${h(r.nickname)}</span><span class="pts">${r.correct}問</span><span class="ms">${formatMs(r.total_ms)}</span></li>`).join('')}</ol>`
+      <span class="name">${h(r.nickname)}</span><span class="pts">${r.correct}問</span><span class="ms">${formatMs(r.total_ms)}</span></li>`).join('')}</ol>
+      <p class="hint">中高生のランキング（おとなの部は遊ぶ画面の結果で見られる）</p>`
       : '<p class="empty">まだだれも終えていない</p>';
   } catch (e) { fail(e); }
 }

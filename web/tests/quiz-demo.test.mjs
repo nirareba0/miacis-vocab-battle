@@ -19,7 +19,7 @@ async function playAll(quizId, { wrong = false } = {}) {
     if (q.done) return q;
     // 見本の問題は正解が choices[0]。並びはまぜてあるので、答えを1回外して位置を知る方法は使えない。
     // デモの中身を読んで正解の位置を探す
-    const state = JSON.parse(store.get('miacis-quiz-demo-v2'));
+    const state = JSON.parse(store.get('miacis-quiz-demo-v3'));
     const question = state.questions.find((x) => x.body === q.body);
     const right = q.choices.indexOf(question.choices[question.answer]);
     await api.answer(s.attempt_id, wrong ? (right + 1) % 4 : right);

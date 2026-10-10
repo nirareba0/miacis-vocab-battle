@@ -149,3 +149,15 @@ body.stage .deadline strong { color: var(--g-ng); }
 .g-pick { min-height: 56px; border-radius: 16px; border: 3px solid #e3e6f0; background: #fff; color: var(--g-ink); font: inherit; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 0 #d5d8e4; }
 .g-pick.on { border-color: var(--g-blue); background: #eef2ff; color: var(--g-blue-deep); box-shadow: 0 4px 0 var(--g-blue); }
 .g-guest { color: var(--g-muted); font-size: 15px; }
+
+/* ランキングの切り替え（中高生 / おとな） */
+.g-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #eef1f8; border-radius: 14px; padding: 4px; margin-top: 10px; }
+.g-tabs button { border: 0; border-radius: 10px; padding: 10px 6px; background: transparent; color: var(--g-muted); font: inherit; font-weight: 900; cursor: pointer; }
+.g-tabs button[aria-selected="true"] { background: #fff; color: var(--g-blue-deep); box-shadow: 0 2px 0 rgba(0, 0, 0, .08); }
+
+/* 結果の画面の最後のお知らせ */
+.g-finale { text-align: center; background: #fff8d9; border: 4px solid var(--g-yellow); }
+.g-finale-kicker { display: inline-block; background: var(--g-ng); color: #fff; font-weight: 900; letter-spacing: .2em; border-radius: 999px; padding: 3px 14px; font-size: 13px; }
+.g-finale img { display: block; width: 100%; max-height: 32dvh; object-fit: contain; border-radius: 14px; margin: 12px 0 4px; }
+.g-finale h2 { font-size: 22px; font-weight: 900; margin: 10px 0 6px; line-height: 1.4; }
+.g-finale p { line-height: 1.6; font-weight: 700; color: #4a4f63; }

@@ -85,7 +85,7 @@ export const listQuizzes = () => call('quiz_list', { p_token: getToken() });
 export const startAttempt = (setId) => call('quiz_start', { p_token: getToken(), p_set: setId });
 export const nextQuestion = (attemptId) => call('quiz_next', { p_token: getToken(), p_attempt: attemptId });
 export const answer = (attemptId, choice) => call('quiz_answer', { p_token: getToken(), p_attempt: attemptId, p_choice: choice });
-export const ranking = (setId) => call('quiz_ranking', { p_set: setId, p_token: getToken() });
+export const ranking = (setId, student = true) => call('quiz_ranking', { p_set: setId, p_token: getToken(), p_student: student });
 export const myCoupons = () => call('quiz_my_coupons', { p_token: getToken() });
 export const myAnswers = (setId) => call('quiz_my_answers', { p_token: getToken(), p_set: setId });
 
@@ -158,7 +158,8 @@ export async function listAdminQuizzes() {
 }
 
 export async function saveQuiz(z) {
-  const row = { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url, closes_at: z.closes_at };
+  const row = { title: z.title, time_limit_sec: z.time_limit_sec, prize: z.prize, coupon_url: z.coupon_url, closes_at: z.closes_at,
+    end_title: z.end_title, end_body: z.end_body, end_image_path: z.end_image_path, end_link_url: z.end_link_url };
   if (z.id) return check(await sb.from('quiz_sets').update(row).eq('id', z.id).select().single());
   return check(await sb.from('quiz_sets').insert(row).select().single());
 }

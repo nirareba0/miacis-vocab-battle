@@ -62,10 +62,25 @@ test('それ以外の人は遊べるが、ランキング・人数・早押し�
 
   const rank = await anonRows('select * from public.quiz_ranking($1)', [z]);
   assert.deepEqual(rank.map((r) => r.nickname), ['こども']);
+  // 0035: おとなのランキングは別に見られる（自分の行つき）
+  const adults = await anonRows('select * from public.quiz_ranking($1, $2, false)', [z, adult]);
+  assert.deepEqual(adults.map((r) => [r.rank, r.nickname, r.is_me]), [[1, 'おとな', true]]);
   const item = (await anon1('select public.quiz_list($1)', [adult])).find((x) => x.id === z);
   assert.equal(item.players, 1);
+  assert.equal(item.adults, 1);
   assert.equal(item.my_finished, true);    // 大人も自分の記録は見える
   const closed = (await staff('select public.quiz_close($1) as r', [z]))[0].r;
   assert.equal(closed.winner, 'こども');
   assert.equal((await anon1('select public.quiz_my_coupons($1)', [adult])).length, 0);
+});
+
+test('0035: 最後のお知らせはスタッフが書けて、一覧で返る', async () => {
+  const z = (await staff(`insert into public.quiz_sets (title, end_title, end_body) values ('お知らせ', 'あした15:00〜 BINGO大会', '景品いろいろ') returning id`))[0].id;
+  const q = (await staff("insert into public.quiz_questions (body, choices, answer) values ('q', '{正,a,b,c}', 0) returning id"))[0].id;
+  await staff('select public.quiz_set_questions($1, $2)', [z, [q]]);
+  await staff('select public.quiz_open($1)', [z]);
+  await staff("update public.quiz_sets set end_link_url = 'https://example.com/bingo' where id = $1", [z]);
+  const item = (await anon1('select public.quiz_list()')).find((x) => x.id === z);
+  assert.deepEqual([item.end_title, item.end_body, item.end_link_url], ['あした15:00〜 BINGO大会', '景品いろいろ', 'https://example.com/bingo']);
+  await rejects(staff("update public.quiz_sets set end_link_url = 'javascript:1' where id = $1", [z]), 'check constraint');
 });
