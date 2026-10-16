@@ -1258,3 +1258,12 @@ export function weeklyCouponToShow(tickets, nowMs) {
     .sort((a, b) => Date.parse(b.won_at) - Date.parse(a.won_at));
   return list[0] || null;
 }
+
+/**
+ * ホームの「AFTER6 参加証」を出すか。今週の7日のうち、きょうが「来た（遊んだ）」なら出す。
+ * 受付で見せると、スタッフがショップカード「来館ポイント」のイベント参加 2pt の QR を読ませる（2026-10-16 本人）
+ * @param {ReturnType<typeof weekVisits>} v
+ */
+export function after6PassToday(v) {
+  return Boolean(v?.chips?.some(c => c.today && c.state === 'played'));
+}

@@ -79,6 +79,7 @@ import {
   isMyRow,
   formatRank,
   weeklyCouponToShow,
+  after6PassToday,
   gradeToLabel,
   tierToLabel,
   escapeHtml,
@@ -840,6 +841,7 @@ async function renderHome() {
         <div class="companion-progress"><div class="evolution-label">${evolutionLabel}</div><div class="evolution-bar-bg" role="progressbar" aria-label="次の進化まで" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stageProg.percent}"><div class="evolution-bar-fill" style="width:${stageProg.percent}%"></div></div></div>
       </section>
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
+      ${state.player.account_type === 'student' && after6PassToday(visits) ? after6PassHtml() : ''}
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       ${visits ? weekVisitsHtml(visits) : ''}
       <div class="weekly-score"><div><span>正解ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>毎日ポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
@@ -2791,6 +2793,13 @@ async function renderStaff() {
 // ==========================================
 
 const VISIT_WORD = { played: '来た', closed: '休館', open: 'まだ', future: 'これから' };
+
+/** ホームの「AFTER6 参加証」。きょう遊んだ中高生に出す。受付で見せると、スタッフがショップカード「来館ポイント」の参加 2pt の QR を読ませる */
+function after6PassHtml() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  const day = `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${DOW_JA[(d.getUTCDay() + 6) % 7]}）`;
+  return `<section class="after6-pass" aria-label="AFTER6 参加証"><img src="assets/after6-logo.png" alt="AFTER6" width="120" height="56"><div><span class="eyebrow">きょうの参加証</span><strong>来館ポイント 2pt</strong><p>受付でこの画面を見せてね。スタッフの QR を LINE で読むとスタンプがつく</p><small>${escapeHtml(state.player.nickname)} ・ ${day}</small></div></section>`;
+}
 
 /** ホームの「今週」: 開館日のうち何日来たか（主）と 🔥（従）。休館日は「休」 */
 function weekVisitsHtml(v) {

@@ -23,3 +23,13 @@ test('2枚あれば新しいほう。reward_channel が無い（0038 の前）�
   assert.equal(weeklyCouponToShow([{ id: 'x', won_at: '2026-10-19T00:05:00', redeemed_at: null }], now), null);
   assert.equal(weeklyCouponToShow(null, now), null);
 });
+
+import { after6PassToday } from '../js/logic.js';
+
+test('AFTER6 参加証: きょう遊んだ日だけ出す', () => {
+  const chips = (todayState) => ({ chips: [{ label: '月', state: 'played', today: false }, { label: '火', state: todayState, today: true }] });
+  assert.equal(after6PassToday(chips('played')), true);
+  assert.equal(after6PassToday(chips('open')), false);
+  assert.equal(after6PassToday(chips('closed')), false);
+  assert.equal(after6PassToday(null), false);
+});
