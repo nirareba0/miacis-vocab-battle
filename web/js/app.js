@@ -2794,11 +2794,14 @@ async function renderStaff() {
 
 const VISIT_WORD = { played: '来た', closed: '休館', open: 'まだ', future: 'これから' };
 
-/** ホームの「AFTER6 参加証」。きょう遊んだ中高生に出す。受付で見せると、スタッフがショップカード「来館ポイント」の参加 2pt の QR を読ませる */
+/** ショップカード「来館ポイント」のイベント用 2pt（QR「イベント用QRコード2ポイント」のリンク）。LINE 側で Miacis から300m以内・1日1回に制限されている */
+const AFTER6_POINT_URL = 'https://u.lin.ee/JGmRPmi';
+
+/** ホームの「AFTER6 参加証」。きょう遊んだ中高生に出す。押すと来館ポイントのショップカードが開き、Miacis の中なら 2pt つく（2026-10-16 本人「すでにある QR のリンクを渡す方式」） */
 function after6PassHtml() {
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   const day = `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${DOW_JA[(d.getUTCDay() + 6) % 7]}）`;
-  return `<section class="after6-pass" aria-label="AFTER6 参加証"><img src="assets/after6-logo.png" alt="AFTER6" width="120" height="56"><div><span class="eyebrow">きょうの参加証</span><strong>来館ポイント 2pt</strong><p>受付でこの画面を見せてね。スタッフの QR を LINE で読むとスタンプがつく</p><small>${escapeHtml(state.player.nickname)} ・ ${day}</small></div></section>`;
+  return `<section class="after6-pass" aria-label="AFTER6 参加証"><img src="assets/after6-logo.png" alt="AFTER6" width="120" height="56"><div><span class="eyebrow">きょうの参加証</span><strong>来館ポイント 2pt</strong><p>Miacis の中で押すとスタンプがつく。1日1回</p><small>${escapeHtml(state.player.nickname)} ・ ${day}</small></div><a class="after6-pass-btn" href="${AFTER6_POINT_URL}" target="_blank" rel="noopener">ポイントをもらう</a></section>`;
 }
 
 /** ホームの「今週」: 開館日のうち何日来たか（主）と 🔥（従）。休館日は「休」 */
