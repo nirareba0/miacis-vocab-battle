@@ -179,6 +179,8 @@ const appEl = document.getElementById('app-container');
 
 /** おとな（中高生以外。0036）。景品・称号・抽選は中高生だけで、ランキングは別に出る */
 const isAdult = () => state.player?.account_type === 'adult';
+/** Miacis の公式LINE（@upq3510d）のトークを開く。週間1位の券のスクショを送ってもらう */
+const OA_CHAT_URL = 'https://line.me/R/ti/p/%40upq3510d';
 
 async function loadSignedIn() {
   state.session = await getSession();
@@ -886,7 +888,15 @@ async function renderHome() {
         try { seen = localStorage.getItem(key) || ''; } catch { /* 見られない端末でも毎回出すだけ */ }
         if (seen !== coupon.id) {
           try { localStorage.setItem(key, coupon.id); } catch { /* 同上 */ }
-          pops.push({ title: '先週 毎日ポイント 1位！', name: coupon.prize_name, look: null, note: 'Miacis でスタッフに見せてね。引換券は「自分の記録」にある' });
+          // LINE で自動では送れない（公式LINE の Messaging API が別のプロバイダー）。とりあえず、この画面のスクショを公式LINE のチャットに送ってもらい、スタッフが返す（2026-10-16 本人）
+          const won = new Date(Date.parse(coupon.won_at));
+          const day = Number.isFinite(won.getTime()) ? `${won.getMonth() + 1}/${won.getDate()} に届いた券` : '';
+          pops.push({
+            title: '先週 毎日ポイント 1位！', name: coupon.prize_name, look: null,
+            who: [state.player?.nickname, day].filter(Boolean).join(' ・ '),
+            note: 'この画面をスクショして、Miacis の公式LINE のチャットに送ってね。スタッフが返事する。引換券は「自分の記録」にもある',
+            link: { href: OA_CHAT_URL, label: 'LINE に送る' }
+          });
         }
       }
       if (list.length) {
@@ -1607,7 +1617,9 @@ function showRewardPopup(list) {
       <span class="reward-pop-kicker">${escapeHtml(first.title)}</span>
       ${first.look ? `<div class="reward-pop-art">${renderMiacis(first.look, 150)}</div>` : '<div class="reward-pop-crown" aria-hidden="true">👑</div>'}
       <strong>${escapeHtml(first.name)}</strong>
+      ${first.who ? `<span class="reward-pop-who">${escapeHtml(first.who)}</span>` : ''}
       <p>${escapeHtml(first.note || '')}</p>
+      ${first.link ? `<a class="btn-secondary reward-pop-link" href="${escapeHtml(first.link.href)}" target="_blank" rel="noopener">${escapeHtml(first.link.label)}</a>` : ''}
       <button class="btn-primary" type="button">受け取る</button>
     </div>`;
   document.body.appendChild(el);
