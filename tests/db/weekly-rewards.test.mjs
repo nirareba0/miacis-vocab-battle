@@ -135,6 +135,11 @@ test('週間コミット1位: スタッフ除外・同点順・締め直しで�
     await db.exec("select public.close_week('2026-09-21');select public.close_week('2026-09-21');");
     const awards = (await db.query("select channel,player_id from public.weekly_prize_awards where week_start='2026-09-21' order by channel")).rows;
     assert.deepEqual(awards, [{ channel: 'ranking', player_id: a }]);
+    // 0038: 1位の人の引換券に reward_channel が付く（ホームの「先週 毎日ポイント 1位！」が使う）
+    const mine = await asUser(db, a, async () => (await db.query('select public.my_tickets() as t')).rows[0].t);
+    assert.equal(mine.length, 1);
+    assert.equal(mine[0].reward_channel, 'ranking');
+    assert.equal(mine[0].redeemed_at, null);
     assert.equal((await db.query('select count(*)::int n from public.weekly_results where player_id=$1', [staff])).rows[0].n, 0);
     await assert.rejects(db.exec("select public.close_week('2026-09-28')"), /invalid_reward_week/);
   } finally {

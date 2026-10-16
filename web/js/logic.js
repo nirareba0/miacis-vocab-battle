@@ -1241,3 +1241,20 @@ export function markOvertakesSeen(keys) {
     localStorage.setItem(OVERTAKE_SEEN_KEY, JSON.stringify(all.slice(-100)));
   } catch {}
 }
+
+/**
+ * ホームで「先週 毎日ポイント 1位！」を出す引換券（0038 の my_tickets が reward_channel を返す）。
+ * 週間1位の券で、まだ引き換えておらず、出てから8日以内のもののうち いちばん新しい1枚。無ければ null
+ * @param {Array<{id:string, reward_channel?:string, won_at:string, redeemed_at:string|null}>} tickets
+ * @param {number} nowMs
+ */
+export function weeklyCouponToShow(tickets, nowMs) {
+  const DAY = 24 * 60 * 60 * 1000;
+  const list = (tickets || []).filter(t => t && t.reward_channel === 'ranking' && !t.redeemed_at)
+    .filter(t => {
+      const won = Date.parse(t.won_at);
+      return Number.isFinite(won) && nowMs - won >= -DAY && nowMs - won < 8 * DAY;
+    })
+    .sort((a, b) => Date.parse(b.won_at) - Date.parse(a.won_at));
+  return list[0] || null;
+}

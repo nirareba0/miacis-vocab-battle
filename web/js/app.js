@@ -78,6 +78,7 @@ import {
   validateWriting,
   isMyRow,
   formatRank,
+  weeklyCouponToShow,
   gradeToLabel,
   tierToLabel,
   escapeHtml,
@@ -875,15 +876,30 @@ async function renderHome() {
     claimZukanRewards().then(list => {
       if (list.length) showRewardPopup(list.map(r => ({ title: '図鑑コンプリート！', name: r.name, look: { form: { id: r.id, name: r.name } }, note: '着せ替えの「すがた」で着られる' })));
     }).catch(() => {});
-    getMyWeekTitles().then(list => {
-      if (!list.length) return;
-      const key = 'miacis_week_titles_seen';
-      let seen = '';
-      try { seen = localStorage.getItem(key) || ''; } catch { /* 見られない端末でも毎回出すだけ */ }
-      const week = list[0].week_start;
-      if (seen === week) return;
-      try { localStorage.setItem(key, week); } catch { /* 同上 */ }
-      showRewardPopup(list.map(t => ({ title: '先週 1位！', name: t.name, look: null, note: t.count > 1 ? `${t.count}回目の1位。称号は着せ替えの「称号」で` : '称号は着せ替えの「称号」で付けられる' })));
+    // 先週の1位: 毎日ポイントの無料券（0038 の reward_channel）と称号を、1つずつ続けて見せる（同時に出すと後のほうが消えるため）
+    Promise.all([getMyWeekTitles().catch(() => []), getMyTickets().catch(() => [])]).then(([list, tickets]) => {
+      const pops = [];
+      const coupon = weeklyCouponToShow(tickets, Date.now());
+      if (coupon) {
+        const key = 'miacis_rank_ticket_seen';
+        let seen = '';
+        try { seen = localStorage.getItem(key) || ''; } catch { /* 見られない端末でも毎回出すだけ */ }
+        if (seen !== coupon.id) {
+          try { localStorage.setItem(key, coupon.id); } catch { /* 同上 */ }
+          pops.push({ title: '先週 毎日ポイント 1位！', name: coupon.prize_name, look: null, note: 'Miacis でスタッフに見せてね。引換券は「自分の記録」にある' });
+        }
+      }
+      if (list.length) {
+        const key = 'miacis_week_titles_seen';
+        let seen = '';
+        try { seen = localStorage.getItem(key) || ''; } catch { /* 見られない端末でも毎回出すだけ */ }
+        const week = list[0].week_start;
+        if (seen !== week) {
+          try { localStorage.setItem(key, week); } catch { /* 同上 */ }
+          pops.push(...list.map(t => ({ title: '先週 1位！', name: t.name, look: null, note: t.count > 1 ? `${t.count}回目の1位。称号は着せ替えの「称号」で` : '称号は着せ替えの「称号」で付けられる' })));
+        }
+      }
+      showRewardPopup(pops);
     }).catch(() => {});
     getMyRaffle().then(r => {
       const el = document.getElementById('home-raffle');
