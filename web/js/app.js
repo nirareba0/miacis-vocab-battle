@@ -10,6 +10,7 @@ import {
   lineSignIn,
   lineSignUp,
   lineLink,
+  getMyLineLinked,
   signInPlayer,
   signOutPlayer,
   getSession,
@@ -133,6 +134,7 @@ import {
 } from './game.js';
 
 import { renderMiacis } from './look.js';
+import { LINE_LIFF_ID } from './config.js';
 import { updateNavigation, icon } from './ui.js';
 import { renderGachaView } from './gacha.js';
 import { renderClosetView } from './closet.js';
@@ -182,6 +184,8 @@ const appEl = document.getElementById('app-container');
 const isAdult = () => state.player?.account_type === 'adult';
 /** Miacis の公式LINE（@upq3510d）のトークを開く。週間1位の券のスクショを送ってもらう */
 const OA_CHAT_URL = 'https://line.me/R/ti/p/%40upq3510d';
+/** ホームの「LINE とつなぐ」で付けて戻ってくる印。付いていれば LINE にログインして今のアカウントとつなぐ */
+const LINE_LINK_PARAM = 'linelink';
 
 async function loadSignedIn() {
   state.session = await getSession();
@@ -227,6 +231,18 @@ async function init() {
       console.error('LINE ログイン:', err);
       state.lineError = err.message;
     }
+  }
+
+  // チラシの QR など LINE の外から始めた人が、ホームの「LINE とつなぐ」を押して戻ってきた: LINE にログインして今のアカウントとつなぐ（パスワードは要らない）
+  if (state.player && new URLSearchParams(location.search).has(LINE_LINK_PARAM)) {
+    try {
+      await lineLink(await lineIdToken());
+      state.lineLinkedNow = true;
+    } catch (err) {
+      console.error('LINE とつなぐ:', err);
+      state.lineError = err.message;
+    }
+    history.replaceState(null, '', location.pathname + location.hash);
   }
 
   window.addEventListener('hashchange', () => {
@@ -331,6 +347,8 @@ function renderAuth(mode = 'register', opts = {}) {
       <p class="challenge-now" id="challenge-now" aria-live="polite"></p>
       <button class="btn-primary" id="btn-tryout">挑戦する</button>
     </div>`}
+
+    ${!linking && LINE_LIFF_ID && !/ Line\//i.test(navigator.userAgent) ? `<div class="card line-start-mini"><div><strong>LINE で始める</strong><p>次から公式LINE で開くだけで入れる</p></div><a class="btn-secondary" href="${location.pathname}?line=1">LINE で</a></div>` : ''}
 
     ${linking ? '' : `<div class="tab-bar">
       <button id="tab-register" class="tab-btn ${mode === 'register' ? 'active' : ''}">新しく登録</button>
@@ -842,6 +860,7 @@ async function renderHome() {
       </section>
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       ${state.player.account_type === 'student' && after6PassToday(visits) ? after6PassHtml() : ''}
+      <div id="home-line-link"></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       ${visits ? weekVisitsHtml(visits) : ''}
       <div class="weekly-score"><div><span>正解ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>毎日ポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
@@ -877,6 +896,8 @@ async function renderHome() {
         getMyNuts().then(n => { state.nuts = n; const w = document.querySelector('.home-wallet strong'); if (w) w.innerHTML = `<span class="mi-coin" aria-hidden="true">Mi</span> ${n.balance.toLocaleString()} <small>個</small>`; }).catch(() => {});
       }
     }).catch(() => { document.getElementById('today-card')?.remove(); });
+    // LINE の外（チラシの QR など）から入っていて、まだ LINE とつながっていない人に「LINE とつなぐ」を出す
+    renderLineLinkCard();
     claimZukanRewards().then(list => {
       if (list.length) showRewardPopup(list.map(r => ({ title: '図鑑コンプリート！', name: r.name, look: { form: { id: r.id, name: r.name } }, note: '着せ替えの「すがた」で着られる' })));
     }).catch(() => {});
@@ -2793,6 +2814,25 @@ async function renderStaff() {
 // ==========================================
 
 const VISIT_WORD = { played: '来た', closed: '休館', open: 'まだ', future: 'これから' };
+
+/** ホームの「LINE とつなぐ」。つないだら次から公式LINE で開くだけで入れる。押すと LINE にログインして戻り、init がつなぐ */
+function renderLineLinkCard() {
+  const el = document.getElementById('home-line-link');
+  if (!el || !LINE_LIFF_ID) return;
+  if (state.lineLinkedNow) {
+    el.innerHTML = '<div class="alert alert-success">LINE とつながった。次から公式LINE で開くだけで入れる</div>';
+    state.lineLinkedNow = false;
+    return;
+  }
+  const err = state.lineError;
+  state.lineError = '';
+  if (/ Line\//i.test(navigator.userAgent)) return;
+  getMyLineLinked().then(linked => {
+    if (linked) return;
+    const href = `${location.origin}${location.pathname}?${LINE_LINK_PARAM}=1${location.hash || ''}`;
+    el.innerHTML = `<section class="line-link-card">${err ? `<div class="alert alert-error">${escapeHtml(err)}</div>` : ''}<div><strong>LINE とつなぐ</strong><p>次から公式LINE で開くだけで入れる。記録はそのまま</p></div><a class="btn-secondary" href="${escapeHtml(href)}">つなぐ</a></section>`;
+  }).catch(() => {});
+}
 
 /** ショップカード「来館ポイント」のイベント用 2pt（QR「イベント用QRコード2ポイント」のリンク）。LINE 側で Miacis から300m以内・1日1回に制限されている */
 const AFTER6_POINT_URL = 'https://u.lin.ee/JGmRPmi';

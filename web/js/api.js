@@ -209,6 +209,14 @@ export function lineLink(idToken) {
   return rpc('line_link', { p_id_token: idToken });
 }
 
+/** 自分の LINE がつながっているか（0036 my_line_linked）。チラシの QR などで LINE の外から入った人に「LINE とつなぐ」を出すため */
+export async function getMyLineLinked() {
+  checkClient();
+  const { data, error } = await supabase.rpc('my_line_linked');
+  if (error) throw new Error(translateError(error));
+  return Boolean(data);
+}
+
 /**
  * ログアウト
  */
