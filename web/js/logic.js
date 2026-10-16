@@ -382,7 +382,7 @@ export function translateError(error) {
     return 'モードを選び直してください';
   }
   if (msg.includes('invite_invalid')) {
-    return '合言葉が違います（館内の掲示を見てね）';
+    return '合言葉が違います（Miacis の掲示を見てね）';
   }
   if (msg.includes('pack_limit')) {
     return '今日のカードパックは上限（3回）に達しました。明日また引いてね';

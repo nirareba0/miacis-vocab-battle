@@ -855,7 +855,7 @@ function showResult(result) {
     <div class="result-next" id="result-next" aria-live="polite"></div>
     <div class="challenge-bests">${bestLine('今週ベスト', result.week_best)}${bestLine('自己ベスト', result.best)}</div>
     <div class="points-grid">
-      <div class="point-box"><div class="point-label">学習ポイント</div><div class="point-val">+${result.learn_points}</div></div>
+      <div class="point-box"><div class="point-label">正解ポイント</div><div class="point-val">+${result.learn_points}</div></div>
       <div class="point-box"><div class="point-label">Miコイン</div><div class="point-val"><span class="nut-drop" aria-hidden="true"><span class="mi-coin" aria-hidden="true">Mi</span></span> +${result.nuts}</div></div>
     </div>
     ${result.nuts_raw > result.nuts ? '<div class="notice-line">今日の上限 到達</div>' : ''}

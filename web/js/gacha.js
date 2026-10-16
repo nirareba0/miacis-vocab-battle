@@ -107,7 +107,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
   const prizeShowcase = `
     <section class="gacha-showcase raffle" aria-labelledby="gacha-showcase-title">
       <p class="gacha-showcase-kicker">🎟️ 抽選券</p>
-      <h2 id="gacha-showcase-title">月末、館の景品が当たる</h2>
+      <h2 id="gacha-showcase-title">月末、Miacis の景品が当たる</h2>
       <div class="raffle-count"><div><span>今月の自分の券</span><strong>${myEntries}<small>枚</small></strong></div><div><span>みんなの券</span><strong>${allEntries}<small>枚</small></strong></div></div>
       <p class="gacha-showcase-note">${ratesData.staff_mode ? '抽選券は 生徒だけ。スタッフには出ない' : `${rafflePct}。${multiLabel}なら 1枚確定。券が多いほど当たりやすい`}</p>
       ${stockPrizes.length ? `<div class="gacha-prize-list">${stockPrizes.map(p => `
@@ -138,7 +138,7 @@ function renderGachaTop(mainEl, state, ratesData, callbacks) {
 
   // ピックアップ: 館の遊びから作った UR（2026-10-03）。真ん中は全部着た姿、左右と下の列は1つずつ
   const pickupHtml = `
-    <section class="gacha-wardrobe pickup"><span class="eyebrow">PICK UP</span><h2>館の UR 7種、登場</h2><p>卓球・麻雀・巻き髪・ダーツ・リモコン・パーソナルカラー・インタビュー</p>
+    <section class="gacha-wardrobe pickup"><span class="eyebrow">PICK UP</span><h2>Miacis の UR 7種、登場</h2><p>卓球・麻雀・巻き髪・ダーツ・リモコン・パーソナルカラー・インタビュー</p>
       <div class="gacha-mascots">${renderMiacis({ aura: { id: 'aura_pingpong' }, hat: { id: 'hat_pingpong_band' } }, 100)}${renderMiacis({ background: { id: 'bg_interview' }, aura: { id: 'aura_4season' }, hat: { id: 'hat_curls' }, face: { id: 'face_bullseye' }, neck: { id: 'neck_remote' } }, 136)}${renderMiacis({ background: { id: 'bg_mahjong' } }, 100)}</div>
       <div class="pickup-row"><div class="pickup-track">${[0, 1].map(k => PICKUP_UR.map(([slot, id, name]) => `<div class="pickup-card"${k ? ' aria-hidden="true"' : ''}>${renderMiacis({ [slot]: { id } }, 64)}<span>${name}</span><em>UR</em></div>`).join('')).join('')}</div></div>
     </section>`;
@@ -341,7 +341,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     } else if (isPrize) {
       visualHtml = `
         <div style="font-size:56px; margin-bottom:8px;">🎁</div>
-        <div style="font-size:14px; font-weight:800; color:#ec4899; margin-bottom:4px;">館の実物景品！</div>
+        <div style="font-size:14px; font-weight:800; color:#ec4899; margin-bottom:4px;">Miacis の実物景品！</div>
       `;
     } else {
       if (item.rarity === 5) {
@@ -372,7 +372,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
 
     let badgeHtml = '';
     if (isPrize) {
-      badgeHtml = `<div class="new-badge" style="background:#ec4899;">館の引換券</div>`;
+      badgeHtml = `<div class="new-badge" style="background:#ec4899;">景品の引換券</div>`;
     } else if (item.is_new) {
       badgeHtml = `<div class="new-badge">NEW!</div>`;
     } else {
@@ -384,8 +384,8 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       const shortId = item.ticket_id.slice(-8);
       ticketInfoHtml = `
         <div class="prize-ticket-box">
-          <div style="font-size:16px; font-weight:900; color:#ec4899;">館内引換券</div>
-          <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Miacis の館内でスタッフに見せてね</div>
+          <div style="font-size:16px; font-weight:900; color:#ec4899;">景品の引換券</div>
+          <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Miacis でスタッフに見せてね</div>
           <div class="ticket-number">No. ${escapeHtml(shortId)}</div>
         </div>
       `;
@@ -433,7 +433,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
       mainEl.querySelector('.gacha-card').classList.add('flipped');
       mainEl.querySelector('.gacha-card-back').removeAttribute('aria-hidden');
       mainEl.querySelector('#gacha-ticket-detail').hidden = false;
-      mainEl.querySelector('.gacha-reveal-status').textContent = isPrize ? '館の景品引換券を獲得！' : `${rInfo.label}を獲得！`;
+      mainEl.querySelector('.gacha-reveal-status').textContent = isPrize ? 'Miacis の景品引換券を獲得！' : `${rInfo.label}を獲得！`;
       const next = mainEl.querySelector('#btn-next-card') || mainEl.querySelector('#gacha-single-actions');
       next.hidden = false;
       (next.querySelector?.('button') || next).focus({ preventScroll: true });
@@ -553,7 +553,7 @@ function startGachaRevealSequence(mainEl, state, items, count, callbacks) {
     if (prizeCount > 0) {
       prizeAlertHtml = `
         <div class="prize-ticket-box" style="margin-bottom:16px;">
-          <div style="font-size:18px; font-weight:900; color:#ec4899;">館の景品 ${prizeCount}件 当たった！</div>
+          <div style="font-size:18px; font-weight:900; color:#ec4899;">Miacis の景品 ${prizeCount}件 当たった！</div>
           <div style="font-size:14px; margin-top:6px;">「自分の記録」の引換券一覧からスタッフに見せて交換してね</div>
         </div>
       `;

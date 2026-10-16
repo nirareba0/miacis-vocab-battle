@@ -58,7 +58,7 @@ export async function signUpPlayer(nickname, passphrase, grade, inviteCode) {
   // 合言葉の事前検査（合言葉が設定されているときだけ効く。一致しなければ Auth ユーザーを作成しない）
   const inviteOk = await checkInvite(inviteCode);
   if (!inviteOk) {
-    throw new Error('ミアキスの合言葉が違います（館内の掲示を見てね）');
+    throw new Error('ミアキスの合言葉が違います（Miacis の掲示を見てね）');
   }
 
   const email = nicknameToEmail(trimmedNick);

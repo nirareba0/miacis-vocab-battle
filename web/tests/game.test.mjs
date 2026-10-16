@@ -165,7 +165,7 @@ test('getStageName: 段階名とルートの対応', () => {
 
 test('translateError: 新規ゲームエラーの翻訳', () => {
   assert.equal(translateError('invite_not_set'), '合言葉がまだ設定されていません。スタッフに確認してね');
-  assert.equal(translateError('invite_invalid'), '合言葉が違います（館内の掲示を見てね）');
+  assert.equal(translateError('invite_invalid'), '合言葉が違います（Miacis の掲示を見てね）');
   assert.equal(translateError('pack_limit'), '今日のカードパックは上限（3回）に達しました。明日また引いてね');
   assert.equal(translateError('already_drawn'), 'この対戦のカードパックはすでに開封済みです');
   assert.equal(translateError('match_not_finished'), '対戦がまだ完了していません');

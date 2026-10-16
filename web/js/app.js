@@ -355,12 +355,12 @@ function renderAuth(mode = 'register', opts = {}) {
         ${whoFieldsHtml()}
 
         <div class="form-group" id="invite-group" hidden>
-          <label class="form-label" for="auth-invite">ミアキスの合言葉（館内に貼ってあるよ）</label>
-          <input class="form-input" id="auth-invite" type="text" placeholder="館内ポスターを見てね" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+          <label class="form-label" for="auth-invite">ミアキスの合言葉（Miacis に貼ってあるよ）</label>
+          <input class="form-input" id="auth-invite" type="text" placeholder="Miacis のポスターを見てね" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
         </div>
 
         <div class="notice-line" style="text-align: left; margin-bottom: 20px;">
-          本名・学校名は入れないでね。パスワードを忘れたらミアキスのスタッフに言ってね
+          本名・学校名は入れないでね。パスワードを忘れたら Miacis のスタッフに言ってね
         </div>
       `
           : ''
@@ -839,7 +839,7 @@ async function renderHome() {
       <div class="home-wallet"><div><span class="eyebrow">Miコイン</span><strong><span class="mi-coin" aria-hidden="true">Mi</span> ${state.nuts.balance.toLocaleString()} <small>個</small></strong></div><div class="wallet-actions"><button id="go-gacha">ガチャ ${icon('arrow')}</button><button id="go-closet">着せ替え ${icon('arrow')}</button></div><p>今日 ${state.nuts.today_earned} / ${state.nuts.daily_cap} 個 ・ <span id="home-raffle">🎟️ 今月の抽選券 …</span></p></div>
       <div class="section-heading"><h2>今週</h2><span>月曜リセット</span></div>
       ${visits ? weekVisitsHtml(visits) : ''}
-      <div class="weekly-score"><div><span>学習ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>コミットポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
+      <div class="weekly-score"><div><span>正解ポイント</span><strong>${summary.learn_points}<small>点</small></strong>${state.flags.rank_mode_enabled ? `<p>段内 ${learnRankStr}</p>` : ''}</div><div><span>毎日ポイント</span><strong>${summary.commit_points}<small>点</small></strong><p>${commitToday !== null ? `${commitTodayLine(commitToday)}<br>` : ''}全体 ${commitRankStr}</p></div></div>
       ${lastWeekDiff ? `<p class="week-history">${lastWeekDiff}</p>` : ''}
       <div class="home-explore"><button id="go-content">${icon('play')}<strong>今週の英語</strong><span>動画とクイズ</span></button><button id="go-ranking">${icon('ranking')}<strong>ランキング</strong><span>今週の順位</span></button><button id="go-zukan">${icon('book')}<strong>単語図鑑</strong><span>覚えた単語</span></button><button id="go-me">${icon('record')}<strong>自分の記録</strong><span>記録と引換券</span></button></div>
       <button class="home-share" id="go-share"><strong>📨 ともだちに教える</strong><span id="share-note">URL を送る</span></button>
@@ -1405,11 +1405,11 @@ async function finishMatch() {
 
       <div class="points-grid">
         <div class="point-box">
-          <div class="point-label">学習ポイント</div>
+          <div class="point-label">正解ポイント</div>
           <div class="point-val">+${result.learn_points}</div>
         </div>
         <div class="point-box">
-          <div class="point-label">コミットポイント</div>
+          <div class="point-label">毎日ポイント</div>
           <div class="point-val">+${result.commit_points}</div>
         </div>
       </div>
@@ -2064,7 +2064,7 @@ async function renderRanking() {
       ${state.flags.rank_mode_enabled ? `<button id="tab-learn" class="tab-btn ${state.rankingTab === 'learn' ? 'active' : ''}">学習（自分の段）</button>` : ''}
       <button id="tab-streak" class="tab-btn ${state.rankingTab === 'streak' ? 'active' : ''}">サバイバル</button>
       <button id="tab-knock" class="tab-btn ${state.rankingTab === 'knock' ? 'active' : ''}">トレーニング</button>
-      <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">コミット</button>
+      <button id="tab-commit" class="tab-btn ${state.rankingTab === 'commit' ? 'active' : ''}">毎日</button>
     </div>
 
     <div class="band-chips ranking-group" id="ranking-group" role="group" aria-label="中高生／おとな">
@@ -2084,7 +2084,7 @@ async function renderRanking() {
 
   getWeeklyRewardRules().then(rules => {
     const target = document.getElementById('ranking-reward');
-    if (target && rules.ranking) target.innerHTML = `<div class="card"><strong>週間コミット1位に、選べる無料券</strong><p>${escapeHtml(rules.ranking.description)}</p><p class="notice-line">生徒全体で週1枚。月曜0:05に前週分を確定。1点以上が対象で、同点はニックネーム順。スタッフは対象外です。</p></div>`;
+    if (target && rules.ranking) target.innerHTML = `<div class="card"><strong>毎日ポイント 週間1位に、選べる無料券</strong><p>${escapeHtml(rules.ranking.description)}</p><p class="notice-line">生徒全体で週1枚。月曜0:05に前週分を確定。1点以上が対象で、同点はニックネーム順。スタッフは対象外です。</p></div>`;
   }).catch(() => {});
 
   document.getElementById('btn-mute-toggle').addEventListener('click', () => {
@@ -2273,7 +2273,7 @@ async function renderMe() {
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">当選日時: ${wonDate}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">引換券番号: <code style="font-family: monospace; font-size: 14px; font-weight: 700; color: var(--text);">...${escapeHtml(shortId)}</code></div>
             <div class="alert alert-info" style="margin-bottom: 0; font-weight: 700; font-size: 13px; text-align: center;">
-              🏛️ Miacis の館内でスタッフに見せてね
+              🏛️ Miacis でスタッフに見せてね
             </div>
           </div>
         `;
@@ -2307,7 +2307,7 @@ async function renderMe() {
           </div>
           <div style="font-size: 15px;">
             学習: ${res.learn_points}点 (${res.learn_rank_in_tier ? res.learn_rank_in_tier + '位' : '-'}) / 
-            コミット: ${res.commit_points}点 (${res.commit_rank ? res.commit_rank + '位' : '-'})
+            毎日: ${res.commit_points}点 (${res.commit_rank ? res.commit_rank + '位' : '-'})
           </div>
         </div>
       `).join('');
@@ -2347,7 +2347,7 @@ async function renderMe() {
 
     container.innerHTML = `
       ${raffleHtml}
-      <div class="card-title">館の景品 引換券</div>
+      <div class="card-title">Miacis の景品 引換券</div>
       <div style="margin-bottom: 24px;">
         ${unusedTicketsHtml}
         ${usedTickets.length > 0 ? `
@@ -2454,7 +2454,7 @@ async function renderStaff() {
         <div class="card"><div class="card-title">景品</div>
           <p>🎟️ 抽選券：${escapeHtml(stats.raffle_month || '')} ${stats.raffle_entries ?? 0}枚（${stats.raffle_holders ?? 0}人）。月初に前月分を自動抽選</p>
           <p>ランキング：先週分 ${stats.ranking_issued_last_week} / 1枚 発行</p>
-          <p class="notice-line">ランキングは週間コミット1位（1点以上）。同点はニックネーム順で1名。月曜0:05に前週分を確定します。</p>
+          <p class="notice-line">ランキングは毎日ポイントの週間1位（1点以上）。同点はニックネーム順で1名。月曜0:05に前週分を確定します。</p>
           ${overview.rewards.map(r => `<div class="weekly-reward-row"><strong>${escapeHtml(r.name)}</strong><span>${r.active ? '有効' : '停止中'}</span><p>${escapeHtml(r.description)}</p></div>`).join('')}
         </div>`;
     } else if (state.staffTab === 'tickets') {
@@ -2792,7 +2792,7 @@ function staffCalendarHtml(settings, cal) {
         <button class="btn-secondary" id="btn-save-weekdays">保存</button>
       </div>
       <div class="setting-row">
-        <label for="cal-nth"><strong>毎月</strong><small>館の案内: 第3月曜</small></label>
+        <label for="cal-nth"><strong>毎月</strong><small>Miacis の案内: 第3月曜</small></label>
         <div class="cal-inline"><select class="form-input" id="cal-nth">${[0, 1, 2, 3, 4, 5].map(n => `<option value="${n}" ${n === nth ? 'selected' : ''}>${n ? `第${n}` : 'なし'}</option>`).join('')}</select><select class="form-input" id="cal-nth-dow" aria-label="曜日">${DOW_JA.map((l, i) => `<option value="${i + 1}" ${i + 1 === nthDow ? 'selected' : ''}>${l}曜</option>`).join('')}</select></div>
         <button class="btn-secondary" id="btn-save-nth">保存</button>
       </div>
